@@ -10,27 +10,29 @@
 <div class="grain"></div>
 <header><a class="brand" href="index.html"><span>MELO</span><b>/</b> MUSIC PLAYER</a><a href="index.html">← Back to MELO</a></header>
 <main>
-<section class="login-card">
-  <div class="card-top"><span>[ MELO ACCOUNT ]</span><span>01 / 01</span></div>
+<section class="login-card" id="loginCard">
+  <div class="card-top"><span id="accountLabel">[ MELO ACCOUNT ]</span><span>01 / 01</span></div>
   <div class="logo-mark">♫</div>
   <h1>Welcome<br><em>back.</em></h1>
-  <p class="intro">Sign in to your MELO account.</p>
+  <p class="intro" id="loginIntro">Sign in to your MELO account.</p>
   <div class="mode-switch"><button class="mode active" data-mode="user" type="button">USER</button><button class="mode" data-mode="admin" type="button">ADMIN</button></div>
   <form id="loginForm">
     <label>Email <input id="email" type="email" placeholder="you@example.com" required></label>
     <label>Password <input id="password" type="password" placeholder="••••••••" required></label>
-    <div class="form-row"><label class="check"><input type="checkbox"> Remember me</label><a href="#">Forgot password?</a></div>
+    <div class="form-row"><label class="check"><input type="checkbox"> <span id="rememberLabel">Remember me</span></label><a href="#" id="forgotLink">Forgot password?</a></div>
     <button class="submit" type="submit">Sign in <span>→</span></button>
   </form>
   <p id="demoMessage" class="demo"></p>
-  <div class="divider"><span>OR CONTINUE WITH</span></div>
-  <div class="social-logins">
-    <button class="social-login spotify-login" data-provider="Spotify" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/spotify/1ED760" alt="Spotify"></span><span>Continue with Spotify</span></button>
-    <button class="social-login google-login" data-provider="Google" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/google" alt="Google"></span><span>Continue with Google</span></button>
-    <button class="social-login github-login" data-provider="GitHub" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/github/FFFFFF" alt="GitHub"></span><span>Continue with GitHub</span></button>
-    <button class="social-login microsoft-login" data-provider="Microsoft" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/microsoft" alt="Microsoft"></span><span>Continue with Microsoft</span></button>
+  <div class="social-section" id="socialSection">
+    <div class="divider"><span>OR CONTINUE WITH</span></div>
+    <div class="social-logins">
+      <button class="social-login spotify-login" data-provider="Spotify" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/spotify/1ED760" alt="Spotify"></span><span>Continue with Spotify</span></button>
+      <button class="social-login google-login" data-provider="Google" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/google" alt="Google"></span><span>Continue with Google</span></button>
+      <button class="social-login github-login" data-provider="GitHub" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/github/FFFFFF" alt="GitHub"></span><span>Continue with GitHub</span></button>
+      <button class="social-login microsoft-login" data-provider="Microsoft" type="button"><span class="provider-icon"><img src="https://cdn.simpleicons.org/microsoft" alt="Microsoft"></span><span>Continue with Microsoft</span></button>
+    </div>
   </div>
-  <p class="small">Don't have an account? <a href="signup.html">Create one</a></p>
+  <p class="small" id="accountFooter">Don't have an account? <a href="signup.html">Create one</a></p>
 </section>
 <aside class="side-art"><div class="vinyl"><div class="record-label">MELO<br><small>メロディー</small><i>Music for<br>a better you.</i></div></div><p>good<br>music<br>travels<br>further ★</p></aside>
 </main>
