@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MELO / ADMIN ACCESS</title>
+<link rel="stylesheet" href="admin-login.css">
+</head>
+<body>
+<div class="grain"></div>
+<header>
+  <a class="brand" href="index.html"><span>MELO</span><b>/</b> MUSIC PLAYER</a>
+  <a href="index.html">← Back to MELO</a>
+</header>
+<main>
+  <section class="admin-card">
+    <div class="card-top"><span>[ ADMIN CONSOLE ]</span><span>SECURE ACCESS</span></div>
+    <div class="logo-mark">⌘</div>
+    <h1>Admin<br><em>access.</em></h1>
+    <p class="intro">Authorized MELO administrators only. This login uses the MELO administrator account system, separate from user sign-in.</p>
+
+    <form id="adminLoginForm" autocomplete="on">
+      <label>Email
+        <input id="adminEmail" name="email" type="email" autocomplete="username" placeholder="admin@example.com" required>
+      </label>
+      <label>Password
+        <input id="adminPassword" name="password" type="password" autocomplete="current-password" placeholder="••••••••••••" required>
+      </label>
+      <label class="check"><input id="rememberAdmin" type="checkbox"> Keep me signed in</label>
+      <button class="submit" type="submit">Sign in securely <span>→</span></button>
+    </form>
+
+    <p id="adminMessage" class="message" role="status" aria-live="polite"></p>
+    <p class="security-note">Protected by server-side authentication, rate limiting, secure sessions and Argon2id password hashing when the backend is deployed.</p>
+  </section>
+  <aside class="side-art">
+    <div class="vinyl"><div class="record-label">MELO<br><small>ADMIN</small><i>private console.</i></div></div>
+    <p>authorized<br>access<br>only ★</p>
+  </aside>
+</main>
+<script src="admin-login.js"></script>
+</body>
+</html>
