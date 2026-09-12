@@ -13,29 +13,24 @@
   <a href="index.html">← Back to MELO</a>
 </header>
 <main>
-  <section class="admin-card">
-    <div class="card-top"><span>[ ADMIN CONSOLE ]</span><span>SECURE ACCESS</span></div>
+  <section class="admin-card" id="adminCard">
+    <div class="card-top"><span>[ ADMIN CONSOLE ]</span><span>2FA REQUIRED</span></div>
     <div class="logo-mark">⌘</div>
     <h1>Admin<br><em>access.</em></h1>
-    <p class="intro">Authorized MELO administrators only. This login uses the MELO administrator account system, separate from user sign-in.</p>
-
+    <p class="intro" id="adminIntro">First-time setup: enter the authorized administrator email to begin Authenticator setup.</p>
+    <div class="setup-steps" id="setupSteps"><span class="active">01 EMAIL</span><span>02 AUTHENTICATOR</span><span>03 VERIFY</span></div>
     <form id="adminLoginForm" autocomplete="on">
-      <label>Email
-        <input id="adminEmail" name="email" type="email" autocomplete="username" placeholder="admin@example.com" required>
-      </label>
-      <label>Password
-        <input id="adminPassword" name="password" type="password" autocomplete="current-password" placeholder="••••••••••••" required>
-      </label>
-      <button class="submit" type="submit">Sign in securely <span>→</span></button>
+      <label>Email<input id="adminEmail" name="email" type="email" autocomplete="username" placeholder="admin@example.com" required></label>
+      <div id="totpSetup" hidden>
+        <div class="setup-panel"><strong>AUTHENTICATOR SETUP</strong><p>Scan the QR code with your authenticator app, or enter the setup key manually.</p><div class="qr-wrap"><img id="totpQr" alt="Authenticator setup QR code"></div><label>Setup key<input id="setupKey" type="text" readonly spellcheck="false"></label><p class="warning">Save the setup key somewhere secure. Do not publish it or commit it to GitHub.</p></div>
+        <label>6-digit Authenticator code<input id="totpCode" name="totp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></label>
+      </div>
+      <button class="submit" id="submitButton" type="submit">Continue <span>→</span></button>
     </form>
-
     <p id="adminMessage" class="message" role="status" aria-live="polite"></p>
-    <p class="security-note">Protected by server-side authentication, rate limiting, secure sessions and Argon2id password hashing when the backend is deployed.</p>
+    <p class="security-note">Admin access is restricted to the configured administrator identity and protected by rotating TOTP codes and secure server-side sessions.</p>
   </section>
-  <aside class="side-art">
-    <div class="vinyl"><div class="record-label">MELO<br><small>ADMIN</small><i>private console.</i></div></div>
-    <p>authorized<br>access<br>only ★</p>
-  </aside>
+  <aside class="side-art"><div class="vinyl"><div class="record-label">MELO<br><small>ADMIN</small><i>private console.</i></div></div><p>authorized<br>access<br>only ★</p></aside>
 </main>
 <script src="admin-login.js"></script>
 </body>
