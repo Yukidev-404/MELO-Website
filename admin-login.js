@@ -9,7 +9,6 @@ form.addEventListener('submit', async (event) => {
 
   const email = document.getElementById('adminEmail').value.trim();
   const password = document.getElementById('adminPassword').value;
-  const remember = document.getElementById('rememberAdmin').checked;
 
   try {
     const response = await fetch('/api/admin/login', {
@@ -19,7 +18,7 @@ form.addEventListener('submit', async (event) => {
         'Content-Type': 'application/json',
         'X-MELO-Client': 'admin-console'
       },
-      body: JSON.stringify({ email, password, remember })
+      body: JSON.stringify({ email, password })
     });
 
     const data = await response.json().catch(() => ({}));
