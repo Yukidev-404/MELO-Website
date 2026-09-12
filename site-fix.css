@@ -1,0 +1,44 @@
+/* MELO website typography + header refinement */
+@import url('https://fontlibrary.org//face/pixel-operator');
+
+:root { --melo-pixel: 'PixelOperatorRegular', 'Pixel Operator', monospace; }
+
+body,
+button,
+input,
+textarea,
+select { font-family: var(--melo-pixel); font-weight: normal; }
+
+.site-header {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
+    align-items: center;
+    gap: 28px;
+    padding: 0 2vw;
+}
+
+.brand { justify-self: start; }
+.main-nav { margin-left: 0; justify-self: center; display: flex; align-items: center; gap: 28px; }
+.auth-nav { justify-self: end; display: flex; align-items: center; gap: 10px; margin-left: 0; }
+.auth-nav .login-link { padding: 8px 9px; }
+.auth-nav .signup-link { padding: 8px 12px; }
+.auth-nav .github-link { margin-left: 4px; }
+
+@media (max-width: 1050px) {
+    .site-header { grid-template-columns: auto 1fr auto; gap: 16px; }
+    .main-nav { gap: 16px; }
+    .auth-nav { gap: 5px; }
+}
+
+@media (max-width: 780px) {
+    .site-header { grid-template-columns: 1fr auto; }
+    .main-nav { display: none; }
+    .auth-nav { justify-self: end; }
+}
+
+@media (max-width: 500px) {
+    .site-header { padding: 0 14px; gap: 8px; }
+    .auth-nav .login-link { padding: 7px 5px; }
+    .auth-nav .signup-link { padding: 7px 9px; }
+    .auth-nav .github-link { display: none; }
+}
