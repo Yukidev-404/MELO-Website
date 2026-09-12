@@ -18,23 +18,26 @@ function setMode(nextMode){
   accountLabel.textContent=admin?'[ ADMIN CONSOLE ]':'[ MELO ACCOUNT ]';
   loginIntro.textContent=admin?'Authorized MELO administrator access only.':'Sign in to your MELO account.';
   rememberLabel.textContent=admin?'Keep me signed in':'Remember me';
-  forgotLink.textContent=admin?'Forgot admin password?':'Forgot password?';
+  forgotLink.textContent=admin?'Admin password recovery is handled separately.':'Forgot password?';
   socialSection.hidden=admin;
   accountFooter.hidden=admin;
-  message.textContent=admin?'Admin access uses your MELO administrator email and password.':' ';
+  message.textContent=admin?'Use the dedicated secure admin login.':' ';
 }
 
-modes.forEach(btn=>btn.addEventListener('click',()=>setMode(btn.dataset.mode)));
+modes.forEach(btn=>btn.addEventListener('click',()=>{
+  if(btn.dataset.mode==='admin'){
+    window.location.href='admin-login.html';
+    return;
+  }
+  setMode('user');
+}));
 
 form.addEventListener('submit',e=>{
   e.preventDefault();
-  message.textContent=mode==='admin'
-    ?'Admin authentication will be connected securely later.'
-    :'Account authentication will be connected later.';
+  message.textContent='Account authentication will be connected later.';
 });
 
 document.querySelectorAll('.social-login').forEach(button=>button.addEventListener('click',()=>{
-  if(mode==='admin') return;
   message.textContent=`${button.dataset.provider} authentication will be connected later.`;
 }));
 
