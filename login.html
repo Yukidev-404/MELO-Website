@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MELO / SIGN IN</title>
+<link rel="stylesheet" href="login.css">
+</head>
+<body>
+<div class="grain"></div>
+<header><a class="brand" href="index.html"><span>MELO</span><b>/</b> MUSIC PLAYER</a><a href="index.html">← Back to MELO</a></header>
+<main>
+<section class="login-card">
+  <div class="card-top"><span>[ MELO ACCOUNT ]</span><span>01 / 01</span></div>
+  <div class="logo-mark">♫</div>
+  <h1>Welcome<br><em>back.</em></h1>
+  <p class="intro">Sign in to your MELO account.</p>
+  <div class="mode-switch"><button class="mode active" data-mode="user">USER</button><button class="mode" data-mode="admin">ADMIN</button></div>
+  <form id="loginForm">
+    <label>Email <input id="email" type="email" placeholder="you@example.com" required></label>
+    <label>Password <input id="password" type="password" placeholder="••••••••" required></label>
+    <div class="form-row"><label class="check"><input type="checkbox"> Remember me</label><a href="#">Forgot password?</a></div>
+    <button class="submit" type="submit">Sign in <span>→</span></button>
+  </form>
+  <p id="demoMessage" class="demo"></p>
+  <div class="divider"><span>OR</span></div>
+  <button class="github-login" type="button">◉ &nbsp; Continue with GitHub</button>
+  <p class="small">Don't have an account? <a href="#">Create one</a></p>
+</section>
+<aside class="side-art"><div class="vinyl"><div class="record-label">MELO<br><small>メロディー</small><i>Music for<br>a better you.</i></div></div><p>good<br>music<br>travels<br>further ★</p></aside>
+</main>
+<script src="login.js"></script>
+</body>
+</html>
