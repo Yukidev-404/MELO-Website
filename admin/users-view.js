@@ -1,0 +1,58 @@
+(() => {
+  const content = document.getElementById('page-content');
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const date = ts => ts ? new Date(Number(ts) * 1000).toLocaleString([], {dateStyle:'medium',timeStyle:'short'}) : '—';
+  const ago = ts => { if (!ts) return '—'; const s=Math.max(0,Math.floor(Date.now()/1000)-Number(ts)); if(s<60)return `${s}s ago`; if(s<3600)return `${Math.floor(s/60)}m ago`; if(s<86400)return `${Math.floor(s/3600)}h ago`; return `${Math.floor(s/86400)}d ago`; };
+  const active = ts => Number(ts) >= Math.floor(Date.now()/1000) - 7 * 86400;
+  const api = async (path, params={}) => { const q=new URLSearchParams(params); const r=await fetch(path+(q.toString()?`?${q}`:''),{credentials:'include',cache:'no-store'}); if(r.status===401){location.href='../admin-login.html';throw Error('Authentication required')} if(!r.ok)throw Error(`Request failed (${r.status})`); return r.json(); };
+
+  function renderUsers(rows, query='') {
+    const body = rows.length ? rows.map((r,i) => {
+      const isActive = active(r.last_seen);
+      return `<tr class="data-row users-client-row" data-index="${i}">
+        <td class="mono">${esc(r.installation_id)}</td>
+        <td><strong>${esc(r.app_version)}</strong><small class="cell-sub">build ${esc(r.build || '—')}</small></td>
+        <td class="mono">${esc(r.platform)}<small class="cell-sub">${esc(r.os_version || '—')}</small></td>
+        <td><span class="status-text ${isActive?'good':''}"><i></i>${isActive?'ACTIVE':'INACTIVE'}</span><small class="cell-sub">${esc(ago(r.last_seen))}</small></td>
+        <td class="mono">${esc(date(r.first_seen))}</td>
+        <td class="mono">${esc(date(r.last_seen))}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="6"><div class="empty">No MELO clients found.</div></td></tr>`;
+    content.innerHTML = `<section class="page">
+      <div class="page-intro"><h2>MELO Clients</h2><p>Telemetry-backed installations and client fleet state. Account-level identity is not collected.</p></div>
+      <div class="metrics users-metrics">
+        <article class="metric"><small>TOTAL CLIENTS</small><strong>${rows.length}</strong><span class="delta">Returned by D1</span></article>
+        <article class="metric"><small>ACTIVE</small><strong>${rows.filter(r=>active(r.last_seen)).length}</strong><span class="delta">Seen in last 7 days</span></article>
+        <article class="metric"><small>INACTIVE</small><strong>${rows.filter(r=>!active(r.last_seen)).length}</strong><span class="delta">No recent heartbeat</span></article>
+        <article class="metric"><small>PLATFORM</small><strong>${esc(new Set(rows.map(r=>r.platform)).size)}</strong><span class="delta">Supported platform types</span></article>
+      </div>
+      <div class="toolbar"><input id="users-search" class="search" value="${esc(query)}" placeholder="Search installation, version, build, OS…"><button id="users-search-btn" class="filter">SEARCH</button><button id="users-export-btn" class="filter">EXPORT CSV</button></div>
+      <section class="panel"><div class="panel-head"><h2>Client Fleet</h2><span>${rows.length} RECORD${rows.length===1?'':'S'} · LIVE D1</span></div>
+      <table class="data-table"><thead><tr><th>INSTALLATION</th><th>VERSION</th><th>PLATFORM / OS</th><th>TELEMETRY</th><th>FIRST SEEN</th><th>LAST SEEN</th></tr></thead><tbody>${body}</tbody></table></section>
+      <div class="health-strip"><span><strong>CLIENT VIEW.</strong> Telemetry status is derived from last seen time; no personal account identity is shown.</span><span class="right">CLICK A CLIENT FOR DETAILS</span></div>
+    </section>`;
+    document.querySelectorAll('.users-client-row').forEach(row => row.addEventListener('click', () => {
+      const r=rows[Number(row.dataset.index)];
+      if(typeof window.detailModal === 'function') window.detailModal('MELO Client', r, 'installation');
+    }));
+    document.getElementById('users-search-btn').onclick=()=>load(new URLSearchParams(location.search).get('q') || document.getElementById('users-search').value.trim());
+    document.getElementById('users-search').onkeydown=e=>{if(e.key==='Enter')document.getElementById('users-search-btn').click()};
+    document.getElementById('users-export-btn').onclick=()=>exportCsv(rows);
+  }
+  function exportCsv(rows){
+    const headers=['Installation ID','MELO Version','Build','Platform','OS','Telemetry Status','First Seen','Last Seen'];
+    const lines=[headers,...rows.map(r=>[r.installation_id,r.app_version,r.build,r.platform,r.os_version,active(r.last_seen)?'ACTIVE':'INACTIVE',date(r.first_seen),date(r.last_seen)])].map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','));
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download='melo-clients.csv'; a.click(); URL.revokeObjectURL(a.href);
+  }
+  async function load(query='') { try { const d=await api('/api/admin/users',{q:query}); renderUsers(d.rows||[],query); } catch(e) { content.innerHTML=`<section class="page"><div class="page-intro"><h2>Unable to load clients</h2><p>${esc(e.message)}</p></div></section>`; } }
+  const originalRender = window.render;
+  let lastQuery = '';
+  function maybeEnhance(){
+    const params=new URLSearchParams(location.search); const view=params.get('view') || 'dashboard';
+    if(view==='users'){ lastQuery=params.get('q')||''; load(lastQuery); }
+  }
+  document.querySelectorAll('.nav-item[data-view="users"]').forEach(a=>a.addEventListener('click',()=>setTimeout(maybeEnhance,20)));
+  window.addEventListener('popstate',maybeEnhance);
+  setTimeout(maybeEnhance,50);
+  setInterval(()=>{if((new URLSearchParams(location.search).get('view')||'dashboard')==='users' && document.visibilityState==='visible')load(new URLSearchParams(location.search).get('q')||'')},30000);
+})();
