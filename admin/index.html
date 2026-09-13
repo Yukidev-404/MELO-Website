@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MELO / ADMIN CONSOLE</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">MELO <span>/ ADMIN</span></a><button id="logout">LOG OUT</button></header>
+<main>
+<section class="hero"><div><p class="eyebrow">[ PRIVATE CONSOLE ]</p><h1>MELO<br><em>control room.</em></h1><p id="identity">Loading secure session…</p></div><div class="status"><span></span> AUTHENTICATED</div></section>
+<section class="grid">
+<article><small>AUTHENTICATION</small><h2>2FA ACTIVE</h2><p>Authenticator protection and server-side session storage are enabled.</p></article>
+<article><small>DATABASE</small><h2>D1 ONLINE</h2><p>Admin configuration and session records are stored in Cloudflare D1.</p></article>
+<article><small>SECURITY</small><h2>SESSION</h2><p id="session">Checking session expiry…</p></article>
+<article><small>NEXT</small><h2>ADMIN MODULES</h2><p>User analytics, crash logs, releases and service health will appear here as MELO features are connected.</p></article>
+</section>
+</main>
+<script src="admin.js"></script>
+</body>
+</html>
