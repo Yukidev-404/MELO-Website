@@ -1,0 +1,5 @@
+worker.js
+wrangler.jsonc
+admin-auth/
+.git/
+.gitignore
