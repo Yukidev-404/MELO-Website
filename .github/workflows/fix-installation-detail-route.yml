@@ -29,8 +29,102 @@ jobs:
           if marker not in text:
               raise SystemExit('Could not find admin health route marker.')
 
-          route = r'''\n  if (url.pathname === "/api/admin/installation" && request.method === "GET") {\n    const session = await getSession(request, env);\n    if (!session) return json({ authenticated: false }, 401);\n\n    const installationId = url.searchParams.get("id") || "";\n    if (!/^[A-Za-z0-9_-]{16,128}$/.test(installationId)) {\n      return json({ error: "Invalid installation ID." }, 400);\n    }\n\n    const installation = await env.DB.prepare(`\n      SELECT\n        installation_id,\n        app_version,\n        build,\n        platform,\n        os_version,\n        client_schema,\n        first_seen,\n        last_seen,\n        created_at,\n        updated_at\n      FROM installations\n      WHERE installation_id = ?\n    `).bind(installationId).first();\n\n    if (!installation) {\n      return json({ error: "Installation not found." }, 404);\n    }\n\n    const [events, crashes, credential] = await Promise.all([\n      env.DB.prepare(`\n        SELECT\n          event_id,\n          event_type,\n          timestamp,\n          app_version,\n          build,\n          platform,\n          os_version,\n          client_schema,\n          created_at\n        FROM telemetry_events\n        WHERE installation_id = ?\n        ORDER BY timestamp DESC\n        LIMIT 500\n      `).bind(installationId).all(),\n\n      env.DB.prepare(`\n        SELECT\n          crash_id,\n          event_id,\n          error_type,\n          message,\n          stack_trace,\n          severity,\n          app_version,\n          build,\n          platform,\n          os_version,\n          timestamp,\n          created_at\n        FROM crash_reports\n        WHERE installation_id = ?\n        ORDER BY timestamp DESC\n        LIMIT 100\n      `).bind(installationId).all(),\n\n      env.DB.prepare(`\n        SELECT\n          created_at,\n          last_used_at,\n          revoked_at\n        FROM telemetry_credentials\n        WHERE installation_id = ?\n      `).bind(installationId).first()\n    ]);\n\n    return json({\n      ok: true,\n      installation,\n      events: events?.results || [],\n      crashes: crashes?.results || [],\n      telemetry: credential\n        ? {\n            active: !credential.revoked_at,\n            createdAt: credential.created_at,\n            lastUsedAt: credential.last_used_at,\n            revokedAt: credential.revoked_at\n          }\n        : null\n    });\n  }\n'''
-          text = text.replace(marker, marker + route.replace('\\n', '\n'), 1)
+          route = '''
+  if (url.pathname === "/api/admin/installation" && request.method === "GET") {
+    const session = await getSession(request, env);
+    if (!session) return json({ authenticated: false }, 401);
+
+    const installationId = url.searchParams.get("id") || "";
+    if (!/^[A-Za-z0-9_-]{16,128}$/.test(installationId)) {
+      return json({ error: "Invalid installation ID." }, 400);
+    }
+
+    const installation = await env.DB.prepare(`
+      SELECT
+        installation_id,
+        app_version,
+        build,
+        platform,
+        os_version,
+        client_schema,
+        first_seen,
+        last_seen,
+        created_at,
+        updated_at
+      FROM installations
+      WHERE installation_id = ?
+    `).bind(installationId).first();
+
+    if (!installation) {
+      return json({ error: "Installation not found." }, 404);
+    }
+
+    const [events, crashes, credential] = await Promise.all([
+      env.DB.prepare(`
+        SELECT
+          event_id,
+          event_type,
+          timestamp,
+          app_version,
+          build,
+          platform,
+          os_version,
+          client_schema,
+          created_at
+        FROM telemetry_events
+        WHERE installation_id = ?
+        ORDER BY timestamp DESC
+        LIMIT 500
+      `).bind(installationId).all(),
+
+      env.DB.prepare(`
+        SELECT
+          crash_id,
+          event_id,
+          error_type,
+          message,
+          stack_trace,
+          severity,
+          app_version,
+          build,
+          platform,
+          os_version,
+          timestamp,
+          created_at
+        FROM crash_reports
+        WHERE installation_id = ?
+        ORDER BY timestamp DESC
+        LIMIT 100
+      `).bind(installationId).all(),
+
+      env.DB.prepare(`
+        SELECT
+          created_at,
+          last_used_at,
+          revoked_at
+        FROM telemetry_credentials
+        WHERE installation_id = ?
+      `).bind(installationId).first()
+    ]);
+
+    return json({
+      ok: true,
+      installation,
+      events: events?.results || [],
+      crashes: crashes?.results || [],
+      telemetry: credential
+        ? {
+            active: !credential.revoked_at,
+            createdAt: credential.created_at,
+            lastUsedAt: credential.last_used_at,
+            revokedAt: credential.revoked_at
+          }
+        : null
+    });
+  }
+'''
+
+          text = text.replace(marker, marker + route, 1)
           path.write_text(text, encoding='utf-8')
           print('Installation detail route inserted.')
           PY
