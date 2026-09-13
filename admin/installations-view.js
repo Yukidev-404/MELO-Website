@@ -32,21 +32,48 @@
 
   function closeDetail(){document.getElementById('installation-detail-overlay')?.remove()}
 
+  function eventIcon(type){
+    const icons={install:'↓',heartbeat:'·',version:'↗',crash:'×'};
+    return icons[type] || '•';
+  }
+
+  function eventClass(type){return ['install','heartbeat','version','crash'].includes(type)?type:'default'}
+
   async function showDetail(row){
     const overlay=document.createElement('div');
     overlay.id='installation-detail-overlay';
-    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    overlay.innerHTML=`<div role="dialog" aria-modal="true" style="width:min(980px,100%);max-height:90vh;overflow:auto;background:#0b0b0b;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 100px rgba(0,0,0,.65);padding:28px;color:#f5f5f5;"><div style="display:flex;justify-content:space-between;gap:20px;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:18px;"><div><div style="font-size:11px;letter-spacing:.14em;opacity:.55;margin-bottom:8px;">INSTALLATION DETAIL</div><h2 style="margin:0;font-size:24px;">${esc(row.installation_id)}</h2></div><button id="installation-detail-close" class="filter" type="button">CLOSE</button></div><div id="installation-detail-body" style="padding-top:22px;"><div class="empty">Loading telemetry…</div></div></div>`;
+    overlay.className='installation-overlay';
+    overlay.innerHTML=`<div role="dialog" aria-modal="true" class="installation-modal"><header class="installation-modal-head"><div><div class="installation-eyebrow">INSTALLATION DETAIL</div><div class="installation-title-row"><span class="installation-pulse"></span><h2>${esc(row.installation_id)}</h2></div><p class="installation-subtitle">Operational telemetry record · ${esc(row.platform || 'unknown platform')}</p></div><button id="installation-detail-close" class="installation-close" type="button" aria-label="Close installation detail">CLOSE</button></header><div id="installation-detail-body" class="installation-detail-body"><div class="detail-loading"><span class="loading-line"></span><span class="loading-line short"></span><span class="loading-line"></span></div></div></div>`;
     document.body.appendChild(overlay);
     document.getElementById('installation-detail-close').onclick=closeDetail;
     overlay.addEventListener('click',e=>{if(e.target===overlay)closeDetail()});
+    const onKey=e=>{if(e.key==='Escape')closeDetail()};
+    document.addEventListener('keydown',onKey,{once:true});
     try{
       const d=await api('/api/admin/installation',{id:row.installation_id});
       const i=d.installation||row, events=d.events||[], crashes=d.crashes||[], t=d.telemetry;
-      const eventRows=events.length?events.map(e=>`<div style="display:grid;grid-template-columns:130px 1fr auto;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.07);align-items:center;"><span class="mono" style="opacity:.65;font-size:12px;">${esc(date(e.timestamp))}</span><div><strong style="font-size:13px;">${esc(e.event_type).toUpperCase()}</strong><small class="cell-sub">${esc(e.event_id)}</small></div><span style="font-size:11px;opacity:.55;">${esc(e.app_version)} · ${esc(e.build||'—')}</span></div>`).join(''):`<div class="empty">No telemetry events recorded.</div>`;
-      const crashRows=crashes.length?crashes.map(c=>`<div style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,.07);"><div style="display:flex;justify-content:space-between;gap:12px;"><strong>${esc(c.error_type||'Crash')}</strong><span style="font-size:11px;opacity:.55;">${esc(date(c.timestamp))}</span></div><small class="cell-sub">${esc(c.message||'No message')}</small></div>`).join(''):`<div class="empty">No crash reports for this installation.</div>`;
-      document.getElementById('installation-detail-body').innerHTML=`<div class="metrics" style="margin-bottom:22px;"><article class="metric"><small>VERSION</small><strong style="font-size:18px;">${esc(i.app_version)}</strong><span class="delta">build ${esc(i.build||'—')}</span></article><article class="metric"><small>LAST SEEN</small><strong style="font-size:18px;">${esc(ago(i.last_seen))}</strong><span class="delta">${esc(date(i.last_seen))}</span></article><article class="metric"><small>EVENTS</small><strong>${events.length}</strong><span class="delta">Last 500 retained in view</span></article><article class="metric"><small>CRASHES</small><strong>${crashes.length}</strong><span class="delta">Last 100 retained in view</span></article></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:rgba(255,255,255,.08);margin-bottom:22px;"><div style="background:#0b0b0b;padding:16px;"><small style="opacity:.5;letter-spacing:.1em;">PLATFORM</small><div style="margin-top:7px;">${esc(i.platform)} · ${esc(i.os_version||'—')}</div></div><div style="background:#0b0b0b;padding:16px;"><small style="opacity:.5;letter-spacing:.1em;">CLIENT SCHEMA</small><div style="margin-top:7px;">${esc(i.client_schema??'—')}</div></div><div style="background:#0b0b0b;padding:16px;"><small style="opacity:.5;letter-spacing:.1em;">FIRST SEEN</small><div style="margin-top:7px;">${esc(date(i.first_seen))}</div></div><div style="background:#0b0b0b;padding:16px;"><small style="opacity:.5;letter-spacing:.1em;">TELEMETRY CREDENTIAL</small><div style="margin-top:7px;"><span class="status-text ${t?.active?'good':''}"><i></i>${t?(t.active?'ACTIVE':'REVOKED'):'NOT ISSUED'}</span>${t?.lastUsedAt?`<small class="cell-sub">Last used ${esc(ago(t.lastUsedAt))}</small>`:''}</div></div></div><section class="panel" style="margin-bottom:18px;"><div class="panel-head"><h2>Telemetry Timeline</h2><span>${events.length} EVENT${events.length===1?'':'S'}</span></div><div style="padding:0 18px;">${eventRows}</div></section><section class="panel"><div class="panel-head"><h2>Crash Reports</h2><span>${crashes.length}</span></div><div style="padding:0 18px;">${crashRows}</div></section>`;
-    }catch(e){document.getElementById('installation-detail-body').innerHTML=`<div class="empty">Unable to load installation telemetry.<br><small>${esc(e.message)}</small></div>`}
+      const latestEvent=events[0];
+      const eventRows=events.length?events.map(e=>`<article class="timeline-item"><div class="timeline-rail"><span class="timeline-dot ${eventClass(e.event_type)}">${eventIcon(e.event_type)}</span></div><div class="timeline-main"><div class="timeline-top"><span class="event-badge ${eventClass(e.event_type)}">${esc(e.event_type).toUpperCase()}</span><time>${esc(date(e.timestamp))}</time></div><div class="timeline-id">${esc(e.event_id)}</div><div class="timeline-meta"><span>${esc(e.app_version)}</span><span>${esc(e.build||'no build')}</span><span>${esc(e.platform)}</span></div></div></article>`).join(''):`<div class="detail-empty">No telemetry events recorded.</div>`;
+      const crashRows=crashes.length?crashes.map(c=>`<article class="crash-card"><div class="crash-card-top"><div><span class="event-badge crash">CRASH</span><strong>${esc(c.error_type||'Unhandled crash')}</strong></div><time>${esc(date(c.timestamp))}</time></div><p>${esc(c.message||'No message supplied.')}</p>${c.stack_trace?`<details><summary>VIEW SANITIZED STACK TRACE</summary><pre>${esc(c.stack_trace)}</pre></details>`:''}</article>`).join(''):`<div class="detail-empty">No crash reports for this installation.</div>`;
+      document.getElementById('installation-detail-body').innerHTML=`
+        <div class="detail-overview">
+          <div class="detail-stat primary"><span>VERSION</span><strong>${esc(i.app_version)}</strong><small>build ${esc(i.build||'—')}</small></div>
+          <div class="detail-stat"><span>LAST SEEN</span><strong>${esc(ago(i.last_seen))}</strong><small>${esc(date(i.last_seen))}</small></div>
+          <div class="detail-stat"><span>EVENTS</span><strong>${events.length}</strong><small>up to 500 retained</small></div>
+          <div class="detail-stat ${crashes.length?'danger':''}"><span>CRASHES</span><strong>${crashes.length}</strong><small>${crashes.length?'requires attention':'no crashes recorded'}</small></div>
+        </div>
+        <div class="detail-info-grid">
+          <div><span>PLATFORM</span><strong>${esc(i.platform)} <em>·</em> ${esc(i.os_version||'—')}</strong></div>
+          <div><span>CLIENT SCHEMA</span><strong>${esc(i.client_schema??'—')}</strong></div>
+          <div><span>FIRST SEEN</span><strong>${esc(date(i.first_seen))}</strong></div>
+          <div><span>TELEMETRY CREDENTIAL</span><strong class="credential-status ${t?.active?'active':''}"><i></i>${t?(t.active?'ACTIVE':'REVOKED'):'NOT ISSUED'}</strong><small>${t?.lastUsedAt?`Last used ${esc(ago(t.lastUsedAt))}`:'No usage recorded'}</small></div>
+        </div>
+        <div class="detail-section-head"><div><span>ACTIVITY</span><h3>Telemetry Timeline</h3></div><small>${events.length} EVENTS</small></div>
+        <section class="timeline-panel">${eventRows}</section>
+        <div class="detail-section-head crash-heading"><div><span>DIAGNOSTICS</span><h3>Crash Reports</h3></div><small>${crashes.length} REPORT${crashes.length===1?'':'S'}</small></div>
+        <section class="crash-list">${crashRows}</section>
+        <footer class="detail-footer"><span>INSTALLATION ID IS AN OPAQUE CLIENT IDENTIFIER</span><span>${latestEvent?`LATEST EVENT · ${esc(ago(latestEvent.timestamp))}`:'NO EVENTS'}</span></footer>`;
+    }catch(e){document.getElementById('installation-detail-body').innerHTML=`<div class="detail-error"><span>!</span><div><strong>Unable to load installation telemetry</strong><p>${esc(e.message)}</p></div></div>`}
   }
 
   async function load(query=''){
