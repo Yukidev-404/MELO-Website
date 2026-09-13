@@ -10,6 +10,9 @@ const setupKey = document.getElementById('setupKey');
 const totpCode = document.getElementById('totpCode');
 const intro = document.getElementById('adminIntro');
 const steps = document.querySelectorAll('#setupSteps span');
+const emailStatus = document.getElementById('emailStatus');
+
+const ADMIN_EMAIL = 'tajtaranga@gmail.com';
 let setupStarted = false;
 let configured = false;
 
@@ -17,26 +20,59 @@ function showStep(step) {
   steps.forEach((item, index) => item.classList.toggle('active', index <= step));
 }
 
-function setMode(isConfigured) {
-  configured = isConfigured;
-  setupTokenWrap.hidden = isConfigured || setupStarted;
-  document.querySelector('#setupSteps').hidden = isConfigured;
-  if (isConfigured) {
-    intro.textContent = 'Enter your administrator email and current 6-digit Authenticator code.';
-    submit.innerHTML = 'Sign in <span>→</span>';
+function resetAuthFields() {
+  setupStarted = false;
+  setupToken.value = '';
+  totpCode.value = '';
+  setupKey.value = '';
+  totpQr.removeAttribute('src');
+  setupTokenWrap.hidden = true;
+  totpSetup.hidden = true;
+  emailInput.readOnly = false;
+  submit.disabled = false;
+  submit.innerHTML = 'Continue <span>→</span>';
+  emailStatus.textContent = '';
+  emailStatus.className = 'email-status';
+  showStep(0);
+}
+
+function setEmailStatus(type, text) {
+  emailStatus.textContent = text;
+  emailStatus.className = `email-status ${type}`;
+}
+
+function checkEmailState() {
+  const email = emailInput.value.trim().toLowerCase();
+  resetAuthFields();
+
+  if (!email) return;
+
+  if (email !== ADMIN_EMAIL) {
+    setEmailStatus('invalid', 'ADMIN EMAIL NOT RECOGNIZED');
+    intro.textContent = 'Enter the configured administrator email to continue.';
+    submit.disabled = true;
+    return;
+  }
+
+  setEmailStatus('valid', '✓ ADMIN EMAIL VERIFIED');
+  submit.disabled = false;
+
+  if (configured) {
+    intro.textContent = 'Administrator recognized. Enter the current 6-digit Authenticator code.';
     totpSetup.hidden = false;
-    setupKey.parentElement.hidden = true;
     document.querySelector('.setup-panel').querySelector('strong').textContent = 'AUTHENTICATOR';
     document.querySelector('.setup-panel').querySelector('p').textContent = 'Enter the current code from your authenticator app.';
     document.querySelector('.qr-wrap').hidden = true;
     document.querySelector('.warning').hidden = true;
+    setupKey.parentElement.hidden = true;
+    totpCode.required = true;
+    submit.innerHTML = 'Sign in <span>→</span>';
     showStep(2);
   } else {
-    intro.textContent = 'First-time setup: enter the authorized administrator email and one-time setup key.';
+    intro.textContent = 'First-time setup: enter the one-time Cloudflare setup key.';
     setupTokenWrap.hidden = false;
-    totpSetup.hidden = setupStarted ? false : true;
-    submit.innerHTML = setupStarted ? 'Verify authenticator <span>→</span>' : 'Continue <span>→</span>';
-    showStep(setupStarted ? 1 : 0);
+    submit.innerHTML = 'Continue <span>→</span>';
+    showStep(0);
   }
 }
 
@@ -44,12 +80,21 @@ async function checkStatus() {
   try {
     const response = await fetch('/api/admin/status', { credentials: 'include', cache: 'no-store' });
     const data = await response.json();
-    setMode(Boolean(data.configured));
+    configured = Boolean(data.configured);
+    resetAuthFields();
+    intro.textContent = configured
+      ? 'Enter your administrator email to continue.'
+      : 'First-time setup: enter your administrator email to begin.';
+    submit.disabled = true;
+    checkEmailState();
   } catch {
     intro.textContent = 'Unable to reach the MELO admin service.';
+    submit.disabled = true;
   }
 }
 
+emailInput.addEventListener('input', checkEmailState);
+emailInput.addEventListener('blur', checkEmailState);
 checkStatus();
 
 form.addEventListener('submit', async (event) => {
@@ -59,6 +104,8 @@ form.addEventListener('submit', async (event) => {
   const email = emailInput.value.trim().toLowerCase();
 
   try {
+    if (email !== ADMIN_EMAIL) throw new Error('Enter the configured administrator email.');
+
     if (configured) {
       const code = totpCode.value.trim();
       if (!/^\d{6}$/.test(code)) throw new Error('Enter the current 6-digit Authenticator code.');
@@ -110,6 +157,7 @@ form.addEventListener('submit', async (event) => {
   } catch (error) {
     message.textContent = error.message || 'Unable to reach the admin authentication service.';
   } finally {
-    submit.disabled = false;
+    if (!emailInput.readOnly) submit.disabled = emailInput.value.trim().toLowerCase() !== ADMIN_EMAIL;
+    else submit.disabled = false;
   }
 });
