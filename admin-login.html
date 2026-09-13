@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MELO / ADMIN ACCESS</title>
+<script>
+  // Production admin authentication is hosted on the Worker so TOTP and
+  // the secure session cookie remain same-origin with the Control Room.
+  if (location.hostname === 'yukidev-404.github.io') {
+    location.replace('https://melo-website.tajtaranga.workers.dev/admin-login.html' + location.search);
+  }
+</script>
 <link rel="stylesheet" href="admin-login.css">
 </head>
 <body>
