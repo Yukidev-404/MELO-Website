@@ -1,0 +1,25 @@
+name: Patch Bug Reports for R2
+on:
+  push:
+    branches: [ main ]
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Patch Worker
+        run: python .github/scripts/patch_bug_report_r2.py
+      - name: Commit R2 bug report backend
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- worker.js; then
+            git add worker.js
+            git commit -m "Implement private R2 bug report storage"
+            git push
+          fi
