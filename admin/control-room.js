@@ -74,9 +74,9 @@ function healthHtml(d){return`<section class="page"><div class="page-intro"><h2>
 function settingsHtml(d){return`<section class="page"><div class="page-intro"><h2>Admin Settings</h2><p>Read-only administrative configuration for now.</p></div><section class="panel"><table class="data-table"><thead><tr><th>SETTING</th><th>VALUE</th><th>STATUS</th></tr></thead><tbody>${(d.settings||[]).map(s=>`<tr><td class="mono">${esc(s.setting)}</td><td>${esc(s.value)}</td><td class="accent">${esc(s.status)}</td></tr>`).join('')}</tbody></table></section></section>`}
 
 let currentView='dashboard',refreshTimer;
+const specializedViews=new Set(['analytics','health','settings']);
 async function render(view,search=''){
  currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;
- const specializedViews=new Set(['analytics']);
  if(!specializedViews.has(currentView))content.innerHTML=`<section class="page"><div class="page-intro"><h2>${esc(views[currentView].heading)}</h2><p>Loading live control-room data…</p></div></section>`;
  try{
   let rows=null,data;
@@ -88,7 +88,7 @@ async function render(view,search=''){
   else if(currentView==='settings')content.innerHTML=settingsHtml(await api('/api/admin/settings'));
   if(currentView==='dashboard')content.innerHTML=dashboardHtml(data);
   if(rows){const e=document.getElementById('export-btn');if(e)e.onclick=()=>exportCsv(currentView,rows)}
-  history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);
+  if(!specializedViews.has(currentView))history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);
  }catch(e){if(!specializedViews.has(currentView))content.innerHTML=`<section class="page"><div class="page-intro"><h2>Unable to load data</h2><p>${esc(e.message)}</p></div></section>`}
  scheduleRefresh();
 }
