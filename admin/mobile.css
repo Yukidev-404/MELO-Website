@@ -1,0 +1,116 @@
+/* MELO Control Room — mobile layout */
+.mobile-topbar,.mobile-nav-backdrop{display:none}
+
+@media (max-width:760px){
+  html,body{width:100%;overflow-x:hidden}
+  body.nav-open{overflow:hidden}
+  .app-shell{display:block;min-height:100vh}
+
+  .mobile-topbar{
+    position:fixed;inset:0 0 auto 0;height:58px;z-index:30;
+    display:flex;align-items:center;gap:12px;padding:0 14px;
+    background:rgba(10,10,10,.96);border-bottom:1px solid #252525;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)
+  }
+  .mobile-nav-toggle{
+    width:36px;height:34px;padding:8px 7px;display:flex;flex-direction:column;justify-content:center;gap:4px;
+    background:#111;border:1px solid #2b2b2b;color:#ddd;cursor:pointer
+  }
+  .mobile-nav-toggle span{display:block;width:100%;height:1px;background:#aaa;transition:.15s ease}
+  .mobile-brand{display:flex;align-items:center;gap:8px;min-width:0}
+  .mobile-brand .brand-mark{width:20px;height:20px;font-size:10px}
+  .mobile-brand strong{font-family:Georgia,serif;font-size:14px;font-weight:500}
+  .mobile-brand small{color:#666;font-size:6px;letter-spacing:.1em}
+  .mobile-status{margin-left:auto;color:#777;font:7px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.1em}
+  .mobile-status i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#65d995;margin-right:5px}
+
+  .mobile-nav-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:34;opacity:0;pointer-events:none;transition:opacity .18s ease}
+  .mobile-nav-backdrop.visible{opacity:1;pointer-events:auto}
+
+  .sidebar{
+    width:min(280px,84vw);height:100dvh;inset:0 auto 0 0;padding:18px 14px 14px;
+    transform:translateX(-105%);transition:transform .2s ease;z-index:35;
+    box-shadow:20px 0 60px rgba(0,0,0,.45)
+  }
+  .sidebar.mobile-open{transform:translateX(0)}
+  .side-brand{padding-bottom:20px}
+  .sidebar nav{padding-top:15px}
+  .nav-item{height:38px;font-size:11px}
+
+  .content{margin-left:0;width:100%;min-height:100vh;padding:58px 14px 34px}
+  .content-header{height:62px}
+  .content-header .kicker{font-size:7px}
+  .content-header h1{font-size:19px}
+  .header-meta{gap:0}
+  .header-meta .service-pill{display:none}
+  .clock{font-size:7px}
+  .page{width:100%;padding-top:18px}
+  .hero-line{display:block;padding:4px 0 18px}
+  .hero-title{font-size:30px}
+  .hero-copy{font-size:9px;line-height:1.5;margin-top:7px}
+  .status-large{margin-top:12px;font-size:8px}
+
+  .metrics{grid-template-columns:1fr 1fr;margin:14px 0;gap:7px}
+  .metric{min-height:84px;padding:13px 12px}
+  .metric strong{font-size:21px;margin:9px 0 3px}
+  .metric small{font-size:6px}
+  .metric .delta{font-size:7px}
+
+  .two-col{grid-template-columns:1fr;gap:7px}
+  .subgrid{grid-template-columns:1fr;gap:7px}
+  .panel{min-width:0;overflow:hidden}
+  .panel-head{height:45px;padding:0 12px}
+  .panel-head h2{font-size:13px}
+  .panel-head span{font-size:6px}
+
+  /* Tables remain readable without squeezing columns into unreadable text. */
+  .panel:has(.data-table){overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .data-table{min-width:620px}
+  .data-table th{height:32px;padding:0 11px;font-size:6px}
+  .data-table td{padding:11px;font-size:8px}
+  .health-strip{display:block;padding:11px 12px;line-height:1.5}
+  .health-strip .right{display:block;margin-top:5px}
+
+  .activity-row{grid-template-columns:48px 62px minmax(150px,1fr);gap:7px;padding:9px 11px;font-size:7px}
+  .mini-panel{padding:13px}
+  .mini-panel h3{margin-bottom:9px}
+
+  .page-intro{padding:20px 0 15px;display:block}
+  .page-intro h2{font-size:25px}
+  .page-intro p{font-size:9px;line-height:1.55}
+  .toolbar{display:grid;grid-template-columns:1fr auto;gap:6px;margin:12px 0 9px}
+  .toolbar .search{grid-column:1/-1;width:100%;min-width:0;height:38px}
+  .toolbar .filter{height:36px}
+
+  .modal-backdrop{padding:10px}
+  .modal{width:100%;max-height:94dvh}
+  .modal-head{padding:15px}
+  .modal-head h2{font-size:18px}
+  .detail-grid{grid-template-columns:1fr}
+  .detail-grid>div{padding:12px 14px}
+  .detail-grid .detail-wide{grid-column:auto}
+
+  .installation-overlay{padding:8px}
+  .installation-modal{width:100%;max-height:96dvh}
+  .installation-modal-head{padding:17px 15px 15px;gap:12px}
+  .installation-title-row h2{font-size:15px}
+  .installation-detail-body{padding:15px 15px 0}
+  .detail-overview{grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px}
+  .detail-stat{min-height:88px;padding:12px}
+  .detail-stat strong{font-size:18px;margin:9px 0 3px}
+  .detail-info-grid{grid-template-columns:1fr}
+  .detail-info-grid>div{min-height:70px;padding:13px 14px}
+  .detail-section-head h3{font-size:15px}
+  .timeline-item{grid-template-columns:34px minmax(0,1fr)}
+  .timeline-main{padding-left:10px}
+  .timeline-top{align-items:flex-start;flex-direction:column;gap:6px}
+}
+
+@media (max-width:420px){
+  .metrics{grid-template-columns:1fr}
+  .metric{min-height:76px}
+  .content{padding-left:12px;padding-right:12px}
+  .content-header h1{font-size:17px}
+  .mobile-brand small{display:none}
+  .detail-overview{grid-template-columns:1fr}
+}
