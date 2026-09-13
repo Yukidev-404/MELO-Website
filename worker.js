@@ -167,7 +167,7 @@ async function analyticsData(env) {
     env.DB.prepare("SELECT event_type, COUNT(*) AS count FROM telemetry_events GROUP BY event_type ORDER BY count DESC").all(),
     env.DB.prepare("SELECT app_version, COUNT(*) AS count FROM installations GROUP BY app_version ORDER BY count DESC").all(),
     env.DB.prepare("SELECT platform, COUNT(*) AS count FROM installations GROUP BY platform ORDER BY count DESC").all(),
-    env.DB.prepare("SELECT (timestamp / 86400) AS day, COUNT(*) AS count FROM installations WHERE timestamp >= ? GROUP BY day ORDER BY day DESC LIMIT 30").bind(now - 30 * 86400).all()
+    env.DB.prepare("SELECT (created_at / 86400) AS day, COUNT(*) AS count FROM installations WHERE created_at >= ? GROUP BY day ORDER BY day DESC LIMIT 30").bind(now - 30 * 86400).all()
   ]);
   return json({ ok: true, events: events?.results || [], versions: versions?.results || [], platforms: platforms?.results || [], dailyInstallations: daily?.results || [] });
 }
