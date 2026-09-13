@@ -17,7 +17,7 @@ jobs:
           p = Path('admin/control-room.js')
           s = p.read_text()
           old = "currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;\n if(specializedViews.has(currentView)){scheduleRefresh();return;}"
-          new = "currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;\n history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);\n if(specializedViews.has(currentView)){scheduleRefresh();return;}"
+          new = "currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;\n  history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);\n if(specializedViews.has(currentView)){scheduleRefresh();return;}"
           if old not in s:
               raise SystemExit('Expected Control Room render navigation block not found')
           s = s.replace(old, new, 1)
@@ -35,7 +35,8 @@ jobs:
           start = s.index('async function render(')
           end = s.index('\nfunction scheduleRefresh', start)
           block = s[start:end]
-          if 'history.replaceState' not in block.split("if(specializedViews.has",1)[0]:
+          before_return = block.split("if(specializedViews.has",1)[0]
+          if 'history.replaceState' not in before_return:
               raise SystemExit('URL state is not updated before specialized renderer return')
           if block.count('history.replaceState') != 1:
               raise SystemExit('Expected exactly one history update in render()')
