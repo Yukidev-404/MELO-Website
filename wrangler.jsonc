@@ -3,6 +3,7 @@
   "name": "melo-website",
   "main": "worker.js",
   "compatibility_date": "2026-09-13",
+  "keep_vars": true,
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
