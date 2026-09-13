@@ -80,6 +80,7 @@ let currentView='dashboard',refreshTimer;
 const specializedViews=new Set(['users','installations','bug-reports','crashes','security','services','releases','flags','analytics','health','settings']);
 async function render(view,search=''){
  currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;
+  history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);
  if(specializedViews.has(currentView)){scheduleRefresh();return;}
  content.innerHTML=`<section class="page"><div class="page-intro"><h2>${esc(views[currentView].heading)}</h2><p>Loading live control-room data…</p></div></section>`;
  try{
