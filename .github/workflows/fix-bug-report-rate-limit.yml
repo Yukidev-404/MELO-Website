@@ -1,0 +1,55 @@
+name: Fix bug report rate-limit storage
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Add one-time bug report rate-limit fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch bug report limiter
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('worker.js')
+          s = p.read_text()
+          old = """  const key = `bug-report:${ip}`;
+            const rate = await env.DB.prepare('SELECT window_start,count FROM admin_attempts WHERE key=?').bind(key).first();
+            if (rate && now - Number(rate.window_start) < 600 && Number(rate.count) >= 5) return bugReportJson({ error:'Too many reports. Please try again later.' },429);
+            if (!rate || now - Number(rate.window_start) >= 600) await env.DB.prepare('INSERT INTO admin_attempts (key,window_start,count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1').bind(key,now).run();
+            else await env.DB.prepare('UPDATE admin_attempts SET count=count+1 WHERE key=?').bind(key).run();"""
+          new = """  const key = `bug-report:${ip}`;
+            const rate = await env.DB.prepare('SELECT window_start,count FROM rate_limits WHERE key=?').bind(key).first();
+            if (rate && now - Number(rate.window_start) < 600 && Number(rate.count) >= 5) return bugReportJson({ error:'Too many reports. Please try again later.' },429);
+            if (!rate || now - Number(rate.window_start) >= 600) await env.DB.prepare('INSERT INTO rate_limits (key,window_start,count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1').bind(key,now).run();
+            else await env.DB.prepare('UPDATE rate_limits SET count=count+1 WHERE key=?').bind(key).run();"""
+          if old not in s:
+              raise SystemExit('Expected bug-report rate limiter block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Verify no bug-report limiter uses admin_attempts
+        run: |
+          grep -n "bug-report:" worker.js
+          if grep -A4 -B1 "const key = \`bug-report:" worker.js | grep -q "admin_attempts"; then
+            echo "Bug report limiter still uses admin_attempts"
+            exit 1
+          fi
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add worker.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Move bug report rate limiting to dedicated table"
+          git push
