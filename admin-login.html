@@ -17,10 +17,11 @@
     <div class="card-top"><span>[ ADMIN CONSOLE ]</span><span>2FA REQUIRED</span></div>
     <div class="logo-mark">⌘</div>
     <h1>Admin<br><em>access.</em></h1>
-    <p class="intro" id="adminIntro">First-time setup: enter the authorized administrator email to begin Authenticator setup.</p>
+    <p class="intro" id="adminIntro">Checking admin setup…</p>
     <div class="setup-steps" id="setupSteps"><span class="active">01 EMAIL</span><span>02 AUTHENTICATOR</span><span>03 VERIFY</span></div>
     <form id="adminLoginForm" autocomplete="on">
       <label>Email<input id="adminEmail" name="email" type="email" autocomplete="username" placeholder="admin@example.com" required></label>
+      <label id="setupTokenWrap" hidden>One-time setup key<input id="setupToken" type="password" autocomplete="off" placeholder="Enter the Cloudflare setup key" maxlength="128"></label>
       <div id="totpSetup" hidden>
         <div class="setup-panel"><strong>AUTHENTICATOR SETUP</strong><p>Scan the QR code with your authenticator app, or enter the setup key manually.</p><div class="qr-wrap"><img id="totpQr" alt="Authenticator setup QR code"></div><label>Setup key<input id="setupKey" type="text" readonly spellcheck="false"></label><p class="warning">Save the setup key somewhere secure. Do not publish it or commit it to GitHub.</p></div>
         <label>6-digit Authenticator code<input id="totpCode" name="totp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></label>
