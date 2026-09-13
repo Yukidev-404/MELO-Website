@@ -18,6 +18,7 @@ export default {
     try {
       if (url.pathname.startsWith("/api/admin/")) return await handleApi(request, env, url);
       if (url.pathname.startsWith("/api/telemetry/")) return await handleTelemetry(request, env, url);
+      if (url.pathname.startsWith("/api/bug-reports")) return await handleBugReports(request, env, url);
       if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
         const session = await getSession(request, env);
         if (!session) return Response.redirect(`${url.origin}/admin-login.html`, 302);
@@ -45,6 +46,22 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/admin/me" && request.method === "GET") return me(request, env, url);
   if (url.pathname === "/api/admin/health" && request.method === "GET") return json({ ok: true, service: "melo-admin" });
 
+  if (url.pathname === "/api/admin/bug-reports" && request.method === "GET") {
+    const session = await getSession(request, env);
+    if (!session) return json({ authenticated: false }, 401);
+    return bugReportsData(env, url);
+  }
+  if (url.pathname === "/api/admin/bug-report" && request.method === "GET") {
+    const session = await getSession(request, env);
+    if (!session) return json({ authenticated: false }, 401);
+    return bugReportDetail(env, url);
+  }
+  if (url.pathname === "/api/admin/bug-report" && request.method === "PATCH") {
+    const session = await getSession(request, env);
+    if (!session) return json({ authenticated: false }, 401);
+    return updateBugReport(request, env, url);
+  }
+
   if (url.pathname === "/api/admin/installation" && request.method === "GET") {
     const session = await getSession(request, env);
     if (!session) return json({ authenticated: false }, 401);
@@ -71,6 +88,89 @@ async function handleApi(request, env, url) {
     return adminData(url.pathname, env, url);
   }
   return json({ error: "Not found." }, 404);
+}
+
+async function ensureBugReportsSchema(env) {
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS bug_reports (report_id TEXT PRIMARY KEY, installation_id TEXT, app_version TEXT NOT NULL, build TEXT, platform TEXT NOT NULL, os_version TEXT, client_schema INTEGER NOT NULL DEFAULT 1, what_happened TEXT NOT NULL, reproduction_steps TEXT, expected_result TEXT, status TEXT NOT NULL DEFAULT 'new', submitted_at INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, FOREIGN KEY (installation_id) REFERENCES installations(installation_id) ON DELETE SET NULL)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_reports_submitted_at ON bug_reports(submitted_at)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_reports_installation ON bug_reports(installation_id)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS bug_report_attachments (attachment_id TEXT PRIMARY KEY, report_id TEXT NOT NULL, filename TEXT NOT NULL, content_type TEXT, size_bytes INTEGER NOT NULL DEFAULT 0, storage_key TEXT, created_at INTEGER NOT NULL, FOREIGN KEY (report_id) REFERENCES bug_reports(report_id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_report_attachments_report ON bug_report_attachments(report_id)`)
+  ]);
+}
+
+function bugReportJson(data, status=200) {
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store', 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'Content-Type' } });
+}
+
+async function handleBugReports(request, env, url) {
+  if (request.method === 'OPTIONS') return new Response(null, { status:204, headers:{ 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Methods':'POST, OPTIONS', 'Access-Control-Allow-Headers':'Content-Type' } });
+  if (request.method !== 'POST' || url.pathname !== '/api/bug-reports') return bugReportJson({ error:'Not found.' },404);
+  const length = Number(request.headers.get('Content-Length') || 0);
+  if (length > 128 * 1024) return bugReportJson({ error:'Bug report is too large.' },413);
+  const now = Math.floor(Date.now()/1000);
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  await ensureBugReportsSchema(env);
+  const key = `bug-report:${ip}`;
+  const rate = await env.DB.prepare('SELECT window_start,count FROM admin_attempts WHERE key=?').bind(key).first();
+  if (rate && now - Number(rate.window_start) < 600 && Number(rate.count) >= 5) return bugReportJson({ error:'Too many reports. Please try again later.' },429);
+  if (!rate || now - Number(rate.window_start) >= 600) await env.DB.prepare('INSERT INTO admin_attempts (key,window_start,count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1').bind(key,now).run();
+  else await env.DB.prepare('UPDATE admin_attempts SET count=count+1 WHERE key=?').bind(key).run();
+  let body; try { body = await request.json(); } catch { return bugReportJson({ error:'Invalid JSON payload.' },400); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return bugReportJson({ error:'Invalid JSON payload.' },400);
+  const installationId = body.installation_id == null ? null : String(body.installation_id);
+  const appVersion = String(body.app_version || '').trim();
+  const build = body.build == null ? '' : String(body.build).trim();
+  const platform = String(body.platform || '').trim().toLowerCase();
+  const osVersion = body.os_version == null ? '' : String(body.os_version).trim();
+  const clientSchema = Number(body.client_schema ?? 1);
+  const what = String(body.what_happened || '').trim();
+  const repro = String(body.reproduction_steps || '').trim();
+  const expected = String(body.expected_result || '').trim();
+  if (!appVersion || appVersion.length > 64 || !/^\d{1,32}(?:\.\d{1,32}){0,3}$/.test(appVersion)) return bugReportJson({ error:'Invalid app_version.' },400);
+  if (platform !== 'windows') return bugReportJson({ error:'Unsupported platform.' },400);
+  if (!Number.isInteger(clientSchema) || clientSchema !== 1) return bugReportJson({ error:'Unsupported client_schema.' },400);
+  if (!what || what.length > 16000 || repro.length > 16000 || expected.length > 16000) return bugReportJson({ error:'Bug report text is too large or missing.' },400);
+  if (installationId && !/^[A-Za-z0-9_-]{16,128}$/.test(installationId)) return bugReportJson({ error:'Invalid installation_id.' },400);
+  const reportId = `bug_${randomToken(18)}`;
+  const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0,100) : [];
+  await env.DB.prepare(`INSERT INTO bug_reports (report_id,installation_id,app_version,build,platform,os_version,client_schema,what_happened,reproduction_steps,expected_result,status,submitted_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,'new',?,?,?)`).bind(reportId,installationId,appVersion,build||null,platform,osVersion||null,clientSchema,what,repro||null,expected||null,now,now,now).run();
+  for (const a of attachments) {
+    await env.DB.prepare('INSERT INTO bug_report_attachments (attachment_id,report_id,filename,content_type,size_bytes,storage_key,created_at) VALUES (?,?,?,?,?,?,?)').bind(`att_${randomToken(16)}`,reportId,String(a?.filename||'attachment').slice(0,255),String(a?.content_type||'application/octet-stream').slice(0,128),Math.max(0,Math.min(Number(a?.size_bytes||0),5*1024*1024)),a?.storage_key?String(a.storage_key).slice(0,512):null,now).run();
+  }
+  return bugReportJson({ok:true,report_id:reportId,received_at:now,attachment_count:attachments.length});
+}
+
+async function bugReportsData(env,url) {
+  await ensureBugReportsSchema(env);
+  const q=(url.searchParams.get('q')||'').trim().slice(0,128);
+  const p=`%${q.replace(/[%_]/g,'\\$&')}%`;
+  const result=q ? await env.DB.prepare(`SELECT report_id,installation_id,app_version,build,platform,os_version,status,submitted_at,what_happened,(SELECT COUNT(*) FROM bug_report_attachments a WHERE a.report_id=bug_reports.report_id) AS attachment_count FROM bug_reports WHERE report_id LIKE ? ESCAPE '\\' OR installation_id LIKE ? ESCAPE '\\' OR app_version LIKE ? ESCAPE '\\' OR what_happened LIKE ? ESCAPE '\\' ORDER BY submitted_at DESC LIMIT 200`).bind(p,p,p,p).all() : await env.DB.prepare(`SELECT report_id,installation_id,app_version,build,platform,os_version,status,submitted_at,what_happened,(SELECT COUNT(*) FROM bug_report_attachments a WHERE a.report_id=bug_reports.report_id) AS attachment_count FROM bug_reports ORDER BY submitted_at DESC LIMIT 200`).all();
+  return json({ok:true,rows:result?.results||[]});
+}
+
+async function bugReportDetail(env,url) {
+  await ensureBugReportsSchema(env);
+  const id=url.searchParams.get('id')||'';
+  if(!/^bug_[A-Za-z0-9_-]{16,64}$/.test(id)) return json({error:'Invalid report ID.'},400);
+  const report=await env.DB.prepare('SELECT report_id,installation_id,app_version,build,platform,os_version,client_schema,what_happened,reproduction_steps,expected_result,status,submitted_at,created_at,updated_at FROM bug_reports WHERE report_id=?').bind(id).first();
+  if(!report) return json({error:'Bug report not found.'},404);
+  const attachments=await env.DB.prepare('SELECT attachment_id,filename,content_type,size_bytes,storage_key,created_at FROM bug_report_attachments WHERE report_id=? ORDER BY created_at ASC').bind(id).all();
+  return json({ok:true,report,attachments:attachments?.results||[]});
+}
+
+async function updateBugReport(request,env,url) {
+  await ensureBugReportsSchema(env);
+  let body; try { body=await request.json(); } catch { return json({error:'Invalid JSON payload.'},400); }
+  const id=String(body?.id||''), status=String(body?.status||'').toLowerCase();
+  if(!/^bug_[A-Za-z0-9_-]{16,64}$/.test(id)) return json({error:'Invalid report ID.'},400);
+  if(!['new','reviewing','resolved','wont_fix'].includes(status)) return json({error:'Invalid report status.'},400);
+  const now=Math.floor(Date.now()/1000);
+  const result=await env.DB.prepare('UPDATE bug_reports SET status=?,updated_at=? WHERE report_id=?').bind(status,now,id).run();
+  if(!result?.meta?.changes) return json({error:'Bug report not found.'},404);
+  return json({ok:true,report_id:id,status,updated_at:now});
 }
 
 async function adminData(path, env, url) {
