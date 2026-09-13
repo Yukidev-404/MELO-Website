@@ -1,0 +1,67 @@
+/* MELO Control Room — Step 8 dashboard + global consistency polish */
+
+/* Keep the console visually quiet: content hierarchy should do the work. */
+.content-header{background:linear-gradient(180deg,rgba(255,255,255,.012),transparent)}
+.content-header h1{letter-spacing:-.015em}
+
+/* Navigation */
+.nav-item{position:relative}
+.nav-item.active{box-shadow:inset 2px 0 0 #65d995}
+.nav-item.active span{color:#65d995}
+.nav-item:focus-visible,.logout-icon:focus-visible,.filter:focus-visible,.search:focus-visible,.modal-close:focus-visible,.installation-close:focus-visible,.status-btn:focus-visible{outline:1px solid #65d995;outline-offset:2px}
+
+/* Dashboard hero */
+.hero-line{padding-top:12px}
+.status-large{display:inline-flex;align-items:center;padding:8px 10px;border:1px solid #24342b;background:#0d120f}
+.status-large i{box-shadow:0 0 0 4px rgba(101,217,149,.06)}
+
+/* Metrics */
+.metric{position:relative;overflow:hidden;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+.metric:after{content:"";position:absolute;right:-34px;top:-34px;width:86px;height:86px;border:1px solid rgba(255,255,255,.025);transform:rotate(45deg);pointer-events:none}
+.metric:hover{background:#121212;border-color:#2a2a2a;transform:translateY(-1px)}
+.metric strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+/* Shared panels */
+.panel,.mini-panel{transition:border-color .15s ease}
+.panel:hover,.mini-panel:hover{border-color:#282828}
+.panel-head h2,.mini-panel h3{letter-spacing:-.01em}
+.panel-head span{white-space:nowrap}
+
+/* Tables */
+.data-table th{white-space:nowrap}
+.data-table td{overflow-wrap:anywhere}
+.data-table tbody tr:not(.data-row){color:#777}
+.data-row:focus-within,.data-row:focus{outline:1px solid #294234;outline-offset:-1px}
+
+/* Activity feed */
+.activity-row{transition:background .12s ease}
+.activity-row:hover{background:#111}
+.activity-type{white-space:nowrap}
+.activity-text{overflow-wrap:anywhere}
+
+/* Live-data strip */
+.health-strip{border-color:#232923;background:linear-gradient(90deg,#111411,#101010)}
+.health-strip strong{color:#d9ddd9}
+
+/* Empty states should look intentional rather than unfinished. */
+.empty{min-height:72px;display:flex;align-items:center}
+
+/* Search / action controls */
+.search::placeholder{color:#505050}
+.search:focus{border-color:#3a5142;box-shadow:0 0 0 2px rgba(101,217,149,.04)}
+.filter{transition:background .15s ease,border-color .15s ease,color .15s ease}
+.filter:hover{background:#151515}
+
+/* Shared status language */
+.status-text.good{ text-shadow:0 0 12px rgba(101,217,149,.12) }
+
+@media(max-width:900px){
+  .hero-line{gap:18px}
+  .panel-head{gap:12px}
+  .panel-head span{overflow:hidden;text-overflow:ellipsis}
+}
+
+@media(max-width:760px){
+  /* mobile.css remains the final responsive authority */
+  .content-header h1{letter-spacing:-.01em}
+}
