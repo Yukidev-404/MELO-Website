@@ -306,12 +306,24 @@ function validateTelemetry(body) {
 
 async function recordTelemetry(body, env, auth) {
   const now = Math.floor(Date.now() / 1000);
-  try { await env.DB.prepare(`INSERT INTO telemetry_events (event_id, installation_id, event_type, timestamp, app_version, build, platform, os_version, client_schema, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(body.event_id, body.installation_id, body.event_type, body.timestamp, body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, now).run(); } catch (error) { if (String(error?.message || "").toLowerCase().includes("unique")) return json({ ok: true, duplicate: true }); throw error; }
-  await env.DB.prepare(`UPDATE installations SET app_version=?, build=?, platform=?, os_version=?, client_schema=?, last_seen=?, updated_at=? WHERE installation_id=?`).bind(body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, body.timestamp, now, body.installation_id).run(); await env.DB.prepare("UPDATE telemetry_credentials SET last_used_at = ? WHERE installation_id = ? AND revoked_at IS NULL").bind(now, auth.installation_id).run();
-  if (body.event_type === "crash") { const crash = body.crash; await env.DB.prepare(`INSERT INTO crash_reports (crash_id, event_id, installation_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(randomToken(18), body.event_id, body.installation_id, sanitizeText(crash.error_type, 128), sanitizeText(crash.message, 4096), sanitizeStack(crash.stack_trace, 16384), crash.severity || "error", body.app_version, body.build || null, body.platform, body.os_version || null, body.timestamp, now).run(); }
+  const crashId = body.event_type === "crash" ? randomToken(18) : null;
+  const statements = [
+    env.DB.prepare(`INSERT INTO telemetry_events (event_id, installation_id, event_type, timestamp, app_version, build, platform, os_version, client_schema, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(body.event_id, body.installation_id, body.event_type, body.timestamp, body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, now),
+    env.DB.prepare(`UPDATE installations SET app_version=?, build=?, platform=?, os_version=?, client_schema=?, last_seen=?, updated_at=? WHERE installation_id=?`).bind(body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, body.timestamp, now, body.installation_id),
+    env.DB.prepare("UPDATE telemetry_credentials SET last_used_at = ? WHERE installation_id = ? AND revoked_at IS NULL").bind(now, auth.installation_id)
+  ];
+  if (body.event_type === "crash") {
+    const crash = body.crash;
+    statements.push(env.DB.prepare(`INSERT INTO crash_reports (crash_id, event_id, installation_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(crashId, body.event_id, body.installation_id, sanitizeText(crash.error_type, 128), sanitizeText(crash.message, 4096), sanitizeStack(crash.stack_trace, 16384), crash.severity || "error", body.app_version, body.build || null, body.platform, body.os_version || null, body.timestamp, now));
+  }
+  try {
+    await env.DB.batch(statements);
+  } catch (error) {
+    if (String(error?.message || "").toLowerCase().includes("unique")) return json({ ok: true, duplicate: true });
+    throw error;
+  }
   return json({ ok: true, recorded: true });
 }
-
 async function telemetryRateLimited(env, installationId) { const key = `telemetry:${installationId}`; const now = Math.floor(Date.now() / 1000); const row = await env.DB.prepare("SELECT window_start, count FROM rate_limits WHERE key = ?").bind(key).first(); if (!row || now - row.window_start >= TELEMETRY_RATE_WINDOW) { await env.DB.prepare("INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start, count=1").bind(key, now).run(); return false; } if (row.count >= TELEMETRY_MAX_EVENTS) return true; await env.DB.prepare("UPDATE rate_limits SET count=count+1 WHERE key=?").bind(key).run(); return false; }
 async function installRateLimited(env, ip) { const key = `telemetry-install:${ip}`; const now = Math.floor(Date.now() / 1000); const window = 10 * 60; const max = 10; const row = await env.DB.prepare("SELECT window_start, count FROM rate_limits WHERE key = ?").bind(key).first(); if (!row || now - row.window_start >= window) { await env.DB.prepare("INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start, count=1").bind(key, now).run(); return false; } if (row.count >= max) return true; await env.DB.prepare("UPDATE rate_limits SET count=count+1 WHERE key=?").bind(key).run(); return false; }
 function sanitizeText(value, max) { return String(value || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").slice(0, max).replace(/(?:Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]").replace(/(?:access[_ -]?token|refresh[_ -]?token|api[_ -]?key|password|secret)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]").replace(/([A-Za-z]:\\Users\\)[^\\]+/gi, "$1[REDACTED]").replace(/(\/Users\/|\/home\/)[^\/]+/gi, "$1[REDACTED]"); }
