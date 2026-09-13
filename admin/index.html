@@ -14,6 +14,8 @@
 </head>
 <body>
 <div class="app-shell">
+  <div class="mobile-topbar"><button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-label="Open navigation" aria-expanded="false"><span></span><span></span><span></span></button><div class="mobile-brand"><span class="brand-mark">M</span><strong>MELO</strong><small>CONTROL ROOM</small></div><span class="mobile-status"><i></i>OK</span></div>
+  <div id="mobile-nav-backdrop" class="mobile-nav-backdrop" aria-hidden="true"></div>
   <aside class="sidebar">
     <a class="side-brand" href="/admin/"><span class="brand-mark">M</span><span><strong>MELO</strong><small>CONTROL ROOM</small></span></a>
     <nav aria-label="Admin navigation">
@@ -37,5 +39,23 @@
 <script src="flags-view.js"></script>
 <script src="analytics-view.js"></script>
 <script src="system-view.js"></script>
+<script>
+(() => {
+  const toggle = document.getElementById('mobile-nav-toggle');
+  const backdrop = document.getElementById('mobile-nav-backdrop');
+  const sidebar = document.querySelector('.sidebar');
+  if (!toggle || !backdrop || !sidebar) return;
+  const setOpen = open => {
+    sidebar.classList.toggle('mobile-open', open);
+    backdrop.classList.toggle('visible', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    document.body.classList.toggle('nav-open', open);
+  };
+  toggle.addEventListener('click', () => setOpen(!sidebar.classList.contains('mobile-open')));
+  backdrop.addEventListener('click', () => setOpen(false));
+  sidebar.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => setOpen(false)));
+  window.addEventListener('resize', () => { if (window.innerWidth > 760) setOpen(false); });
+})();
+</script>
 </body>
 </html>
