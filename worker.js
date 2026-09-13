@@ -33,8 +33,13 @@ async function handleApi(request, env, url) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request, url) });
 
   if (url.pathname === "/api/admin/status" && request.method === "GET") {
-    const row = await env.DB.prepare("SELECT setup_complete FROM admin_config WHERE id = 1").first();
-    return json({ configured: Boolean(row?.setup_complete) });
+    const row = await env.DB.prepare("SELECT setup_complete, totp_secret_enc FROM admin_config WHERE id = 1").first();
+    const configured = Boolean(row?.totp_secret_enc);
+    if (configured && !row?.setup_complete) {
+      await env.DB.prepare("UPDATE admin_config SET setup_complete = 1, updated_at = ? WHERE id = 1")
+        .bind(Math.floor(Date.now() / 1000)).run();
+    }
+    return json({ configured });
   }
 
   if (url.pathname === "/api/admin/setup/start" && request.method === "POST") return setupStart(request, env, url);
@@ -54,8 +59,8 @@ async function setupStart(request, env, url) {
   const token = request.headers.get("X-MELO-Setup-Token") || "";
   if (email !== ADMIN_EMAIL || !token || !timingSafeEqual(token, env.ADMIN_SETUP_TOKEN || "")) return json({ error: "Unauthorized setup request." }, 403);
 
-  const existing = await env.DB.prepare("SELECT setup_complete FROM admin_config WHERE id = 1").first();
-  if (existing?.setup_complete) return json({ error: "Admin setup is already complete." }, 409);
+  const existing = await env.DB.prepare("SELECT setup_complete, totp_secret_enc FROM admin_config WHERE id = 1").first();
+  if (existing?.setup_complete || existing?.totp_secret_enc) return json({ error: "Admin setup is already complete." }, 409);
 
   if (await rateLimited(env, `setup:${email}`)) return json({ error: "Too many setup attempts. Try again later." }, 429);
 
@@ -105,13 +110,13 @@ async function completeSetupOrLogin(request, env, url, body, isSetup) {
 
   let secret;
   if (isSetup) {
-    if (row.setup_complete) return json({ error: "Setup is already complete. Use normal login." }, 409);
+    if (row.setup_complete || row.totp_secret_enc) return json({ error: "Setup is already complete. Use normal login." }, 409);
     if (!row.pending_secret_enc || !row.pending_expires_at || row.pending_expires_at < Math.floor(Date.now() / 1000)) {
       return json({ error: "Setup expired. Start authenticator setup again." }, 410);
     }
     secret = await decryptSecret(row.pending_secret_enc, env.ADMIN_ENCRYPTION_KEY);
   } else {
-    if (!row.setup_complete || !row.totp_secret_enc) return json({ error: "Complete Authenticator setup first." }, 409);
+    if (!row.totp_secret_enc) return json({ error: "Complete Authenticator setup first." }, 409);
     secret = await decryptSecret(row.totp_secret_enc, env.ADMIN_ENCRYPTION_KEY);
   }
 
@@ -121,6 +126,8 @@ async function completeSetupOrLogin(request, env, url, body, isSetup) {
   if (isSetup) {
     await env.DB.prepare(`UPDATE admin_config SET totp_secret_enc = pending_secret_enc, pending_secret_enc = NULL,
       pending_expires_at = NULL, setup_complete = 1, updated_at = ? WHERE id = 1`).bind(now).run();
+  } else if (!row.setup_complete) {
+    await env.DB.prepare("UPDATE admin_config SET setup_complete = 1, updated_at = ? WHERE id = 1").bind(now).run();
   }
 
   await env.DB.prepare("DELETE FROM admin_attempts WHERE key = ?").bind(`login:${email}`).run();
