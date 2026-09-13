@@ -1,0 +1,59 @@
+/* MELO Control Room — Step 8B: cross-section consistency layer */
+:root{--melo-bg:#090909;--melo-panel:#0d0d0d;--melo-panel-2:#101010;--melo-border:#202020;--melo-border-soft:#181818;--melo-text:#ddd;--melo-muted:#666;--melo-green:#65d995}
+
+/* Shared rhythm */
+.page{scroll-margin-top:18px}
+.page-intro h2,.panel-head h2,.mini-panel h3{letter-spacing:-.01em}
+.page-intro p,.hero-copy{line-height:1.55}
+.panel,.mini-panel,.metric{transition:border-color .15s ease,background .15s ease,box-shadow .15s ease}
+.panel:hover,.mini-panel:hover{border-color:#292929}
+
+/* Shared live/status language */
+.panel-head span,.health-strip .right,.kicker,.nav-label,.eyebrow{font-variant-numeric:tabular-nums}
+.status-text,.service-pill,.status-large{white-space:nowrap}
+.status-text.good i,.service-pill i,.status-large i{box-shadow:0 0 0 3px rgba(101,217,149,.055)}
+
+/* Tables across every section */
+.data-table th{white-space:nowrap}
+.data-table td{vertical-align:middle;overflow-wrap:anywhere}
+.data-table tbody tr:not(.data-row){background:#0d0d0d}
+.data-table tbody tr:not(.data-row):hover{background:#111}
+.data-table .mono{font-size:8px;letter-spacing:.01em}
+
+/* Shared controls */
+.search,.filter,.release-action,.status-btn{min-height:34px;border-radius:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;transition:border-color .15s ease,background .15s ease,color .15s ease,box-shadow .15s ease}
+.search::placeholder{color:#555}
+.search:focus{border-color:#4b4b4b;box-shadow:0 0 0 2px rgba(101,217,149,.045)}
+.filter:active,.release-action:active,.status-btn:active{transform:translateY(1px)}
+
+/* Consistent empty/error states */
+.empty,.detail-empty{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.02em}
+.detail-error{border:1px solid #302525;background:#0e0c0c;padding:18px!important}
+
+/* Shared metric treatment */
+.metric{position:relative;overflow:hidden}
+.metric:after{content:"";position:absolute;inset:auto 0 0;height:1px;background:rgba(101,217,149,.12);opacity:0;transition:opacity .15s ease}
+.metric:hover{border-color:#2b332e;background:#111}
+.metric:hover:after{opacity:1}
+.metric strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+/* Shared live-data strip */
+.health-strip{line-height:1.45}
+.health-strip strong{letter-spacing:.01em}
+
+/* Navigation consistency */
+.nav-item:focus-visible,.logout-icon:focus-visible,.modal-close:focus-visible,.installation-close:focus-visible,.status-btn:focus-visible,.release-action:focus-visible,.filter:focus-visible{outline:1px solid var(--melo-green);outline-offset:2px}
+.nav-item.active{box-shadow:inset 2px 0 0 var(--melo-green)}
+
+@media(min-width:761px){
+  .data-row:focus-within,.data-row:hover{background:#141414}
+}
+
+@media(max-width:760px){
+  .status-text,.service-pill,.status-large{white-space:normal}
+  .panel-head{gap:12px}
+  .panel-head span{flex:0 0 auto}
+  .health-strip{gap:12px;align-items:flex-start;flex-wrap:wrap;padding:12px 13px}
+  .health-strip .right{margin-left:auto}
+  .data-table{min-width:520px}
+}
