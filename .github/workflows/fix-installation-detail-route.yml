@@ -1,0 +1,49 @@
+name: Fix installation detail route
+
+on:
+  push:
+
+jobs:
+  patch-worker:
+    if: ${{ !startsWith(github.event.head_commit.message, 'Fix installation detail route') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch worker.js
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('worker.js')
+          text = path.read_text(encoding='utf-8')
+
+          marker = '  if (url.pathname === "/api/admin/health" && request.method === "GET") return json({ ok: true, service: "melo-admin" });\n'
+          if 'url.pathname === "/api/admin/installation"' in text:
+              print('Installation detail route already present; nothing to do.')
+              raise SystemExit(0)
+          if marker not in text:
+              raise SystemExit('Could not find admin health route marker.')
+
+          route = r'''\n  if (url.pathname === "/api/admin/installation" && request.method === "GET") {\n    const session = await getSession(request, env);\n    if (!session) return json({ authenticated: false }, 401);\n\n    const installationId = url.searchParams.get("id") || "";\n    if (!/^[A-Za-z0-9_-]{16,128}$/.test(installationId)) {\n      return json({ error: "Invalid installation ID." }, 400);\n    }\n\n    const installation = await env.DB.prepare(`\n      SELECT\n        installation_id,\n        app_version,\n        build,\n        platform,\n        os_version,\n        client_schema,\n        first_seen,\n        last_seen,\n        created_at,\n        updated_at\n      FROM installations\n      WHERE installation_id = ?\n    `).bind(installationId).first();\n\n    if (!installation) {\n      return json({ error: "Installation not found." }, 404);\n    }\n\n    const [events, crashes, credential] = await Promise.all([\n      env.DB.prepare(`\n        SELECT\n          event_id,\n          event_type,\n          timestamp,\n          app_version,\n          build,\n          platform,\n          os_version,\n          client_schema,\n          created_at\n        FROM telemetry_events\n        WHERE installation_id = ?\n        ORDER BY timestamp DESC\n        LIMIT 500\n      `).bind(installationId).all(),\n\n      env.DB.prepare(`\n        SELECT\n          crash_id,\n          event_id,\n          error_type,\n          message,\n          stack_trace,\n          severity,\n          app_version,\n          build,\n          platform,\n          os_version,\n          timestamp,\n          created_at\n        FROM crash_reports\n        WHERE installation_id = ?\n        ORDER BY timestamp DESC\n        LIMIT 100\n      `).bind(installationId).all(),\n\n      env.DB.prepare(`\n        SELECT\n          created_at,\n          last_used_at,\n          revoked_at\n        FROM telemetry_credentials\n        WHERE installation_id = ?\n      `).bind(installationId).first()\n    ]);\n\n    return json({\n      ok: true,\n      installation,\n      events: events?.results || [],\n      crashes: crashes?.results || [],\n      telemetry: credential\n        ? {\n            active: !credential.revoked_at,\n            createdAt: credential.created_at,\n            lastUsedAt: credential.last_used_at,\n            revokedAt: credential.revoked_at\n          }\n        : null\n    });\n  }\n'''
+          text = text.replace(marker, marker + route.replace('\\n', '\n'), 1)
+          path.write_text(text, encoding='utf-8')
+          print('Installation detail route inserted.')
+          PY
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add worker.js
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Fix installation detail route'
+          git push
