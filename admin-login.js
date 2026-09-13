@@ -5,6 +5,7 @@ const emailInput = document.getElementById('adminEmail');
 const setupTokenWrap = document.getElementById('setupTokenWrap');
 const setupToken = document.getElementById('setupToken');
 const totpSetup = document.getElementById('totpSetup');
+const setupPanel = document.querySelector('.setup-panel');
 const totpQr = document.getElementById('totpQr');
 const setupKey = document.getElementById('setupKey');
 const totpCode = document.getElementById('totpCode');
@@ -28,6 +29,7 @@ function resetAuthFields() {
   totpQr.removeAttribute('src');
   setupTokenWrap.hidden = true;
   totpSetup.hidden = true;
+  setupPanel.hidden = false;
   emailInput.readOnly = false;
   submit.disabled = false;
   submit.innerHTML = 'Continue <span>→</span>';
@@ -60,11 +62,7 @@ function checkEmailState() {
   if (configured) {
     intro.textContent = 'Administrator recognized. Enter the current 6-digit Authenticator code.';
     totpSetup.hidden = false;
-    document.querySelector('.setup-panel').querySelector('strong').textContent = 'AUTHENTICATOR';
-    document.querySelector('.setup-panel').querySelector('p').textContent = 'Enter the current code from your authenticator app.';
-    document.querySelector('.qr-wrap').hidden = true;
-    document.querySelector('.warning').hidden = true;
-    setupKey.parentElement.hidden = true;
+    setupPanel.hidden = true;
     totpCode.required = true;
     submit.innerHTML = 'Sign in <span>→</span>';
     showStep(2);
@@ -133,6 +131,7 @@ form.addEventListener('submit', async (event) => {
       totpQr.src = data.qrCodeDataUrl;
       setupKey.value = data.setupKey;
       totpSetup.hidden = false;
+      setupPanel.hidden = false;
       setupStarted = true;
       setupTokenWrap.hidden = true;
       emailInput.readOnly = true;
