@@ -11,6 +11,7 @@ const TELEMETRY_MAX_EVENTS = 30;
 const TELEMETRY_MAX_BODY = 64 * 1024;
 const ALLOWED_EVENT_TYPES = new Set(["install", "heartbeat", "version", "crash"]);
 const ALLOWED_PLATFORMS = new Set(["windows"]);
+const RELEASE_STATUSES = new Set(["active", "staged", "archived"]);
 
 export default {
   async fetch(request, env) {
@@ -75,6 +76,12 @@ async function handleApi(request, env, url) {
       env.DB.prepare(`SELECT created_at, last_used_at, revoked_at FROM telemetry_credentials WHERE installation_id = ?`).bind(installationId).first()
     ]);
     return json({ ok: true, installation, events: events?.results || [], crashes: crashes?.results || [], telemetry: credential ? { active: !credential.revoked_at, createdAt: credential.created_at, lastUsedAt: credential.last_used_at, revokedAt: credential.revoked_at } : null });
+  }
+
+  if (url.pathname === "/api/admin/release-status" && request.method === "POST") {
+    const session = await getSession(request, env);
+    if (!session) return json({ authenticated: false }, 401);
+    return updateReleaseStatus(request, env, url);
   }
 
   const protectedDataRoutes = new Set([
@@ -171,6 +178,28 @@ async function updateBugReport(request,env,url) {
   const result=await env.DB.prepare('UPDATE bug_reports SET status=?,updated_at=? WHERE report_id=?').bind(status,now,id).run();
   if(!result?.meta?.changes) return json({error:'Bug report not found.'},404);
   return json({ok:true,report_id:id,status,updated_at:now});
+}
+
+async function updateReleaseStatus(request,env,url){
+  if(!sameOrigin(request,url))return json({error:'Invalid origin.'},403);
+  let body;try{body=await request.json();}catch{return json({error:'Invalid JSON request.'},400);}
+  const version=String(body?.version||'').trim();
+  const build=String(body?.build||'').trim();
+  const platform=String(body?.platform||'').trim().toLowerCase();
+  const status=String(body?.status||'').trim().toLowerCase();
+  if(!version||version.length>64||!/^\d{1,32}(?:\.\d{1,32}){0,3}$/.test(version))return json({error:'Invalid release version.'},400);
+  if(build.length>64)return json({error:'Invalid release build.'},400);
+  if(!platform||platform.length>32)return json({error:'Invalid release platform.'},400);
+  if(!RELEASE_STATUSES.has(status))return json({error:'Invalid release status.'},400);
+  const now=Math.floor(Date.now()/1000);
+  const match=build?await env.DB.prepare('SELECT version FROM releases WHERE version=? AND build=? AND platform=? LIMIT 1').bind(version,build,platform).first():await env.DB.prepare("SELECT version FROM releases WHERE version=? AND (build IS NULL OR build='') AND platform=? LIMIT 1").bind(version,platform).first();
+  if(!match)return json({error:'Release not found.'},404);
+  const statements=[];
+  if(status==='active')statements.push(env.DB.prepare("UPDATE releases SET release_status='archived', updated_at=? WHERE platform=? AND release_status='active'").bind(now,platform));
+  const target=build?env.DB.prepare('UPDATE releases SET release_status=?, updated_at=? WHERE version=? AND build=? AND platform=?').bind(status,now,version,build,platform):env.DB.prepare("UPDATE releases SET release_status=?, updated_at=? WHERE version=? AND (build IS NULL OR build='') AND platform=?").bind(status,now,version,platform);
+  statements.push(target);
+  await env.DB.batch(statements);
+  return json({ok:true,version,build:build||null,platform,release_status:status,updated_at:now});
 }
 
 async function adminData(path, env, url) {
