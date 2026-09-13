@@ -68,7 +68,6 @@ function detailModal(titleText,rows,kind){
 function bindTableRows(view,rows){document.querySelectorAll('.data-row').forEach(row=>row.addEventListener('click',()=>detailModal(view==='crashes'?'Crash Report':'Installation',rows[Number(row.dataset.row)],view==='crashes'?'crash':'installation')))}
 function exportCsv(view,rows){const cfg=configs[view]||[];const csv=[cfg.map(x=>x[1]),...rows.map(r=>cfg.map(([k])=>`"${String(format(k,r[k])??'').replace(/"/g,'""')}"`))].map(x=>x.join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`melo-${view}.csv`;a.click();URL.revokeObjectURL(a.href)}
 
-function analyticsHtml(d){const events=d.events||[],versions=d.versions||[],max=Math.max(1,...events.map(x=>Number(x.count)));return`<section class="page"><div class="page-intro"><h2>Analytics</h2><p>Derived directly from telemetry events and installation records.</p></div><div class="two-col"><section class="panel"><div class="panel-head"><h2>Event volume</h2><span>ALL TIME</span></div><div class="bar-list">${events.length?events.map(x=>`<div class="bar-row"><span>${esc(x.event_type)}</span><div><i style="width:${Math.max(3,Number(x.count)/max*100)}%"></i></div><b>${esc(x.count)}</b></div>`).join(''):'<div class="empty">No events.</div>'}</div></section><section class="panel"><div class="panel-head"><h2>Installed versions</h2><span>FLEET</span></div><table class="data-table"><tbody>${versions.length?versions.map(x=>`<tr><td class="mono">${esc(x.app_version)}</td><td class="accent">${esc(x.count)}</td></tr>`).join(''):'<tr><td>No versions.</td></tr>'}</tbody></table></section></div></section>`}
 function securityHtml(d){const rows=d.attempts||[];return`<section class="page"><div class="page-intro"><h2>Security Center</h2><p>Protected administrative activity and rate-limit counters. Secrets and tokens are never displayed.</p></div><section class="panel"><div class="panel-head"><h2>Recent counters</h2><span>LAST 10 MIN</span></div><table class="data-table"><thead><tr><th>WINDOW</th><th>EVENT</th><th>COUNT</th><th>STATE</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td class="mono">${esc(date(r.window_start))}</td><td>${r.key.startsWith('login:')?'Admin authentication':r.key.startsWith('telemetry')?'Telemetry rate limit':'Protected rate limit'}</td><td class="mono">${esc(r.count)}</td><td>${r.count>=5?'ATTENTION':'NORMAL'}</td></tr>`).join(''):'<tr><td colspan="4">No recent security counters.</td></tr>'}</tbody></table></section><div class="health-strip"><span><strong>2FA ${d.admin?.setupComplete?'ACTIVE':'NOT CONFIGURED'}.</strong> ${esc(d.admin?.activeSessions??0)} active admin session(s).</span></div></section>`}
 function servicesHtml(d){return`<section class="page"><div class="page-intro"><h2>Services</h2><p>Live checks from the current control-plane request.</p></div><section class="panel"><table class="data-table"><thead><tr><th>SERVICE</th><th>STATUS</th><th>LATENCY</th><th>DETAIL</th></tr></thead><tbody>${(d.services||[]).map(s=>`<tr><td class="mono">${esc(s.service)}</td><td>${statusDot(s.status)}</td><td class="mono">${s.latencyMs==null?'—':esc(s.latencyMs)+' ms'}</td><td>${esc(s.note)}</td></tr>`).join('')}</tbody></table></section></section>`}
 function healthHtml(d){return`<section class="page"><div class="page-intro"><h2>System Health</h2><p>Current Worker and D1 health snapshot.</p></div><section class="panel"><table class="data-table"><thead><tr><th>COMPONENT</th><th>STATUS</th><th>DETAIL</th></tr></thead><tbody>${(d.components||[]).map(c=>`<tr><td class="mono">${esc(c.component)}</td><td>${statusDot(c.status)}</td><td>${esc(c.detail)}</td></tr>`).join('')}</tbody></table></section></section>`}
@@ -76,20 +75,21 @@ function settingsHtml(d){return`<section class="page"><div class="page-intro"><h
 
 let currentView='dashboard',refreshTimer;
 async function render(view,search=''){
- currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;content.innerHTML=`<section class="page"><div class="page-intro"><h2>${esc(views[currentView].heading)}</h2><p>Loading live control-room data…</p></div></section>`;
+ currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;
+ const specializedViews=new Set(['analytics']);
+ if(!specializedViews.has(currentView))content.innerHTML=`<section class="page"><div class="page-intro"><h2>${esc(views[currentView].heading)}</h2><p>Loading live control-room data…</p></div></section>`;
  try{
   let rows=null,data;
   if(currentView==='dashboard')data=await api('/api/admin/dashboard');
   else if(['users','installations','crashes','releases','flags'].includes(currentView)){data=await api(`/api/admin/${currentView}`,{q:search});rows=data.rows||[];content.innerHTML=tableView(currentView,rows);bindTableRows(currentView,rows);bindSearch(currentView);}
   else if(currentView==='security')content.innerHTML=securityHtml(await api('/api/admin/security'));
   else if(currentView==='services')content.innerHTML=servicesHtml(await api('/api/admin/services'));
-  else if(currentView==='analytics')content.innerHTML=analyticsHtml(await api('/api/admin/analytics'));
   else if(currentView==='health')content.innerHTML=healthHtml(await api('/api/admin/health-detail'));
   else if(currentView==='settings')content.innerHTML=settingsHtml(await api('/api/admin/settings'));
   if(currentView==='dashboard')content.innerHTML=dashboardHtml(data);
   if(rows){const e=document.getElementById('export-btn');if(e)e.onclick=()=>exportCsv(currentView,rows)}
   history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);
- }catch(e){content.innerHTML=`<section class="page"><div class="page-intro"><h2>Unable to load data</h2><p>${esc(e.message)}</p></div></section>`}
+ }catch(e){if(!specializedViews.has(currentView))content.innerHTML=`<section class="page"><div class="page-intro"><h2>Unable to load data</h2><p>${esc(e.message)}</p></div></section>`}
  scheduleRefresh();
 }
 function bindSearch(view){const i=document.getElementById('module-search'),b=document.getElementById('search-btn');if(!i||!b)return;i.value=new URLSearchParams(location.search).get('q')||'';b.onclick=()=>render(view,i.value.trim());i.onkeydown=e=>{if(e.key==='Enter')render(view,i.value.trim())}}
