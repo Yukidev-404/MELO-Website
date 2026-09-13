@@ -1,26 +1,16 @@
-/* MELO public site — real Desktop assets */
+/* MELO public site — use the copied Desktop assets locally */
 (() => {
   const asset = name => `assets/${name}`;
 
+  document.querySelectorAll('img[src*="MELO-Desktop/main/assets/"]').forEach(img => {
+    const match = img.src.match(/assets\/([^/?#]+)$/);
+    if (match) img.src = asset(match[1]);
+  });
+
   const hero = document.querySelector('.hero-art');
   if (hero) {
-    const backdrop = document.createElement('div');
-    backdrop.className = 'asset-backdrop';
-
-    const note = document.createElement('div');
-    note.className = 'real-asset-note';
-    note.textContent = 'REAL MELO DESKTOP / CURRENT ASSETS';
-
-    const disc = document.createElement('div');
-    disc.className = 'asset-disc';
-
-    const arm = document.createElement('img');
-    arm.className = 'asset-arm';
-    arm.src = asset('melo_tonearm_hr.png');
-    arm.alt = '';
-    arm.setAttribute('aria-hidden', 'true');
-
-    hero.prepend(backdrop, disc, arm, note);
+    const note = hero.querySelector('.real-asset-note');
+    if (note) note.textContent = 'MELO DESKTOP / LOCAL ASSETS';
   }
 
   const showcase = document.querySelector('.screen-stack');
@@ -36,7 +26,7 @@
   }
 
   const features = document.querySelector('.features');
-  if (features) {
+  if (features && !features.querySelector('.asset-feature-grid')) {
     const grid = document.createElement('div');
     grid.className = 'asset-feature-grid';
     grid.innerHTML = `
