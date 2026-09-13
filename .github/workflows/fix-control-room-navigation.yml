@@ -1,0 +1,53 @@
+name: Fix Control Room navigation ownership
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply Control Room navigation ownership fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch core renderer navigation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('admin/control-room.js')
+          s = p.read_text()
+          old = "currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;\n if(specializedViews.has(currentView)){scheduleRefresh();return;}"
+          new = "currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;\n history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);\n if(specializedViews.has(currentView)){scheduleRefresh();return;}"
+          if old not in s:
+              raise SystemExit('Expected Control Room render navigation block not found')
+          s = s.replace(old, new, 1)
+          old_history = "  history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);\n"
+          if s.count(old_history) != 2:
+              raise SystemExit(f'Expected 2 history updates after patch, found {s.count(old_history)}')
+          s = s.replace(old_history, '', 1)
+          p.write_text(s)
+          PY
+      - name: Verify renderer ownership fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s = Path('admin/control-room.js').read_text()
+          start = s.index('async function render(')
+          end = s.index('\nfunction scheduleRefresh', start)
+          block = s[start:end]
+          if 'history.replaceState' not in block.split("if(specializedViews.has",1)[0]:
+              raise SystemExit('URL state is not updated before specialized renderer return')
+          if block.count('history.replaceState') != 1:
+              raise SystemExit('Expected exactly one history update in render()')
+          if "const specializedViews=new Set(['users','installations','bug-reports','crashes','security','services','releases','flags','analytics','health','settings']);" not in s:
+              raise SystemExit('Specialized renderer ownership set is incomplete')
+          print('Control Room renderer ownership/navigation fix verified.')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin/control-room.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix Control Room renderer navigation ownership"
+          git push
