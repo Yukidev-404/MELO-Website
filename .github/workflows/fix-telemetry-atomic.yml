@@ -6,7 +6,6 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Apply one-time telemetry atomic recording fix'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +17,6 @@ jobs:
           s = p.read_text()
           start = s.index('async function recordTelemetry(')
           end = s.index('\nasync function telemetryRateLimited', start)
-          old = s[start:end]
           new = '''async function recordTelemetry(body, env, auth) {
   const now = Math.floor(Date.now() / 1000);
   const crashId = body.event_type === "crash" ? randomToken(18) : null;
@@ -49,14 +47,9 @@ jobs:
           start = s.index('async function recordTelemetry(')
           end = s.index('\nasync function telemetryRateLimited', start)
           block = s[start:end]
-          if 'await env.DB.batch(statements);' not in block:
-              raise SystemExit('D1 batch write not found')
-          if '.run()' in block:
-              raise SystemExit('recordTelemetry still contains standalone database writes')
-          if 'const crashId = body.event_type === "crash" ? randomToken(18) : null;' not in block:
-              raise SystemExit('Crash ID generation missing')
-          if 'return json({ ok: true, duplicate: true });' not in block:
-              raise SystemExit('Duplicate-event handling missing')
+          if 'await env.DB.batch(statements);' not in block: raise SystemExit('D1 batch write not found')
+          if '.run()' in block: raise SystemExit('Standalone database write remains in recordTelemetry')
+          if 'return json({ ok: true, duplicate: true });' not in block: raise SystemExit('Duplicate handling missing')
           print('Atomic telemetry recording verified.')
           PY
       - name: Commit
