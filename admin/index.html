@@ -3,20 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MELO / ADMIN CONSOLE</title>
+<title>MELO / CONTROL ROOM</title>
 <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-<header class="topbar"><a class="brand" href="../index.html">MELO <span>/ ADMIN</span></a><button id="logout">LOG OUT</button></header>
-<main>
-<section class="hero"><div><p class="eyebrow">[ PRIVATE CONSOLE ]</p><h1>MELO<br><em>control room.</em></h1><p id="identity">Loading secure session…</p></div><div class="status"><span></span> AUTHENTICATED</div></section>
-<section class="grid">
-<article><small>AUTHENTICATION</small><h2>2FA ACTIVE</h2><p>Authenticator protection and server-side session storage are enabled.</p></article>
-<article><small>DATABASE</small><h2>D1 ONLINE</h2><p>Admin configuration and session records are stored in Cloudflare D1.</p></article>
-<article><small>SECURITY</small><h2>SESSION</h2><p id="session">Checking session expiry…</p></article>
-<article><small>NEXT</small><h2>ADMIN MODULES</h2><p>User analytics, crash logs, releases and service health will appear here as MELO features are connected.</p></article>
-</section>
-</main>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="side-brand" href="/admin/">
+      <span class="brand-mark">M</span>
+      <span><strong>MELO</strong><small>CONTROL ROOM</small></span>
+    </a>
+
+    <nav aria-label="Admin navigation">
+      <p class="nav-label">OVERVIEW</p>
+      <a class="nav-item active" href="/admin/?view=dashboard" data-view="dashboard"><span>⌁</span>Dashboard</a>
+
+      <p class="nav-label">MANAGEMENT</p>
+      <a class="nav-item" href="/admin/?view=users" data-view="users"><span>◌</span>Users</a>
+      <a class="nav-item" href="/admin/?view=installations" data-view="installations"><span>⌘</span>Installations</a>
+
+      <p class="nav-label">MONITORING</p>
+      <a class="nav-item" href="/admin/?view=crashes" data-view="crashes"><span>△</span>Crashes</a>
+      <a class="nav-item" href="/admin/?view=security" data-view="security"><span>◇</span>Security</a>
+      <a class="nav-item" href="/admin/?view=services" data-view="services"><span>◈</span>API / Services</a>
+
+      <p class="nav-label">PRODUCT</p>
+      <a class="nav-item" href="/admin/?view=releases" data-view="releases"><span>□</span>Releases</a>
+      <a class="nav-item" href="/admin/?view=flags" data-view="flags"><span>◉</span>Feature Flags</a>
+      <a class="nav-item" href="/admin/?view=analytics" data-view="analytics"><span>∿</span>Analytics</a>
+
+      <p class="nav-label">SYSTEM</p>
+      <a class="nav-item" href="/admin/?view=health" data-view="health"><span>⌬</span>System Health</a>
+      <a class="nav-item" href="/admin/?view=settings" data-view="settings"><span>⚙</span>Admin Settings</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="admin-avatar">YS</div>
+      <div class="admin-info"><strong>Admin</strong><span id="identity">Loading…</span><small><i></i> SECURE SESSION</small></div>
+      <button id="logout" class="logout-icon" aria-label="Log out">↗</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <header class="content-header">
+      <div><p class="kicker">PRIVATE ADMINISTRATION</p><h1 id="page-title">MELO Administration</h1></div>
+      <div class="header-meta"><span class="service-pill"><i></i> SYSTEM OK</span><span class="clock" id="clock">--:--:-- UTC</span></div>
+    </header>
+
+    <div id="page-content"></div>
+  </main>
+</div>
 <script src="admin.js"></script>
 </body>
 </html>
