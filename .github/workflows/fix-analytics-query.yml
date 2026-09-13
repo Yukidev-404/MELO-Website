@@ -1,0 +1,39 @@
+name: Fix analytics query
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor == 'Yukidev-404'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix analytics query
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('worker.js')
+          s = p.read_text()
+          old = 'SELECT (timestamp / 86400) AS day, COUNT(*) AS count FROM installations WHERE timestamp >= ? GROUP BY day ORDER BY day DESC LIMIT 30'
+          new = 'SELECT (created_at / 86400) AS day, COUNT(*) AS count FROM installations WHERE created_at >= ? GROUP BY day ORDER BY day DESC LIMIT 30'
+          if old not in s:
+              print('Analytics query already fixed or source changed; no edit needed.')
+          else:
+              p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add worker.js
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+          else
+            git commit -m 'Fix analytics installation timestamp query'
+            git push
+          fi
