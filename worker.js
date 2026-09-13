@@ -45,6 +45,21 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/admin/me" && request.method === "GET") return me(request, env, url);
   if (url.pathname === "/api/admin/health" && request.method === "GET") return json({ ok: true, service: "melo-admin" });
 
+  if (url.pathname === "/api/admin/installation" && request.method === "GET") {
+    const session = await getSession(request, env);
+    if (!session) return json({ authenticated: false }, 401);
+    const installationId = url.searchParams.get("id") || "";
+    if (!/^[A-Za-z0-9_-]{16,128}$/.test(installationId)) return json({ error: "Invalid installation ID." }, 400);
+    const installation = await env.DB.prepare(`SELECT installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen, created_at, updated_at FROM installations WHERE installation_id = ?`).bind(installationId).first();
+    if (!installation) return json({ error: "Installation not found." }, 404);
+    const [events, crashes, credential] = await Promise.all([
+      env.DB.prepare(`SELECT event_id, event_type, timestamp, app_version, build, platform, os_version, client_schema, created_at FROM telemetry_events WHERE installation_id = ? ORDER BY timestamp DESC LIMIT 500`).bind(installationId).all(),
+      env.DB.prepare(`SELECT crash_id, event_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp, created_at FROM crash_reports WHERE installation_id = ? ORDER BY timestamp DESC LIMIT 100`).bind(installationId).all(),
+      env.DB.prepare(`SELECT created_at, last_used_at, revoked_at FROM telemetry_credentials WHERE installation_id = ?`).bind(installationId).first()
+    ]);
+    return json({ ok: true, installation, events: events?.results || [], crashes: crashes?.results || [], telemetry: credential ? { active: !credential.revoked_at, createdAt: credential.created_at, lastUsedAt: credential.last_used_at, revokedAt: credential.revoked_at } : null });
+  }
+
   const protectedDataRoutes = new Set([
     "/api/admin/dashboard", "/api/admin/users", "/api/admin/installations", "/api/admin/crashes",
     "/api/admin/security", "/api/admin/services", "/api/admin/releases", "/api/admin/flags",
@@ -93,36 +108,21 @@ async function dashboardData(env) {
   const currentVersion = latestRelease?.version || versions?.results?.[0]?.app_version || "—";
   const currentCount = versions?.results?.find(r => r.app_version === currentVersion)?.count || 0;
   const totalCount = Number(total?.count || 0);
-  return json({
-    ok: true,
-    metrics: { totalInstallations: totalCount, activeInstallations: Number(active?.count || 0), newToday: Number(today?.count || 0), suspendedUsers: 0 },
-    adoption: { platforms: platforms?.results || [], versions: versions?.results || [], currentVersion, currentBuild: latestRelease?.build || "—", currentReleaseStatus: latestRelease?.release_status || "not configured", currentAdoption: totalCount ? Math.round((Number(currentCount) / totalCount) * 100) : 0 },
-    recentActivity: recent?.results || [],
-    crashes: { today: Number(crashesToday?.count || 0), total: Number(unresolved?.count || 0) },
-    security: { failedAuthWindows: Number(failedAuth?.count || 0) },
-    generatedAt: now
-  });
+  return json({ ok: true, metrics: { totalInstallations: totalCount, activeInstallations: Number(active?.count || 0), newToday: Number(today?.count || 0), suspendedUsers: 0 }, adoption: { platforms: platforms?.results || [], versions: versions?.results || [], currentVersion, currentBuild: latestRelease?.build || "—", currentReleaseStatus: latestRelease?.release_status || "not configured", currentAdoption: totalCount ? Math.round((Number(currentCount) / totalCount) * 100) : 0 }, recentActivity: recent?.results || [], crashes: { today: Number(crashesToday?.count || 0), total: Number(unresolved?.count || 0) }, security: { failedAuthWindows: Number(failedAuth?.count || 0) }, generatedAt: now });
 }
 
 async function installationsData(env, search) {
   const pattern = `%${search.replace(/[%_]/g, "\\$&")} %`.replace(/ $/, "");
   let result;
-  if (search) {
-    result = await env.DB.prepare(`SELECT installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen FROM installations WHERE installation_id LIKE ? ESCAPE '\\' OR app_version LIKE ? ESCAPE '\\' OR build LIKE ? ESCAPE '\\' OR platform LIKE ? ESCAPE '\\' OR os_version LIKE ? ESCAPE '\\' ORDER BY last_seen DESC LIMIT 200`).bind(pattern, pattern, pattern, pattern, pattern).all();
-  } else {
-    result = await env.DB.prepare("SELECT installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen FROM installations ORDER BY last_seen DESC LIMIT 200").all();
-  }
+  if (search) result = await env.DB.prepare(`SELECT installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen FROM installations WHERE installation_id LIKE ? ESCAPE '\\' OR app_version LIKE ? ESCAPE '\\' OR build LIKE ? ESCAPE '\\' OR platform LIKE ? ESCAPE '\\' OR os_version LIKE ? ESCAPE '\\' ORDER BY last_seen DESC LIMIT 200`).bind(pattern, pattern, pattern, pattern, pattern).all();
+  else result = await env.DB.prepare("SELECT installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen FROM installations ORDER BY last_seen DESC LIMIT 200").all();
   return json({ ok: true, rows: result?.results || [] });
 }
 
 async function crashesData(env, search) {
   let result;
-  if (search) {
-    const p = `%${search.replace(/[%_]/g, "\\$&")}%`;
-    result = await env.DB.prepare(`SELECT crash_id, event_id, installation_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp FROM crash_reports WHERE crash_id LIKE ? ESCAPE '\\' OR installation_id LIKE ? ESCAPE '\\' OR error_type LIKE ? ESCAPE '\\' OR message LIKE ? ESCAPE '\\' OR app_version LIKE ? ESCAPE '\\' ORDER BY timestamp DESC LIMIT 200`).bind(p,p,p,p,p).all();
-  } else {
-    result = await env.DB.prepare("SELECT crash_id, event_id, installation_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp FROM crash_reports ORDER BY timestamp DESC LIMIT 200").all();
-  }
+  if (search) { const p = `%${search.replace(/[%_]/g, "\\$&")}%`; result = await env.DB.prepare(`SELECT crash_id, event_id, installation_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp FROM crash_reports WHERE crash_id LIKE ? ESCAPE '\\' OR installation_id LIKE ? ESCAPE '\\' OR error_type LIKE ? ESCAPE '\\' OR message LIKE ? ESCAPE '\\' OR app_version LIKE ? ESCAPE '\\' ORDER BY timestamp DESC LIMIT 200`).bind(p,p,p,p,p).all(); }
+  else result = await env.DB.prepare("SELECT crash_id, event_id, installation_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp FROM crash_reports ORDER BY timestamp DESC LIMIT 200").all();
   return json({ ok: true, rows: result?.results || [] });
 }
 
@@ -137,29 +137,13 @@ async function securityData(env) {
 }
 
 async function servicesData(env) {
-  const started = Date.now();
-  let db = { status: "DOWN", latencyMs: null };
-  try {
-    await env.DB.prepare("SELECT 1 AS ok").first();
-    db = { status: "OPERATIONAL", latencyMs: Date.now() - started };
-  } catch {}
-  return json({ ok: true, services: [
-    { service: "MELO Worker", status: "OPERATIONAL", latencyMs: 0, note: "Current Worker request is responding." },
-    { service: "D1 Database", status: db.status, latencyMs: db.latencyMs, note: "melo-admin database connectivity." },
-    { service: "Telemetry API", status: "OPERATIONAL", latencyMs: 0, note: "Telemetry endpoints are deployed." },
-    { service: "Spotify API", status: "NOT MONITORED", latencyMs: null, note: "Spotify service monitoring is not connected yet." }
-  ]});
+  const started = Date.now(); let db = { status: "DOWN", latencyMs: null };
+  try { await env.DB.prepare("SELECT 1 AS ok").first(); db = { status: "OPERATIONAL", latencyMs: Date.now() - started }; } catch {}
+  return json({ ok: true, services: [{ service: "MELO Worker", status: "OPERATIONAL", latencyMs: 0, note: "Current Worker request is responding." }, { service: "D1 Database", status: db.status, latencyMs: db.latencyMs, note: "melo-admin database connectivity." }, { service: "Telemetry API", status: "OPERATIONAL", latencyMs: 0, note: "Telemetry endpoints are deployed." }, { service: "Spotify API", status: "NOT MONITORED", latencyMs: null, note: "Spotify service monitoring is not connected yet." }] });
 }
 
-async function releasesData(env) {
-  const result = await env.DB.prepare("SELECT version, build, platform, release_status, release_notes, released_at, created_at, updated_at FROM releases ORDER BY released_at DESC").all();
-  return json({ ok: true, rows: result?.results || [] });
-}
-
-async function flagsData(env) {
-  const result = await env.DB.prepare("SELECT flag_key, enabled, description, updated_at, created_at FROM feature_flags ORDER BY flag_key").all();
-  return json({ ok: true, rows: result?.results || [] });
-}
+async function releasesData(env) { const result = await env.DB.prepare("SELECT version, build, platform, release_status, release_notes, released_at, created_at, updated_at FROM releases ORDER BY released_at DESC").all(); return json({ ok: true, rows: result?.results || [] }); }
+async function flagsData(env) { const result = await env.DB.prepare("SELECT flag_key, enabled, description, updated_at, created_at FROM feature_flags ORDER BY flag_key").all(); return json({ ok: true, rows: result?.results || [] }); }
 
 async function analyticsData(env) {
   const now = Math.floor(Date.now() / 1000);
@@ -175,44 +159,25 @@ async function analyticsData(env) {
 async function healthData(env) {
   const now = Math.floor(Date.now() / 1000);
   const [installations, events, crashes, lastEvent, lastCrash] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS count FROM installations").first(),
-    env.DB.prepare("SELECT COUNT(*) AS count FROM telemetry_events").first(),
-    env.DB.prepare("SELECT COUNT(*) AS count FROM crash_reports").first(),
-    env.DB.prepare("SELECT timestamp, event_type FROM telemetry_events ORDER BY timestamp DESC LIMIT 1").first(),
-    env.DB.prepare("SELECT timestamp, severity FROM crash_reports ORDER BY timestamp DESC LIMIT 1").first()
+    env.DB.prepare("SELECT COUNT(*) AS count FROM installations").first(), env.DB.prepare("SELECT COUNT(*) AS count FROM telemetry_events").first(), env.DB.prepare("SELECT COUNT(*) AS count FROM crash_reports").first(), env.DB.prepare("SELECT timestamp, event_type FROM telemetry_events ORDER BY timestamp DESC LIMIT 1").first(), env.DB.prepare("SELECT timestamp, severity FROM crash_reports ORDER BY timestamp DESC LIMIT 1").first()
   ]);
-  return json({ ok: true, checkedAt: now, components: [
-    { component: "Worker", status: "OPERATIONAL", detail: "Request handler active." },
-    { component: "D1", status: "OPERATIONAL", detail: `${Number(installations?.count || 0)} installations / ${Number(events?.count || 0)} events / ${Number(crashes?.count || 0)} crashes` },
-    { component: "Telemetry ingestion", status: "OPERATIONAL", detail: lastEvent ? `Last ${lastEvent.event_type} event recorded.` : "No telemetry events yet." },
-    { component: "Crash reporting", status: "OPERATIONAL", detail: lastCrash ? `Last ${lastCrash.severity} crash recorded.` : "No crash reports yet." }
-  ]});
+  return json({ ok: true, checkedAt: now, components: [{ component: "Worker", status: "OPERATIONAL", detail: "Request handler active." }, { component: "D1", status: "OPERATIONAL", detail: `${Number(installations?.count || 0)} installations / ${Number(events?.count || 0)} events / ${Number(crashes?.count || 0)} crashes` }, { component: "Telemetry ingestion", status: "OPERATIONAL", detail: lastEvent ? `Last ${lastEvent.event_type} event recorded.` : "No telemetry events yet." }, { component: "Crash reporting", status: "OPERATIONAL", detail: lastCrash ? `Last ${lastCrash.severity} crash recorded.` : "No crash reports yet." }] });
 }
 
 async function settingsData(env) {
   const row = await env.DB.prepare("SELECT email, setup_complete, created_at, updated_at FROM admin_config WHERE id=1").first();
-  return json({ ok: true, settings: [
-    { setting: "Authenticator 2FA", value: row?.setup_complete ? "Active" : "Not configured", status: row?.setup_complete ? "Protected" : "Action required" },
-    { setting: "Session TTL", value: `${SESSION_TTL / 3600} hours`, status: "Active" },
-    { setting: "Admin account", value: row?.email || ADMIN_EMAIL, status: "Protected" },
-    { setting: "Telemetry schema", value: "v1", status: "Active" }
-  ]});
+  return json({ ok: true, settings: [{ setting: "Authenticator 2FA", value: row?.setup_complete ? "Active" : "Not configured", status: row?.setup_complete ? "Protected" : "Action required" }, { setting: "Session TTL", value: `${SESSION_TTL / 3600} hours`, status: "Active" }, { setting: "Admin account", value: row?.email || ADMIN_EMAIL, status: "Protected" }, { setting: "Telemetry schema", value: "v1", status: "Active" }] });
 }
 
 async function handleTelemetry(request, env, url) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request, url) });
   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   if (!sameOriginForTelemetry(request, url)) return json({ error: "Invalid origin." }, 403);
-  const contentLength = Number(request.headers.get("Content-Length") || 0);
-  if (contentLength > TELEMETRY_MAX_BODY) return json({ error: "Payload too large." }, 413);
-  const body = await readJsonLimited(request, TELEMETRY_MAX_BODY);
-  const validation = validateTelemetry(body);
-  if (!validation.ok) return json({ error: validation.error }, 400);
+  const contentLength = Number(request.headers.get("Content-Length") || 0); if (contentLength > TELEMETRY_MAX_BODY) return json({ error: "Payload too large." }, 413);
+  const body = await readJsonLimited(request, TELEMETRY_MAX_BODY); const validation = validateTelemetry(body); if (!validation.ok) return json({ error: validation.error }, 400);
   if (url.pathname === "/api/telemetry/install") return telemetryInstall(body, env, request);
   if (!["/api/telemetry/heartbeat", "/api/telemetry/version", "/api/telemetry/crash"].includes(url.pathname)) return json({ error: "Not found." }, 404);
-  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim();
-  const auth = await authenticateTelemetry(token, env);
-  if (!auth) return json({ error: "Invalid telemetry credential." }, 401);
+  const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim(); const auth = await authenticateTelemetry(token, env); if (!auth) return json({ error: "Invalid telemetry credential." }, 401);
   if (body.installation_id !== auth.installation_id) return json({ error: "Installation credential mismatch." }, 403);
   if (body.event_type !== url.pathname.split("/").pop()) return json({ error: "Event type does not match endpoint." }, 400);
   if (await telemetryRateLimited(env, auth.installation_id)) return json({ error: "Too many telemetry events. Try again later." }, 429);
@@ -221,41 +186,20 @@ async function handleTelemetry(request, env, url) {
 
 async function telemetryInstall(body, env, request) {
   if (body.event_type !== "install") return json({ error: "Install endpoint requires event_type=install." }, 400);
-  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  if (await installRateLimited(env, ip)) return json({ error: "Too many installation requests. Try again later." }, 429);
-  const existing = await env.DB.prepare("SELECT installation_id FROM installations WHERE installation_id = ?").bind(body.installation_id).first();
-  if (existing) return json({ error: "Installation is already registered." }, 409);
-  const now = Math.floor(Date.now() / 1000);
-  const credential = randomToken(32);
-  const hash = await sha256Hex(credential);
-  const statements = [
-    env.DB.prepare(`INSERT INTO installations (installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(body.installation_id, body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, body.timestamp, body.timestamp, now, now),
-    env.DB.prepare(`INSERT INTO telemetry_events (event_id, installation_id, event_type, timestamp, app_version, build, platform, os_version, client_schema, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(body.event_id, body.installation_id, body.event_type, body.timestamp, body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, now),
-    env.DB.prepare(`INSERT INTO telemetry_credentials (installation_id, token_hash, created_at, last_used_at) VALUES (?, ?, ?, ?)` ).bind(body.installation_id, hash, now, now)
-  ];
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown"; if (await installRateLimited(env, ip)) return json({ error: "Too many installation requests. Try again later." }, 429);
+  const existing = await env.DB.prepare("SELECT installation_id FROM installations WHERE installation_id = ?").bind(body.installation_id).first(); if (existing) return json({ error: "Installation is already registered." }, 409);
+  const now = Math.floor(Date.now() / 1000); const credential = randomToken(32); const hash = await sha256Hex(credential);
+  const statements = [env.DB.prepare(`INSERT INTO installations (installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(body.installation_id, body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, body.timestamp, body.timestamp, now, now), env.DB.prepare(`INSERT INTO telemetry_events (event_id, installation_id, event_type, timestamp, app_version, build, platform, os_version, client_schema, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(body.event_id, body.installation_id, body.event_type, body.timestamp, body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, now), env.DB.prepare(`INSERT INTO telemetry_credentials (installation_id, token_hash, created_at, last_used_at) VALUES (?, ?, ?, ?)` ).bind(body.installation_id, hash, now, now)];
   try { await env.DB.batch(statements); } catch (error) { if (String(error?.message || "").toLowerCase().includes("unique")) return json({ error: "Installation is already registered." }, 409); throw error; }
   return json({ ok: true, registered: true, telemetry_token: credential, installation_id: body.installation_id, server_time: now });
 }
 
-async function authenticateTelemetry(token, env) {
-  if (!token || token.length < 32 || token.length > 256) return null;
-  const tokenHash = await sha256Hex(token);
-  const row = await env.DB.prepare("SELECT installation_id, token_hash, revoked_at FROM telemetry_credentials WHERE token_hash = ?").bind(tokenHash).first();
-  if (!row || row.revoked_at) return null;
-  return row;
-}
+async function authenticateTelemetry(token, env) { if (!token || token.length < 32 || token.length > 256) return null; const tokenHash = await sha256Hex(token); const row = await env.DB.prepare("SELECT installation_id, token_hash, revoked_at FROM telemetry_credentials WHERE token_hash = ?").bind(tokenHash).first(); if (!row || row.revoked_at) return null; return row; }
 
 function validateTelemetry(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "Invalid JSON payload." };
   const id = String(body.installation_id || ""); const eventId = String(body.event_id || ""); const type = String(body.event_type || ""); const timestamp = Number(body.timestamp); const version = String(body.app_version || ""); const build = body.build == null ? "" : String(body.build); const platform = String(body.platform || ""); const os = body.os_version == null ? "" : String(body.os_version); const schema = Number(body.client_schema);
-  if (!/^[A-Za-z0-9_-]{16,128}$/.test(id)) return { ok: false, error: "Invalid installation_id." };
-  if (!/^[A-Za-z0-9_-]{16,128}$/.test(eventId)) return { ok: false, error: "Invalid event_id." };
-  if (!ALLOWED_EVENT_TYPES.has(type)) return { ok: false, error: "Invalid event_type." };
-  if (!Number.isInteger(timestamp) || timestamp < 1 || timestamp > Math.floor(Date.now() / 1000) + 300) return { ok: false, error: "Invalid timestamp." };
-  if (!/^\d{1,32}(?:\.\d{1,32}){0,3}$/.test(version) || version.length > 64) return { ok: false, error: "Invalid app_version." };
-  if (build.length > 64 || platform.length > 32 || os.length > 128) return { ok: false, error: "Telemetry field too long." };
-  if (!ALLOWED_PLATFORMS.has(platform)) return { ok: false, error: "Unsupported platform." };
-  if (!Number.isInteger(schema) || schema !== 1) return { ok: false, error: "Unsupported client_schema." };
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(id)) return { ok: false, error: "Invalid installation_id." }; if (!/^[A-Za-z0-9_-]{16,128}$/.test(eventId)) return { ok: false, error: "Invalid event_id." }; if (!ALLOWED_EVENT_TYPES.has(type)) return { ok: false, error: "Invalid event_type." }; if (!Number.isInteger(timestamp) || timestamp < 1 || timestamp > Math.floor(Date.now() / 1000) + 300) return { ok: false, error: "Invalid timestamp." }; if (!/^\d{1,32}(?:\.\d{1,32}){0,3}$/.test(version) || version.length > 64) return { ok: false, error: "Invalid app_version." }; if (build.length > 64 || platform.length > 32 || os.length > 128) return { ok: false, error: "Telemetry field too long." }; if (!ALLOWED_PLATFORMS.has(platform)) return { ok: false, error: "Unsupported platform." }; if (!Number.isInteger(schema) || schema !== 1) return { ok: false, error: "Unsupported client_schema." };
   if (type === "crash") { const crash = body.crash; if (!crash || typeof crash !== "object" || Array.isArray(crash)) return { ok: false, error: "Invalid crash payload." }; if (String(crash.error_type || "").length > 128 || String(crash.message || "").length > 4096 || String(crash.stack_trace || "").length > 16384) return { ok: false, error: "Crash payload too large." }; if (!["error", "fatal", "warning"].includes(String(crash.severity || "error"))) return { ok: false, error: "Invalid crash severity." }; }
   return { ok: true };
 }
@@ -263,49 +207,20 @@ function validateTelemetry(body) {
 async function recordTelemetry(body, env, auth) {
   const now = Math.floor(Date.now() / 1000);
   try { await env.DB.prepare(`INSERT INTO telemetry_events (event_id, installation_id, event_type, timestamp, app_version, build, platform, os_version, client_schema, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(body.event_id, body.installation_id, body.event_type, body.timestamp, body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, now).run(); } catch (error) { if (String(error?.message || "").toLowerCase().includes("unique")) return json({ ok: true, duplicate: true }); throw error; }
-  await env.DB.prepare(`UPDATE installations SET app_version=?, build=?, platform=?, os_version=?, client_schema=?, last_seen=?, updated_at=? WHERE installation_id=?`).bind(body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, body.timestamp, now, body.installation_id).run();
-  await env.DB.prepare("UPDATE telemetry_credentials SET last_used_at = ? WHERE installation_id = ? AND revoked_at IS NULL").bind(now, auth.installation_id).run();
+  await env.DB.prepare(`UPDATE installations SET app_version=?, build=?, platform=?, os_version=?, client_schema=?, last_seen=?, updated_at=? WHERE installation_id=?`).bind(body.app_version, body.build || null, body.platform, body.os_version || null, body.client_schema, body.timestamp, now, body.installation_id).run(); await env.DB.prepare("UPDATE telemetry_credentials SET last_used_at = ? WHERE installation_id = ? AND revoked_at IS NULL").bind(now, auth.installation_id).run();
   if (body.event_type === "crash") { const crash = body.crash; await env.DB.prepare(`INSERT INTO crash_reports (crash_id, event_id, installation_id, error_type, message, stack_trace, severity, app_version, build, platform, os_version, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(randomToken(18), body.event_id, body.installation_id, sanitizeText(crash.error_type, 128), sanitizeText(crash.message, 4096), sanitizeStack(crash.stack_trace, 16384), crash.severity || "error", body.app_version, body.build || null, body.platform, body.os_version || null, body.timestamp, now).run(); }
   return json({ ok: true, recorded: true });
 }
 
-async function telemetryRateLimited(env, installationId) {
-  const key = `telemetry:${installationId}`; const now = Math.floor(Date.now() / 1000); const row = await env.DB.prepare("SELECT window_start, count FROM admin_attempts WHERE key = ?").bind(key).first();
-  if (!row || now - row.window_start >= TELEMETRY_RATE_WINDOW) { await env.DB.prepare("INSERT INTO admin_attempts (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start, count=1").bind(key, now).run(); return false; }
-  if (row.count >= TELEMETRY_MAX_EVENTS) return true; await env.DB.prepare("UPDATE admin_attempts SET count=count+1 WHERE key=?").bind(key).run(); return false;
-}
-
-async function installRateLimited(env, ip) {
-  const key = `telemetry-install:${ip}`; const now = Math.floor(Date.now() / 1000); const window = 10 * 60; const max = 10; const row = await env.DB.prepare("SELECT window_start, count FROM admin_attempts WHERE key = ?").bind(key).first();
-  if (!row || now - row.window_start >= window) { await env.DB.prepare("INSERT INTO admin_attempts (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start, count=1").bind(key, now).run(); return false; }
-  if (row.count >= max) return true; await env.DB.prepare("UPDATE admin_attempts SET count=count+1 WHERE key=?").bind(key).run(); return false;
-}
-
+async function telemetryRateLimited(env, installationId) { const key = `telemetry:${installationId}`; const now = Math.floor(Date.now() / 1000); const row = await env.DB.prepare("SELECT window_start, count FROM admin_attempts WHERE key = ?").bind(key).first(); if (!row || now - row.window_start >= TELEMETRY_RATE_WINDOW) { await env.DB.prepare("INSERT INTO admin_attempts (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start, count=1").bind(key, now).run(); return false; } if (row.count >= TELEMETRY_MAX_EVENTS) return true; await env.DB.prepare("UPDATE admin_attempts SET count=count+1 WHERE key=?").bind(key).run(); return false; }
+async function installRateLimited(env, ip) { const key = `telemetry-install:${ip}`; const now = Math.floor(Date.now() / 1000); const window = 10 * 60; const max = 10; const row = await env.DB.prepare("SELECT window_start, count FROM admin_attempts WHERE key = ?").bind(key).first(); if (!row || now - row.window_start >= window) { await env.DB.prepare("INSERT INTO admin_attempts (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start, count=1").bind(key, now).run(); return false; } if (row.count >= max) return true; await env.DB.prepare("UPDATE admin_attempts SET count=count+1 WHERE key=?").bind(key).run(); return false; }
 function sanitizeText(value, max) { return String(value || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").slice(0, max).replace(/(?:Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]").replace(/(?:access[_ -]?token|refresh[_ -]?token|api[_ -]?key|password|secret)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]").replace(/([A-Za-z]:\\Users\\)[^\\]+/gi, "$1[REDACTED]").replace(/(\/Users\/|\/home\/)[^\/]+/gi, "$1[REDACTED]"); }
 function sanitizeStack(value, max) { return sanitizeText(value, max); }
 
-async function setupStart(request, env, url) {
-  if (!sameOrigin(request, url)) return json({ error: "Invalid origin." }, 403);
-  const body = await readJson(request); const email = normalizeEmail(body.email); const token = request.headers.get("X-MELO-Setup-Token") || "";
-  if (email !== ADMIN_EMAIL || !token || !timingSafeEqual(token, env.ADMIN_SETUP_TOKEN || "")) return json({ error: "Unauthorized setup request." }, 403);
-  const existing = await env.DB.prepare("SELECT setup_complete, totp_secret_enc FROM admin_config WHERE id = 1").first();
-  if (existing?.setup_complete || existing?.totp_secret_enc) return json({ error: "Admin setup is already complete." }, 409);
-  if (await rateLimited(env, `setup:${email}`)) return json({ error: "Too many setup attempts. Try again later." }, 429);
-  const secret = generateBase32Secret(); const now = Math.floor(Date.now() / 1000); const encrypted = await encryptSecret(secret, env.ADMIN_ENCRYPTION_KEY); const pendingUntil = now + SETUP_TTL;
-  await env.DB.prepare(`INSERT INTO admin_config (id, email, pending_secret_enc, pending_expires_at, setup_complete, created_at, updated_at) VALUES (1, ?, ?, ?, 0, ?, ?) ON CONFLICT(id) DO UPDATE SET email=excluded.email, pending_secret_enc=excluded.pending_secret_enc, pending_expires_at=excluded.pending_expires_at, updated_at=excluded.updated_at`).bind(ADMIN_EMAIL, encrypted, pendingUntil, now, now).run();
-  const otpauth = `otpauth://totp/${encodeURIComponent("MELO")}:${encodeURIComponent(ADMIN_EMAIL)}?secret=${secret}&issuer=${encodeURIComponent("MELO")}&algorithm=SHA1&digits=6&period=30`; const qr = qrcode(0, "M"); qr.addData(otpauth); qr.make(); const svg = qr.createSvgTag({ cellSize: 5, margin: 4, scalable: true }); const qrCodeDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  return json({ setupKey: secret, qrCodeDataUrl, expiresIn: SETUP_TTL });
-}
+async function setupStart(request, env, url) { if (!sameOrigin(request, url)) return json({ error: "Invalid origin." }, 403); const body = await readJson(request); const email = normalizeEmail(body.email); const token = request.headers.get("X-MELO-Setup-Token") || ""; if (email !== ADMIN_EMAIL || !token || !timingSafeEqual(token, env.ADMIN_SETUP_TOKEN || "")) return json({ error: "Unauthorized setup request." }, 403); const existing = await env.DB.prepare("SELECT setup_complete, totp_secret_enc FROM admin_config WHERE id = 1").first(); if (existing?.setup_complete || existing?.totp_secret_enc) return json({ error: "Admin setup is already complete." }, 409); if (await rateLimited(env, `setup:${email}`)) return json({ error: "Too many setup attempts. Try again later." }, 429); const secret = generateBase32Secret(); const now = Math.floor(Date.now() / 1000); const encrypted = await encryptSecret(secret, env.ADMIN_ENCRYPTION_KEY); const pendingUntil = now + SETUP_TTL; await env.DB.prepare(`INSERT INTO admin_config (id, email, pending_secret_enc, pending_expires_at, setup_complete, created_at, updated_at) VALUES (1, ?, ?, ?, 0, ?, ?) ON CONFLICT(id) DO UPDATE SET email=excluded.email, pending_secret_enc=excluded.pending_secret_enc, pending_expires_at=excluded.pending_expires_at, updated_at=excluded.updated_at`).bind(ADMIN_EMAIL, encrypted, pendingUntil, now, now).run(); const otpauth = `otpauth://totp/${encodeURIComponent("MELO")}:${encodeURIComponent(ADMIN_EMAIL)}?secret=${secret}&issuer=${encodeURIComponent("MELO")}&algorithm=SHA1&digits=6&period=30`; const qr = qrcode(0, "M"); qr.addData(otpauth); qr.make(); const svg = qr.createSvgTag({ cellSize: 5, margin: 4, scalable: true }); const qrCodeDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; return json({ setupKey: secret, qrCodeDataUrl, expiresIn: SETUP_TTL }); }
 async function setupVerify(request, env, url) { if (!sameOrigin(request, url)) return json({ error: "Invalid origin." }, 403); return completeSetupOrLogin(request, env, url, await readJson(request), true); }
 async function login(request, env, url) { if (!sameOrigin(request, url)) return json({ error: "Invalid origin." }, 403); return completeSetupOrLogin(request, env, url, await readJson(request), false); }
-async function completeSetupOrLogin(request, env, url, body, isSetup) {
-  const email = normalizeEmail(body.email); const code = String(body.code || ""); if (email !== ADMIN_EMAIL || !/^\d{6}$/.test(code)) return json({ error: "Invalid administrator credentials." }, 401); if (await rateLimited(env, `login:${email}`)) return json({ error: "Too many attempts. Try again later." }, 429);
-  const row = await env.DB.prepare("SELECT * FROM admin_config WHERE id = 1").first(); if (!row || row.email !== ADMIN_EMAIL) return json({ error: "Admin setup has not been initialized." }, 409); let secret;
-  if (isSetup) { if (row.setup_complete || row.totp_secret_enc) return json({ error: "Setup is already complete. Use normal login." }, 409); if (!row.pending_secret_enc || !row.pending_expires_at || row.pending_expires_at < Math.floor(Date.now() / 1000)) return json({ error: "Setup expired. Start authenticator setup again." }, 410); secret = await decryptSecret(row.pending_secret_enc, env.ADMIN_ENCRYPTION_KEY); }
-  else { if (!row.totp_secret_enc) return json({ error: "Complete Authenticator setup first." }, 409); secret = await decryptSecret(row.totp_secret_enc, env.ADMIN_ENCRYPTION_KEY); }
-  if (!(await verifyTotp(secret, code))) return json({ error: "Invalid or expired Authenticator code." }, 401);
-  const now = Math.floor(Date.now() / 1000); if (isSetup) await env.DB.prepare(`UPDATE admin_config SET totp_secret_enc=pending_secret_enc, pending_secret_enc=NULL, pending_expires_at=NULL, setup_complete=1, updated_at=? WHERE id=1`).bind(now).run(); else if (!row.setup_complete) await env.DB.prepare("UPDATE admin_config SET setup_complete=1, updated_at=? WHERE id=1").bind(now).run(); await env.DB.prepare("DELETE FROM admin_attempts WHERE key=?").bind(`login:${email}`).run(); return createSessionResponse(env, url.origin);
-}
+async function completeSetupOrLogin(request, env, url, body, isSetup) { const email = normalizeEmail(body.email); const code = String(body.code || ""); if (email !== ADMIN_EMAIL || !/^\d{6}$/.test(code)) return json({ error: "Invalid administrator credentials." }, 401); if (await rateLimited(env, `login:${email}`)) return json({ error: "Too many attempts. Try again later." }, 429); const row = await env.DB.prepare("SELECT * FROM admin_config WHERE id = 1").first(); if (!row || row.email !== ADMIN_EMAIL) return json({ error: "Admin setup has not been initialized." }, 409); let secret; if (isSetup) { if (row.setup_complete || row.totp_secret_enc) return json({ error: "Setup is already complete. Use normal login." }, 409); if (!row.pending_secret_enc || !row.pending_expires_at || row.pending_expires_at < Math.floor(Date.now() / 1000)) return json({ error: "Setup expired. Start authenticator setup again." }, 410); secret = await decryptSecret(row.pending_secret_enc, env.ADMIN_ENCRYPTION_KEY); } else { if (!row.totp_secret_enc) return json({ error: "Complete Authenticator setup first." }, 409); secret = await decryptSecret(row.totp_secret_enc, env.ADMIN_ENCRYPTION_KEY); } if (!(await verifyTotp(secret, code))) return json({ error: "Invalid or expired Authenticator code." }, 401); const now = Math.floor(Date.now() / 1000); if (isSetup) await env.DB.prepare(`UPDATE admin_config SET totp_secret_enc=pending_secret_enc, pending_secret_enc=NULL, pending_expires_at=NULL, setup_complete=1, updated_at=? WHERE id=1`).bind(now).run(); else if (!row.setup_complete) await env.DB.prepare("UPDATE admin_config SET setup_complete=1, updated_at=? WHERE id=1").bind(now).run(); await env.DB.prepare("DELETE FROM admin_attempts WHERE key=?").bind(`login:${email}`).run(); return createSessionResponse(env, url.origin); }
 async function createSessionResponse(env, origin) { const raw = randomToken(32); const hash = await sha256Hex(raw); const now = Math.floor(Date.now() / 1000); const expires = now + SESSION_TTL; await env.DB.prepare("INSERT INTO admin_sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)").bind(hash, now, expires).run(); const headers = new Headers({ "Content-Type": "application/json", "Cache-Control": "no-store" }); headers.append("Set-Cookie", `${SESSION_COOKIE}=${raw}; Max-Age=${SESSION_TTL}; Path=/; HttpOnly; Secure; SameSite=Strict`); return new Response(JSON.stringify({ ok: true, redirect: "/admin/" }), { status: 200, headers }); }
 async function getSession(request, env) { const cookie = request.headers.get("Cookie") || ""; const match = cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`)); if (!match) return null; const hash = await sha256Hex(match[1]); const row = await env.DB.prepare("SELECT token_hash, expires_at FROM admin_sessions WHERE token_hash=?").bind(hash).first(); if (!row) return null; if (row.expires_at <= Math.floor(Date.now() / 1000)) { await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash=?").bind(hash).run(); return null; } return row; }
 async function me(request, env, url) { const session = await getSession(request, env); if (!session) return json({ authenticated: false }, 401); return json({ authenticated: true, email: ADMIN_EMAIL, expiresAt: session.expires_at }); }
