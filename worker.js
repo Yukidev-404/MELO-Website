@@ -212,7 +212,7 @@ async function dashboardData(env) {
 }
 
 async function installationsData(env, search) {
-  const pattern = `%${search.replace(/[%_]/g, "\\$&")} %`.replace(/ $/, "");
+  const pattern = `%${search.replace(/[%_]/g, "\\$&")}%`;
   let result;
   if (search) result = await env.DB.prepare(`SELECT installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen FROM installations WHERE installation_id LIKE ? ESCAPE '\\' OR app_version LIKE ? ESCAPE '\\' OR build LIKE ? ESCAPE '\\' OR platform LIKE ? ESCAPE '\\' OR os_version LIKE ? ESCAPE '\\' ORDER BY last_seen DESC LIMIT 200`).bind(pattern, pattern, pattern, pattern, pattern).all();
   else result = await env.DB.prepare("SELECT installation_id, app_version, build, platform, os_version, client_schema, first_seen, last_seen FROM installations ORDER BY last_seen DESC LIMIT 200").all();
