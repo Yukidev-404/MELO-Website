@@ -9,6 +9,7 @@ const views = {
   users:{title:'Users',heading:'Users',copy:'Telemetry-backed MELO installations. Account-level user management is not enabled yet.'},
   installations:{title:'Installations',heading:'Installations',copy:'Registered MELO clients and their latest heartbeat state.'},
   crashes:{title:'Crashes',heading:'Crash Logs',copy:'Investigate sanitized crash reports received from MELO clients.'},
+  'bug-reports':{title:'Bug Reports',heading:'Bug Reports',copy:'Review manually submitted MELO bug reports.'},
   security:{title:'Security',heading:'Security Center',copy:'Administrative authentication and protected rate-limit activity.'},
   services:{title:'API / Services',heading:'Services',copy:'Current control-plane and telemetry service status.'},
   releases:{title:'Releases',heading:'Releases',copy:'Production versions, builds and rollout status recorded in D1.'},
@@ -74,25 +75,20 @@ function healthHtml(d){return`<section class="page"><div class="page-intro"><h2>
 function settingsHtml(d){return`<section class="page"><div class="page-intro"><h2>Admin Settings</h2><p>Read-only administrative configuration for now.</p></div><section class="panel"><table class="data-table"><thead><tr><th>SETTING</th><th>VALUE</th><th>STATUS</th></tr></thead><tbody>${(d.settings||[]).map(s=>`<tr><td class="mono">${esc(s.setting)}</td><td>${esc(s.value)}</td><td class="accent">${esc(s.status)}</td></tr>`).join('')}</tbody></table></section></section>`}
 
 let currentView='dashboard',refreshTimer;
-const specializedViews=new Set(['analytics','health','settings']);
+// These pages have their own renderer scripts. The core renderer must never fetch
+// or replace their content, otherwise asynchronous responses can overwrite them.
+const specializedViews=new Set(['users','installations','bug-reports','crashes','security','services','releases','flags','analytics','health','settings']);
 async function render(view,search=''){
  currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;
- if(!specializedViews.has(currentView))content.innerHTML=`<section class="page"><div class="page-intro"><h2>${esc(views[currentView].heading)}</h2><p>Loading live control-room data…</p></div></section>`;
+ if(specializedViews.has(currentView)){scheduleRefresh();return;}
+ content.innerHTML=`<section class="page"><div class="page-intro"><h2>${esc(views[currentView].heading)}</h2><p>Loading live control-room data…</p></div></section>`;
  try{
-  let rows=null,data;
-  if(currentView==='dashboard')data=await api('/api/admin/dashboard');
-  else if(['users','installations','crashes','releases','flags'].includes(currentView)){data=await api(`/api/admin/${currentView}`,{q:search});rows=data.rows||[];content.innerHTML=tableView(currentView,rows);bindTableRows(currentView,rows);bindSearch(currentView);}
-  else if(currentView==='security')content.innerHTML=securityHtml(await api('/api/admin/security'));
-  else if(currentView==='services')content.innerHTML=servicesHtml(await api('/api/admin/services'));
-  else if(currentView==='health')content.innerHTML=healthHtml(await api('/api/admin/health-detail'));
-  else if(currentView==='settings')content.innerHTML=settingsHtml(await api('/api/admin/settings'));
+  const data=await api('/api/admin/dashboard');
   if(currentView==='dashboard')content.innerHTML=dashboardHtml(data);
-  if(rows){const e=document.getElementById('export-btn');if(e)e.onclick=()=>exportCsv(currentView,rows)}
-  if(!specializedViews.has(currentView))history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);
- }catch(e){if(!specializedViews.has(currentView))content.innerHTML=`<section class="page"><div class="page-intro"><h2>Unable to load data</h2><p>${esc(e.message)}</p></div></section>`}
+  history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);
+ }catch(e){content.innerHTML=`<section class="page"><div class="page-intro"><h2>Unable to load data</h2><p>${esc(e.message)}</p></div></section>`}
  scheduleRefresh();
 }
-function bindSearch(view){const i=document.getElementById('module-search'),b=document.getElementById('search-btn');if(!i||!b)return;i.value=new URLSearchParams(location.search).get('q')||'';b.onclick=()=>render(view,i.value.trim());i.onkeydown=e=>{if(e.key==='Enter')render(view,i.value.trim())}}
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{if(document.visibilityState==='visible')render(currentView,new URLSearchParams(location.search).get('q')||'')},30000)}
 
 document.querySelectorAll('.nav-item').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();render(a.dataset.view)}));
