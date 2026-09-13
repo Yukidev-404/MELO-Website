@@ -114,10 +114,10 @@ async function handleBugReports(request, env, url) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   await ensureBugReportsSchema(env);
   const key = `bug-report:${ip}`;
-  const rate = await env.DB.prepare('SELECT window_start,count FROM admin_attempts WHERE key=?').bind(key).first();
+  const rate = await env.DB.prepare('SELECT window_start,count FROM rate_limits WHERE key=?').bind(key).first();
   if (rate && now - Number(rate.window_start) < 600 && Number(rate.count) >= 5) return bugReportJson({ error:'Too many reports. Please try again later.' },429);
-  if (!rate || now - Number(rate.window_start) >= 600) await env.DB.prepare('INSERT INTO admin_attempts (key,window_start,count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1').bind(key,now).run();
-  else await env.DB.prepare('UPDATE admin_attempts SET count=count+1 WHERE key=?').bind(key).run();
+  if (!rate || now - Number(rate.window_start) >= 600) await env.DB.prepare('INSERT INTO rate_limits (key,window_start,count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1').bind(key,now).run();
+  else await env.DB.prepare('UPDATE rate_limits SET count=count+1 WHERE key=?').bind(key).run();
   let body; try { body = await request.json(); } catch { return bugReportJson({ error:'Invalid JSON payload.' },400); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return bugReportJson({ error:'Invalid JSON payload.' },400);
   const installationId = body.installation_id == null ? null : String(body.installation_id);
