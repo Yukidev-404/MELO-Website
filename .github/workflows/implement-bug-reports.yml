@@ -1,0 +1,171 @@
+name: Implement MELO Bug Reports
+
+on:
+  push:
+
+jobs:
+  patch:
+    if: ${{ !startsWith(github.event.head_commit.message, 'Implement MELO Bug Reports') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch Worker, navigation and styling
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # ---------- Worker ----------
+          p = Path('worker.js')
+          text = p.read_text(encoding='utf-8')
+
+          fetch_marker = '      if (url.pathname.startsWith("/api/telemetry/")) return await handleTelemetry(request, env, url);\n'
+          fetch_insert = '      if (url.pathname.startsWith("/api/bug-reports")) return await handleBugReports(request, env, url);\n'
+          if 'async function handleBugReports(' not in text:
+              if fetch_marker not in text:
+                  raise SystemExit('Worker fetch marker not found.')
+              if fetch_insert not in text:
+                  text = text.replace(fetch_marker, fetch_marker + fetch_insert, 1)
+
+              admin_marker = '  if (url.pathname === "/api/admin/health" && request.method === "GET") return json({ ok: true, service: "melo-admin" });\n'
+              admin_insert = '''\n  if (url.pathname === "/api/admin/bug-reports" && request.method === "GET") {\n    const session = await getSession(request, env);\n    if (!session) return json({ authenticated: false }, 401);\n    return bugReportsData(env, url);\n  }\n\n  if (url.pathname === "/api/admin/bug-report" && request.method === "GET") {\n    const session = await getSession(request, env);\n    if (!session) return json({ authenticated: false }, 401);\n    return bugReportDetail(env, url);\n  }\n\n  if (url.pathname === "/api/admin/bug-report" && request.method === "PATCH") {\n    const session = await getSession(request, env);\n    if (!session) return json({ authenticated: false }, 401);\n    return updateBugReport(request, env, url);\n  }\n'''
+              if admin_marker not in text:
+                  raise SystemExit('Worker admin health marker not found.')
+              if '/api/admin/bug-reports' not in text:
+                  text = text.replace(admin_marker, admin_marker + admin_insert, 1)
+
+              helper_marker = 'async function adminData(path, env, url) {'
+              helper = r'''async function ensureBugReportsSchema(env) {
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS bug_reports (report_id TEXT PRIMARY KEY, installation_id TEXT, app_version TEXT NOT NULL, build TEXT, platform TEXT NOT NULL, os_version TEXT, client_schema INTEGER NOT NULL DEFAULT 1, what_happened TEXT NOT NULL, reproduction_steps TEXT, expected_result TEXT, status TEXT NOT NULL DEFAULT 'new', submitted_at INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, FOREIGN KEY (installation_id) REFERENCES installations(installation_id) ON DELETE SET NULL)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_reports_submitted_at ON bug_reports(submitted_at)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_reports_installation ON bug_reports(installation_id)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS bug_report_attachments (attachment_id TEXT PRIMARY KEY, report_id TEXT NOT NULL, filename TEXT NOT NULL, content_type TEXT, size_bytes INTEGER NOT NULL DEFAULT 0, storage_key TEXT, created_at INTEGER NOT NULL, FOREIGN KEY (report_id) REFERENCES bug_reports(report_id) ON DELETE CASCADE)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_bug_report_attachments_report ON bug_report_attachments(report_id)`)
+  ]);
+}
+
+function bugReportJson(data, status=200) {
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store', 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'Content-Type' } });
+}
+
+async function handleBugReports(request, env, url) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Methods':'POST, OPTIONS', 'Access-Control-Allow-Headers':'Content-Type', 'Access-Control-Max-Age':'600' } });
+  if (request.method !== 'POST' || url.pathname !== '/api/bug-reports') return bugReportJson({ error:'Not found.' },404);
+  if (Number(request.headers.get('Content-Length') || 0) > 128 * 1024) return bugReportJson({ error:'Bug report is too large.' },413);
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const now = Math.floor(Date.now()/1000);
+  await ensureBugReportsSchema(env);
+  const rateKey = `bug-report:${ip}`;
+  const rate = await env.DB.prepare('SELECT window_start,count FROM admin_attempts WHERE key=?').bind(rateKey).first();
+  if (rate && now - Number(rate.window_start) < 600 && Number(rate.count) >= 5) return bugReportJson({ error:'Too many reports. Please try again later.' },429);
+  if (!rate || now - Number(rate.window_start) >= 600) await env.DB.prepare('INSERT INTO admin_attempts (key,window_start,count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1').bind(rateKey,now).run();
+  else await env.DB.prepare('UPDATE admin_attempts SET count=count+1 WHERE key=?').bind(rateKey).run();
+
+  let body;
+  try { body = await request.json(); } catch { return bugReportJson({ error:'Invalid JSON payload.' },400); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return bugReportJson({ error:'Invalid JSON payload.' },400);
+  const installationId = body.installation_id == null ? null : String(body.installation_id);
+  const appVersion = String(body.app_version || '').trim();
+  const build = body.build == null ? '' : String(body.build).trim();
+  const platform = String(body.platform || '').trim().toLowerCase();
+  const osVersion = body.os_version == null ? '' : String(body.os_version).trim();
+  const clientSchema = Number(body.client_schema ?? 1);
+  const what = String(body.what_happened || '').trim();
+  const repro = String(body.reproduction_steps || '').trim();
+  const expected = String(body.expected_result || '').trim();
+  if (!appVersion || appVersion.length > 64 || !/^\\d{1,32}(?:\\.\\d{1,32}){0,3}$/.test(appVersion)) return bugReportJson({ error:'Invalid app_version.' },400);
+  if (platform !== 'windows') return bugReportJson({ error:'Unsupported platform.' },400);
+  if (!Number.isInteger(clientSchema) || clientSchema !== 1) return bugReportJson({ error:'Unsupported client_schema.' },400);
+  if (!what || what.length > 16000 || repro.length > 16000 || expected.length > 16000) return bugReportJson({ error:'Bug report text is too large or missing.' },400);
+  if (installationId && !/^[A-Za-z0-9_-]{16,128}$/.test(installationId)) return bugReportJson({ error:'Invalid installation_id.' },400);
+
+  const reportId = `bug_${randomToken(18)}`;
+  const attachmentList = Array.isArray(body.attachments) ? body.attachments.slice(0,100) : [];
+  const validAttachments = attachmentList.map((a) => ({
+    attachment_id: `att_${randomToken(16)}`,
+    filename: String(a?.filename || 'attachment').slice(0,255),
+    content_type: String(a?.content_type || 'application/octet-stream').slice(0,128),
+    size_bytes: Math.max(0, Math.min(Number(a?.size_bytes || 0), 5 * 1024 * 1024)),
+    storage_key: a?.storage_key ? String(a.storage_key).slice(0,512) : null
+  }));
+  await env.DB.prepare(`INSERT INTO bug_reports (report_id,installation_id,app_version,build,platform,os_version,client_schema,what_happened,reproduction_steps,expected_result,status,submitted_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,'new',?,?,?)`).bind(reportId,installationId,appVersion,build||null,platform,osVersion||null,clientSchema,what,repro||null,expected||null,now,now,now).run();
+  for (const a of validAttachments) await env.DB.prepare(`INSERT INTO bug_report_attachments (attachment_id,report_id,filename,content_type,size_bytes,storage_key,created_at) VALUES (?,?,?,?,?,?,?)`).bind(a.attachment_id,reportId,a.filename,a.content_type,a.size_bytes,a.storage_key,now).run();
+  return bugReportJson({ ok:true, report_id:reportId, received_at:now, attachment_count:validAttachments.length });
+}
+
+async function bugReportsData(env, url) {
+  await ensureBugReportsSchema(env);
+  const q = (url.searchParams.get('q') || '').trim().slice(0,128);
+  const p = `%${q.replace(/[%_]/g,'\\$&')}%`;
+  const result = q
+    ? await env.DB.prepare(`SELECT report_id,installation_id,app_version,build,platform,os_version,status,submitted_at,what_happened,(SELECT COUNT(*) FROM bug_report_attachments a WHERE a.report_id=bug_reports.report_id) AS attachment_count FROM bug_reports WHERE report_id LIKE ? ESCAPE '\\' OR installation_id LIKE ? ESCAPE '\\' OR app_version LIKE ? ESCAPE '\\' OR what_happened LIKE ? ESCAPE '\\' ORDER BY submitted_at DESC LIMIT 200`).bind(p,p,p,p).all()
+    : await env.DB.prepare(`SELECT report_id,installation_id,app_version,build,platform,os_version,status,submitted_at,what_happened,(SELECT COUNT(*) FROM bug_report_attachments a WHERE a.report_id=bug_reports.report_id) AS attachment_count FROM bug_reports ORDER BY submitted_at DESC LIMIT 200`).all();
+  return json({ ok:true, rows:result?.results || [] });
+}
+
+async function bugReportDetail(env, url) {
+  await ensureBugReportsSchema(env);
+  const id = url.searchParams.get('id') || '';
+  if (!/^bug_[A-Za-z0-9_-]{16,64}$/.test(id)) return json({ error:'Invalid report ID.' },400);
+  const report = await env.DB.prepare('SELECT report_id,installation_id,app_version,build,platform,os_version,client_schema,what_happened,reproduction_steps,expected_result,status,submitted_at,created_at,updated_at FROM bug_reports WHERE report_id=?').bind(id).first();
+  if (!report) return json({ error:'Bug report not found.' },404);
+  const attachments = await env.DB.prepare('SELECT attachment_id,filename,content_type,size_bytes,storage_key,created_at FROM bug_report_attachments WHERE report_id=? ORDER BY created_at ASC').bind(id).all();
+  return json({ ok:true, report, attachments:attachments?.results || [] });
+}
+
+async function updateBugReport(request, env, url) {
+  await ensureBugReportsSchema(env);
+  let body; try { body = await request.json(); } catch { return json({ error:'Invalid JSON payload.' },400); }
+  const id = String(body?.id || ''); const status = String(body?.status || '').toLowerCase();
+  if (!/^bug_[A-Za-z0-9_-]{16,64}$/.test(id)) return json({ error:'Invalid report ID.' },400);
+  if (!['new','reviewing','resolved','wont_fix'].includes(status)) return json({ error:'Invalid report status.' },400);
+  const now = Math.floor(Date.now()/1000);
+  const result = await env.DB.prepare('UPDATE bug_reports SET status=?,updated_at=? WHERE report_id=?').bind(status,now,id).run();
+  if (!result?.meta?.changes) return json({ error:'Bug report not found.' },404);
+  return json({ ok:true, report_id:id, status, updated_at:now });
+}
+
+'''
+              if helper_marker not in text:
+                  raise SystemExit('Worker adminData marker not found.')
+              text = text.replace(helper_marker, helper + helper_marker, 1)
+
+          p.write_text(text, encoding='utf-8')
+
+          # ---------- Navigation ----------
+          p = Path('admin/index.html')
+          text = p.read_text(encoding='utf-8')
+          nav_marker = '<p class="nav-label">MONITORING</p>'
+          nav_link = '<p class="nav-label">MONITORING</p><a class="nav-item" href="/admin/?view=crashes" data-view="crashes"><span>△</span>Crashes</a><a class="nav-item" href="/admin/?view=bug-reports" data-view="bug-reports"><span>✦</span>Bug Reports</a><a class="nav-item" href="/admin/?view=security" data-view="security"><span>◇</span>Security</a>'
+          old = '<p class="nav-label">MONITORING</p><a class="nav-item" href="/admin/?view=crashes" data-view="crashes"><span>△</span>Crashes</a><a class="nav-item" href="/admin/?view=security" data-view="security"><span>◇</span>Security</a>'
+          if 'data-view="bug-reports"' not in text:
+              if old not in text: raise SystemExit('Navigation marker not found.')
+              text = text.replace(old, nav_link, 1)
+          if 'bug-reports-view.js' not in text:
+              text = text.replace('<script src="installations-view.js"></script>', '<script src="installations-view.js"></script>\n<script src="bug-reports-view.js"></script>', 1)
+          p.write_text(text, encoding='utf-8')
+
+          # ---------- Styling ----------
+          p = Path('admin/control-room.css')
+          text = p.read_text(encoding='utf-8')
+          if '.bug-intro{' not in text:
+              css = r'''\n.bug-intro{display:flex;justify-content:space-between;align-items:flex-end;gap:30px}.eyebrow{display:block;color:#666;font-size:8px;letter-spacing:.18em;margin-bottom:7px}.bug-intro-mark{font-family:Georgia,serif;font-size:34px;line-height:.86;text-align:right;color:#252525;letter-spacing:-.03em}.bug-panel{overflow:hidden}.panel-subtitle{display:block;color:#555;font-size:7px;margin-top:4px}.bug-table td{vertical-align:middle}.bug-id{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#ddd;font-size:9px}.bug-preview{max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bug-status{display:inline-flex;align-items:center;border:1px solid #303030;padding:5px 8px;font-size:7px;letter-spacing:.1em;color:#aaa}.bug-status:before{content:'';width:5px;height:5px;border-radius:50%;background:#777;margin-right:6px}.bug-status.new:before{background:#d0a32d}.bug-status.reviewing:before{background:#b8b8b8}.bug-status.resolved:before{background:#65d995}.bug-status.wontfix:before{background:#777}.proof-count{font-size:7px;letter-spacing:.08em;color:#b7a78d}.bug-strip{margin-top:10px}.bug-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px}.bug-modal{width:min(1050px,100%);max-height:92vh;overflow:auto;background:#0b0b0b;border:1px solid #303030;box-shadow:0 35px 120px rgba(0,0,0,.75);color:#f1eee8}.bug-modal-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;gap:25px;padding:24px 26px;background:rgba(11,11,11,.96);backdrop-filter:blur(12px);border-bottom:1px solid #252525}.bug-modal-head h2{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:20px;font-weight:400;margin:0;overflow-wrap:anywhere}.bug-modal-meta{display:flex;gap:8px;color:#666;font-size:8px;margin-top:8px}.bug-modal-actions{display:flex;gap:12px;align-items:center}.bug-detail-top{display:grid;grid-template-columns:1.35fr 1fr;gap:1px;background:#222}.bug-detail-callout{background:#101010;padding:25px}.bug-detail-callout p{font-family:Georgia,serif;font-size:20px;line-height:1.45;margin:4px 0 0;color:#e4e0d8}.bug-context{display:grid;grid-template-columns:1fr 1fr;background:#0d0d0d}.bug-context>div{padding:17px;border-bottom:1px solid #202020;border-left:1px solid #202020;min-width:0}.bug-context small{display:block;color:#555;font-size:7px;letter-spacing:.13em;margin-bottom:7px}.bug-context strong,.bug-context code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:9px;color:#bbb;overflow-wrap:anywhere}.bug-sections{padding:0 25px}.bug-section{padding:23px 0;border-bottom:1px solid #202020}.section-label{font-size:8px;letter-spacing:.15em;color:#666;margin-bottom:10px}.section-label span{float:right;color:#aaa}.bug-copy{font-family:Georgia,serif;font-size:14px;line-height:1.65;color:#c7c3bb;white-space:pre-wrap;overflow-wrap:anywhere}.attachment-row{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid #181818}.attachment-icon{width:30px;height:30px;border:1px solid #292929;display:grid;place-items:center;color:#777}.attachment-row strong{display:block;color:#ccc;font-size:9px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.attachment-row small{display:block;color:#555;font-size:8px;margin-top:4px}.attachment-lock{margin-left:auto;color:#5f5f5f;font-size:7px;letter-spacing:.12em}.bug-detail-footer{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 25px;background:#0e0e0e}.bug-detail-footer p{margin:0;color:#666;font-size:8px}.status-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.status-btn{background:#111;border:1px solid #2b2b2b;color:#888;padding:8px 10px;font-size:7px;letter-spacing:.08em;cursor:pointer}.status-btn:hover,.status-btn.selected{border-color:#555;color:#eee;background:#171717}.bug-loading{padding:40px}.bug-loading span{display:block;height:10px;background:#151515;margin:10px 0;animation:bugpulse 1.1s ease-in-out infinite alternate}.bug-loading span:nth-child(2){width:70%}.bug-loading span:nth-child(3){width:45%}@keyframes bugpulse{from{opacity:.35}to{opacity:.8}}.bug-error{padding:40px;color:#b6b6b6}.bug-error small{display:block;color:#666;margin-top:8px}.empty-mark{font-family:Georgia,serif;font-size:28px;color:#444;margin-bottom:6px}@media(max-width:800px){.bug-intro{display:block}.bug-intro-mark{display:none}.bug-detail-top{grid-template-columns:1fr}.bug-context{grid-template-columns:1fr}.bug-modal-head{padding:18px}.bug-sections{padding:0 18px}.bug-detail-footer{display:block}.status-actions{margin-top:16px;justify-content:flex-start}}\n'''
+              text += css
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add worker.js admin/index.html admin/control-room.css
+          if git diff --cached --quiet; then echo 'No changes to commit.'; exit 0; fi
+          git commit -m 'Implement MELO Bug Reports'
+          git push
