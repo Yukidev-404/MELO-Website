@@ -5,14 +5,20 @@
   let warningTimer = null;
   let logoutTimer = null;
   let warning = null;
+  let loggingOut = false;
 
   const touch = () => {
+    if (loggingOut) return;
     const now = Date.now();
     localStorage.setItem(KEY, String(now));
     schedule(now);
   };
 
   const logout = async () => {
+    if (loggingOut) return;
+    loggingOut = true;
+    clearTimeout(warningTimer);
+    clearTimeout(logoutTimer);
     try {
       await fetch('/api/admin/logout', {method:'POST', credentials:'include', cache:'no-store'});
     } finally {
@@ -27,6 +33,7 @@
   };
 
   const showWarning = () => {
+    if (loggingOut) return;
     closeWarning();
     warning = document.createElement('div');
     warning.className = 'melo-session-warning';
@@ -58,6 +65,7 @@
   window.addEventListener('storage', e => { if (e.key === KEY) schedule(Number(e.newValue || Date.now())); });
 
   const initial = Number(localStorage.getItem(KEY) || 0);
-  if (!initial || Date.now() - initial >= TIMEOUT_MS) touch();
+  if (!initial) touch();
+  else if (Date.now() - initial >= TIMEOUT_MS) logout();
   else schedule(initial);
 })();
