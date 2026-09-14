@@ -5,51 +5,20 @@
   const sessionLabel = info?.querySelector('small');
   const nav = document.querySelector('aside.sidebar nav');
   if (!identity) return;
-
   const presence = () => fetch('/api/admin/presence', { method:'POST', credentials:'include', cache:'no-store' }).catch(() => {});
-  presence();
-  setInterval(presence, 10000);
-
+  presence(); setInterval(presence, 10000);
   fetch('/api/admin/me', { credentials:'include', cache:'no-store' })
     .then(r => r.ok ? r.json() : null)
     .then(d => {
       if (!d?.username) return;
       identity.textContent = d.username;
-      const label = info?.querySelector('strong');
-      if (label) label.textContent = d.role === 'owner' ? 'Owner' : 'Admin';
-      if (avatar) {
-        const letters = String(d.username).trim().split(/\s+/).map(x => x[0]).join('').slice(0,2).toUpperCase();
-        avatar.textContent = letters || 'ME';
-        avatar.title = `${d.username} · ${d.role === 'owner' ? 'Owner' : 'Admin'}`;
-      }
-      if (sessionLabel && d.expiresAt) {
-        const update = () => {
-          const seconds = Math.max(0, Number(d.expiresAt) - Math.floor(Date.now()/1000));
-          const hours = Math.floor(seconds / 3600);
-          const mins = Math.floor((seconds % 3600) / 60);
-          sessionLabel.innerHTML = `<i></i> SESSION · ${hours}H ${String(mins).padStart(2,'0')}M`;
-          sessionLabel.title = `Session expires in ${hours}h ${mins}m`;
-        };
-        update();
-        setInterval(update, 60000);
-      }
-
-      // The Administrators section is intentionally owner-only. It is added
-      // after the initial sidebar script runs, so initialize its collapsed-rail
-      // metadata here as well.
+      const label = info?.querySelector('strong'); if (label) label.textContent = d.role === 'owner' ? 'Owner' : 'Admin';
+      if (avatar) { const letters=String(d.username).trim().split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase(); avatar.textContent=letters||'ME'; avatar.title=`${d.username} · ${d.role === 'owner' ? 'Owner' : 'Admin'}`; }
+      if (sessionLabel && d.expiresAt) { const update=()=>{const seconds=Math.max(0,Number(d.expiresAt)-Math.floor(Date.now()/1000)),hours=Math.floor(seconds/3600),mins=Math.floor((seconds%3600)/60);sessionLabel.innerHTML=`<i></i> SESSION · ${hours}H ${String(mins).padStart(2,'0')}M`;sessionLabel.title=`Session expires in ${hours}h ${mins}m`};update();setInterval(update,60000); }
       if (d.role !== 'owner' || d.username !== 'Yuki' || !nav || nav.querySelector('[data-owner-admins]')) return;
-      const section = document.createElement('p');
-      section.className = 'nav-label';
-      section.textContent = 'MANAGEMENT';
-      section.dataset.ownerAdmins = 'label';
-      const item = document.createElement('a');
-      item.className = 'nav-item';
-      item.href = '/admin/administrators.html';
-      item.dataset.ownerAdmins = 'item';
-      item.dataset.tooltip = 'Administrators';
-      item.setAttribute('aria-label', 'Administrators');
-      item.innerHTML = '<span>◎</span>Administrators';
-      nav.append(section, item);
-    })
-    .catch(() => {});
+      const section=document.createElement('p'); section.className='nav-label'; section.textContent='MANAGEMENT'; section.dataset.ownerAdmins='label';
+      const item=document.createElement('a'); item.className='nav-item'; item.href='/admin/administrators.html'; item.dataset.ownerAdmins='item'; item.dataset.tooltip='Administrators'; item.setAttribute('aria-label','Administrators'); item.innerHTML='<span>◎</span>Administrators';
+      const updates=document.createElement('a'); updates.className='nav-item owner-channel-item'; updates.href='/admin/website-updates.html'; updates.dataset.ownerUpdates='item'; updates.dataset.tooltip='Website Updates'; updates.setAttribute('aria-label','Website Updates'); updates.innerHTML='<span>✦</span>Website Updates';
+      nav.append(section,item,updates);
+    }).catch(() => {});
 })();
