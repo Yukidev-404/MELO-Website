@@ -23,6 +23,13 @@ export default {
       return authWorker.fetch(request, env, ctx);
     }
 
+    if (url.pathname === "/admin/admin-invite" || url.pathname === "/admin/admin-invite/") {
+      const inviteUrl = new URL(request.url);
+      inviteUrl.pathname = "/admin/admin-invite.html";
+      const authWorker = (await import("./admin-auth-worker.js")).default;
+      return authWorker.fetch(new Request(inviteUrl.toString(), request), env, ctx);
+    }
+
     if (url.pathname === "/admin/admin-invite.html" || url.pathname === "/admin/admin-invite.js") {
       const authWorker = (await import("./admin-auth-worker.js")).default;
       return authWorker.fetch(request, env, ctx);
