@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MELO / ADMIN ACCESS</title>
 <script>
-  // Production admin authentication is hosted on the Worker so TOTP and
-  // the secure session cookie remain same-origin with the Control Room.
   if (location.hostname === 'yukidev-404.github.io') {
     location.replace('https://melo-website.tajtaranga.workers.dev/admin-login.html' + location.search);
   }
@@ -25,18 +23,20 @@
     <div class="logo-mark">⌘</div>
     <h1>Admin<br><em>access.</em></h1>
     <p class="intro" id="adminIntro">Checking admin setup…</p>
-    <div class="setup-steps" id="setupSteps"><span class="active">01 EMAIL</span><span>02 AUTHENTICATOR</span><span>03 VERIFY</span></div>
+    <div class="setup-steps" id="setupSteps"><span class="active">01 IDENTITY</span><span>02 AUTHENTICATOR</span><span>03 VERIFY</span></div>
     <form id="adminLoginForm" autocomplete="on">
-      <label>Email<div class="email-field"><input id="adminEmail" name="email" type="email" autocomplete="username" placeholder="admin@example.com" required><span id="emailStatus" class="email-status" aria-live="polite"></span></div></label>
+      <label>Username<input id="adminUsername" name="username" type="text" autocomplete="username" placeholder="your username" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9_-]{2,31}" required></label>
+      <label id="emailWrap" hidden>Email<input id="adminEmail" name="email" type="email" autocomplete="email" placeholder="admin@example.com" maxlength="254"></label>
       <label id="setupTokenWrap" hidden>One-time setup key<input id="setupToken" type="password" autocomplete="off" placeholder="Enter the Cloudflare setup key" maxlength="128"></label>
       <div id="totpSetup" hidden>
         <div class="setup-panel"><strong>AUTHENTICATOR SETUP</strong><p>Scan the QR code with your authenticator app, or enter the setup key manually.</p><div class="qr-wrap"><img id="totpQr" alt="Authenticator setup QR code"></div><label>Setup key<input id="setupKey" type="text" readonly spellcheck="false"></label><p class="warning">Save the setup key somewhere secure. Do not publish it or commit it to GitHub.</p></div>
-        <label>6-digit Authenticator code<input id="totpCode" name="totp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></label>
+        <label>6-digit Authenticator code<input id="totpCode" name="totp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required></label>
       </div>
-      <button class="submit" id="submitButton" type="submit">Continue <span>→</span></button>
+      <div id="normalTotp" hidden><label>6-digit Authenticator code<input id="normalTotpCode" name="normal-totp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></label></div>
+      <button class="submit" id="submitButton" type="submit">Sign in <span>→</span></button>
     </form>
     <p id="adminMessage" class="message" role="status" aria-live="polite"></p>
-    <p class="security-note">Admin access is restricted to the configured administrator identity and protected by rotating TOTP codes and secure server-side sessions.</p>
+    <p class="security-note">Use your administrator username and rotating 6-digit Authenticator code. Email is collected only during initial account setup.</p>
   </section>
   <aside class="side-art"><div class="vinyl"><div class="record-label">MELO<br><small>ADMIN</small><i>private console.</i></div></div><p>authorized<br>access<br>only ★</p></aside>
 </main>
