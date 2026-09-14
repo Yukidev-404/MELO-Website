@@ -15,6 +15,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate Worker syntax
+        run: |
+          node --check worker.js
+          node --check admin-chat-worker.js
+          node --check admin-ops-worker.js
+
       # Always perform a real Wrangler deployment from the current main tree.
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
