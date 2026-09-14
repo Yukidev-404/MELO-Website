@@ -8,7 +8,7 @@ export default {
     if (!url.pathname.startsWith('/api/admin/')) return null;
     const session = await getSession(request, env);
     if (!session) return json({ authenticated: false }, 401);
-
+    if (['POST','PATCH','DELETE'].includes(request.method) && !sameOrigin(request, url)) return json({error:'Invalid origin.'},403);
     if (url.pathname === '/api/admin/audit-log' && request.method === 'GET') return auditList(env, url);
     if (url.pathname === '/api/admin/flag' && request.method === 'POST') return flagMutation(request, env, session);
     if (url.pathname === '/api/admin/crash/status' && request.method === 'POST') return crashStatus(request, env, session);
@@ -75,54 +75,24 @@ async function flagMutation(request, env, session) {
   await ensureFlagSchema(env);
   const before = await env.DB.prepare('SELECT flag_key,enabled,description FROM feature_flags WHERE flag_key=?').bind(key).first();
   const now = Math.floor(Date.now()/1000);
-  if (before) {
-    await env.DB.prepare('UPDATE feature_flags SET enabled=?,description=?,updated_at=? WHERE flag_key=?').bind(enabled?1:0,description || before.description || null,now,key).run();
-  } else {
-    await env.DB.prepare('INSERT INTO feature_flags (flag_key,description,enabled,created_at,updated_at) VALUES (?,?,?,?,?)').bind(key,description||null,enabled?1:0,now,now).run();
-  }
+  if (before) await env.DB.prepare('UPDATE feature_flags SET enabled=?,description=?,updated_at=? WHERE flag_key=?').bind(enabled?1:0,description || before.description || null,now,key).run();
+  else await env.DB.prepare('INSERT INTO feature_flags (flag_key,description,enabled,created_at,updated_at) VALUES (?,?,?,?,?)').bind(key,description||null,enabled?1:0,now,now).run();
   await audit(env,session,request,enabled?'flag.enable':'flag.disable','feature_flag',key,{beforeEnabled:Number(before?.enabled||0),afterEnabled:enabled?1:0});
   const row = await env.DB.prepare('SELECT flag_key,description,enabled,created_at,updated_at FROM feature_flags WHERE flag_key=?').bind(key).first();
   return json({ok:true,row});
 }
-
-async function ensureFlagSchema(env) {
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS feature_flags (flag_key TEXT PRIMARY KEY,description TEXT,enabled INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)`).run();
-}
-
+async function ensureFlagSchema(env) { await env.DB.prepare(`CREATE TABLE IF NOT EXISTS feature_flags (flag_key TEXT PRIMARY KEY,description TEXT,enabled INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)`).run(); }
 async function crashStatus(request, env, session) {
   let body; try { body = await request.json(); } catch { return json({error:'Invalid JSON payload.'},400); }
-  const id = String(body?.id || '').trim();
-  const status = String(body?.status || '').trim().toLowerCase();
-  if (!id || id.length > 128) return json({error:'Invalid crash ID.'},400);
-  if (!['unresolved','investigating','resolved','wont_fix'].includes(status)) return json({error:'Invalid crash status.'},400);
-  await ensureCrashSchema(env);
-  const before = await env.DB.prepare('SELECT status FROM crash_reports WHERE crash_id=?').bind(id).first();
-  if (!before) return json({error:'Crash report not found.'},404);
-  const now = Math.floor(Date.now()/1000);
-  await env.DB.prepare(`UPDATE crash_reports SET status=?,resolved_at=? WHERE crash_id=?`).bind(status,status==='resolved'?now:null,id).run();
-  await audit(env,session,request,`crash.${status}`,'crash',id,{beforeStatus:String(before.status||'unresolved'),afterStatus:status});
-  return json({ok:true,crash_id:id,status});
+  const id=String(body?.id||'').trim(),status=String(body?.status||'').trim().toLowerCase();
+  if(!id||id.length>128)return json({error:'Invalid crash ID.'},400);if(!['unresolved','investigating','resolved','wont_fix'].includes(status))return json({error:'Invalid crash status.'},400);
+  await ensureCrashSchema(env);const before=await env.DB.prepare('SELECT status FROM crash_reports WHERE crash_id=?').bind(id).first();if(!before)return json({error:'Crash report not found.'},404);const now=Math.floor(Date.now()/1000);await env.DB.prepare(`UPDATE crash_reports SET status=?,resolved_at=? WHERE crash_id=?`).bind(status,status==='resolved'?now:null,id).run();await audit(env,session,request,`crash.${status}`,'crash',id,{beforeStatus:String(before.status||'unresolved'),afterStatus:status});return json({ok:true,crash_id:id,status});
 }
-
-async function ensureCrashSchema(env) {
-  try { await env.DB.prepare("ALTER TABLE crash_reports ADD COLUMN status TEXT NOT NULL DEFAULT 'unresolved'").run(); } catch(e) { if(!/duplicate column|already exists/i.test(String(e?.message||''))) throw e; }
-  try { await env.DB.prepare("ALTER TABLE crash_reports ADD COLUMN resolved_at INTEGER").run(); } catch(e) { if(!/duplicate column|already exists/i.test(String(e?.message||''))) throw e; }
-}
-
+async function ensureCrashSchema(env){try{await env.DB.prepare("ALTER TABLE crash_reports ADD COLUMN status TEXT NOT NULL DEFAULT 'unresolved'").run()}catch(e){if(!/duplicate column|already exists/i.test(String(e?.message||'')))throw e}try{await env.DB.prepare("ALTER TABLE crash_reports ADD COLUMN resolved_at INTEGER").run()}catch(e){if(!/duplicate column|already exists/i.test(String(e?.message||'')))throw e}}
 async function releaseMutation(request, env, session) {
-  if (session.role !== OWNER) return json({error:'Owner access required for release rollout changes.'},403);
-  let body; try { body = await request.json(); } catch { return json({error:'Invalid JSON payload.'},400); }
-  const version=String(body?.version||'').trim(), build=String(body?.build||'').trim(), platform=String(body?.platform||'').trim().toLowerCase(), status=String(body?.status||'').trim().toLowerCase();
-  if (!version || !platform || !['active','staged','archived'].includes(status)) return json({error:'Invalid release change.'},400);
-  const now=Math.floor(Date.now()/1000);
-  const before=await env.DB.prepare('SELECT release_status FROM releases WHERE version=? AND build=? AND platform=? ORDER BY updated_at DESC LIMIT 1').bind(version,build,platform).first();
-  if(!before)return json({error:'Release not found.'},404);
-  if(status==='active') await env.DB.prepare("UPDATE releases SET release_status='archived',updated_at=? WHERE platform=? AND release_status='active' AND NOT(version=? AND build=?)").bind(now,platform,version,build).run();
-  await env.DB.prepare('UPDATE releases SET release_status=?,updated_at=? WHERE version=? AND build=? AND platform=?').bind(status,now,version,build,platform).run();
-  await audit(env,session,request,`release.${status}`,'release',`${platform}:${version}:${build}`,{beforeStatus:String(before.release_status||''),afterStatus:status});
-  return json({ok:true,version,build,platform,status});
+  if(session.role!==OWNER)return json({error:'Owner access required for release rollout changes.'},403);let body;try{body=await request.json()}catch{return json({error:'Invalid JSON payload.'},400)}const version=String(body?.version||'').trim(),build=String(body?.build||'').trim(),platform=String(body?.platform||'').trim().toLowerCase(),status=String(body?.status||'').trim().toLowerCase();if(!version||!platform||!['active','staged','archived'].includes(status))return json({error:'Invalid release change.'},400);const now=Math.floor(Date.now()/1000);const before=await env.DB.prepare('SELECT release_status FROM releases WHERE version=? AND build=? AND platform=? ORDER BY updated_at DESC LIMIT 1').bind(version,build,platform).first();if(!before)return json({error:'Release not found.'},404);if(status==='active')await env.DB.prepare("UPDATE releases SET release_status='archived',updated_at=? WHERE platform=? AND release_status='active' AND NOT(version=? AND build=?)").bind(now,platform,version,build).run();await env.DB.prepare('UPDATE releases SET release_status=?,updated_at=? WHERE version=? AND build=? AND platform=?').bind(status,now,version,build,platform).run();await audit(env,session,request,`release.${status}`,'release',`${platform}:${version}:${build}`,{beforeStatus:String(before.release_status||''),afterStatus:status});return json({ok:true,version,build,platform,status});
 }
-
+function sameOrigin(request,url){const origin=request.headers.get('Origin');return !origin||origin===url.origin}
 function parseJson(v){try{return v?JSON.parse(v):{}}catch{return {raw:String(v)}}}
 async function sha256(value){const d=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));return [...d].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function randomToken(bytes=16){const a=new Uint8Array(bytes);crypto.getRandomValues(a);return [...a].map(b=>b.toString(16).padStart(2,'0')).join('')}
