@@ -1,0 +1,59 @@
+name: Apply administrator delete management fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply administrator delete management fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch administrator UI and Worker
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('admin/administrators.js')
+          s = p.read_text()
+          old = "<button class=\"admin-btn\" id=\"reset-admin\">RESET AUTHENTICATOR</button></div>`);"
+          new = "<button class=\"admin-btn\" id=\"reset-admin\">RESET AUTHENTICATOR</button><button class=\"admin-btn danger\" id=\"delete-admin\">DELETE ACCOUNT</button></div>`);"
+          if old not in s:
+              raise SystemExit('Administrator action buttons block not found')
+          s = s.replace(old, new, 1)
+          old2 = "document.getElementById('reset-admin').onclick=()=>{close();actionModal(row,'reset-authenticator','RESET AUTHENTICATOR',`This will sign <strong>${esc(row.username)}</strong> out everywhere and require a new Authenticator setup.`,'RESET');};"
+          new2 = "document.getElementById('reset-admin').onclick=()=>{close();actionModal(row,'reset-authenticator','RESET AUTHENTICATOR',`This will sign <strong>${esc(row.username)}</strong> out everywhere and require a new Authenticator setup.`,'RESET');};\n      document.getElementById('delete-admin').onclick=()=>{close();const confirmClose=modal('DELETE ACCOUNT',`<p class=\"notice\">This permanently removes <strong>${esc(row.username)}</strong> and invalidates their invitation and sessions.</p><p class=\"notice\">Type <strong>${esc(row.username)}</strong> to confirm.</p><div class=\"admin-field\"><input id=\"delete-confirm-name\" autocomplete=\"off\" placeholder=\"${esc(row.username)}\"></div><div class=\"admin-error\" id=\"delete-error\"></div><div class=\"admin-modal-actions\"><button class=\"admin-btn\" id=\"delete-cancel\">CANCEL</button><button class=\"admin-btn danger\" id=\"delete-confirm\">DELETE ACCOUNT</button></div>`);document.getElementById('delete-cancel').onclick=confirmClose;document.getElementById('delete-confirm').onclick=async()=>{const btn=document.getElementById('delete-confirm'),input=document.getElementById('delete-confirm-name'),err=document.getElementById('delete-error');if(input.value!==row.username){err.textContent='Username does not match.';return}btn.disabled=true;try{await api(`/api/admin/administrators/${encodeURIComponent(row.admin_id)}/delete`,{method:'POST'});confirmClose();load()}catch(e){err.textContent=e.message;btn.disabled=false}};};"
+          if old2 not in s:
+              raise SystemExit('Administrator reset action handler not found')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s)
+
+          p = Path('admin/administrators.css')
+          s = p.read_text()
+          marker = '.admin-btn.primary{background:#f4a6c9;color:#171217;border-color:#f4a6c9}'
+          replacement = marker + '.admin-btn.danger{border-color:rgba(255,112,112,.32);background:rgba(255,112,112,.06);color:#ff9a9a}.admin-btn.danger:hover{background:rgba(255,112,112,.12);border-color:rgba(255,112,112,.5)}'
+          if marker not in s:
+              raise SystemExit('Administrator button CSS marker not found')
+          p.write_text(s.replace(marker, replacement, 1))
+
+          p = Path('admin-auth-worker.js')
+          s = p.read_text()
+          old = 'if(action==="reset-authenticator"){await env.DB.batch([env.DB.prepare("UPDATE admin_accounts SET totp_secret_enc=NULL,pending_secret_enc=NULL,pending_expires_at=NULL,updated_at=? WHERE admin_id=?").bind(now,adminId),env.DB.prepare("DELETE FROM admin_identity_sessions WHERE admin_id=?").bind(adminId)]);const rawInvite=randomToken(32),hash=await sha256Hex(rawInvite);await env.DB.prepare("INSERT INTO admin_invitations (invitation_id,admin_id,token_hash,expires_at,created_at) VALUES (?,?,?,?,?)").bind(randomToken(16),adminId,hash,now+INVITE_TTL,now).run();return json({ok:true,invitationToken:rawInvite,invitationUrl:`/admin/admin-invite.html?token=${encodeURIComponent(rawInvite)}`,expiresAt:now+INVITE_TTL})}'
+          new = old + ';if(action==="delete"){await env.DB.batch([env.DB.prepare("DELETE FROM admin_identity_sessions WHERE admin_id=?").bind(adminId),env.DB.prepare("DELETE FROM admin_invitations WHERE admin_id=?").bind(adminId),env.DB.prepare("DELETE FROM admin_accounts WHERE admin_id=?").bind(adminId)]);return json({ok:true,deleted:true})}'
+          if old not in s:
+              raise SystemExit('Administrator reset-authenticator backend block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Verify administrator delete fix
+        run: |
+          grep -q 'id="delete-admin"' admin/administrators.js
+          grep -q 'action==="delete"' admin-auth-worker.js
+          grep -q 'admin-btn.danger' admin/administrators.css
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin/administrators.js admin/administrators.css admin-auth-worker.js
+          git commit -m 'Add administrator account deletion' 
+          git push
