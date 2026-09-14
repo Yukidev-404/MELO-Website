@@ -1,6 +1,6 @@
 (() => {
   const POLL_MS = 10000;
-  const STORAGE_KEY = 'melo-control-notification-state-v2';
+  const STORAGE_KEY = 'melo-control-notification-state-v3';
   const nav = {
     crashes: document.querySelector('.nav-item[data-view="crashes"]'),
     'bug-reports': document.querySelector('.nav-item[data-view="bug-reports"]')
@@ -14,16 +14,27 @@
 
   async function getRows(path) {
     try {
-      const r = await fetch(path, { credentials:'include', cache:'no-store' });
+      const r = await fetch(path, { credentials: 'include', cache: 'no-store' });
       if (r.status === 401 || !r.ok) return null;
       const d = await r.json();
       return Array.isArray(d.rows) ? d.rows : [];
     } catch { return null; }
   }
 
+  function toTimestamp(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && value.trim() !== '') return numeric;
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  }
+
   function newestTimestamp(rows, type) {
     const key = type === 'crash' ? 'timestamp' : 'submitted_at';
-    return rows.reduce((max, r) => Math.max(max, Number(r[key] || 0)), 0);
+    return rows.reduce((max, r) => Math.max(max, toTimestamp(r[key])), 0);
   }
 
   function addDot(item, type) {
@@ -59,17 +70,10 @@
     const bugNewest = bugs ? newestTimestamp(bugs, 'bug') : 0;
 
     if (!initialized) {
-      if (crashes) {
-        state.crashSeenAt = state.crashSeenAt || crashNewest;
-        state.crashObservedAt = crashNewest;
-      }
-      if (bugs) {
-        state.bugSeenAt = state.bugSeenAt || bugNewest;
-        state.bugObservedAt = bugNewest;
-      }
+      if (crashes) state.crashObservedAt = crashNewest;
+      if (bugs) state.bugObservedAt = bugNewest;
       save();
       initialized = true;
-      return;
     }
 
     if (crashes && crashNewest > Number(state.crashSeenAt || 0)) {
