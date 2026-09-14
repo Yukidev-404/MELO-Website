@@ -6,6 +6,10 @@
   const nav = document.querySelector('aside.sidebar nav');
   if (!identity) return;
 
+  const presence = () => fetch('/api/admin/presence', { method:'POST', credentials:'include', cache:'no-store' }).catch(() => {});
+  presence();
+  setInterval(presence, 10000);
+
   fetch('/api/admin/me', { credentials:'include', cache:'no-store' })
     .then(r => r.ok ? r.json() : null)
     .then(d => {
