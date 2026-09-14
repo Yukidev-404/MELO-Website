@@ -21,7 +21,7 @@
   }
 
   function addModal() {
-    const close = modal('ADD ADMINISTRATOR', `<form class="admin-form" id="add-admin-form"><div class="admin-field"><label>USERNAME</label><input id="new-admin-username" autocomplete="off" maxlength="32" placeholder="e.g. Mina"><div class="admin-help">3–32 characters. Uppercase and lowercase are distinct.</div></div><div class="admin-field"><label>EMAIL</label><input id="new-admin-email" type="email" autocomplete="email" placeholder="admin@example.com"><div class="admin-help">Used for the invitation and future account recovery.</div></div><div class="admin-field"><label>ROLE</label><input value="Admin" disabled><div class="admin-help">Only Yuki can manage administrators. Owner transfer is not available here.</div></div><div class="admin-error" id="add-admin-error"></div><div class="admin-modal-actions"><button type="button" class="admin-btn" id="cancel-add">CANCEL</button><button class="admin-btn primary" id="create-admin">CREATE ADMIN</button></div></form>`);
+    const close = modal('ADD ADMINISTRATOR', `<form class="admin-form" id="add-admin-form"><div class="admin-field"><label>USERNAME</label><input id="new-admin-username" autocomplete="off" maxlength="32" placeholder="e.g. Mina"><div class="admin-help">3–32 characters. Uppercase and lowercase are distinct.</div></div><div class="admin-field"><label>EMAIL</label><input id="new-admin-email" type="email" autocomplete="email" placeholder="admin@example.com"><div class="admin-help">Used for account contact/recovery and shown to the Owner.</div></div><div class="admin-field"><label>ROLE</label><input value="Admin" disabled><div class="admin-help">Only the Owner can create or manage administrators. Owner transfer is not available here.</div></div><div class="admin-error" id="add-admin-error"></div><div class="admin-modal-actions"><button type="button" class="admin-btn" id="cancel-add">CANCEL</button><button class="admin-btn primary" id="create-admin">CREATE ADMIN</button></div></form>`);
     document.getElementById('cancel-add').onclick = close;
     document.getElementById('add-admin-form').onsubmit = async e => {
       e.preventDefault(); const err = document.getElementById('add-admin-error'); const btn = document.getElementById('create-admin'); err.textContent=''; btn.disabled=true;
@@ -32,30 +32,40 @@
     };
   }
 
+  async function copyText(text, button) {
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const area = document.createElement('textarea'); area.value=text; area.style.position='fixed'; area.style.opacity='0'; document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove();
+    }
+    if (button) { const old=button.textContent; button.textContent='COPIED'; setTimeout(()=>button.textContent=old,1400); }
+  }
+
   function inviteModal(d) {
-    modal('ADMIN CREATED', `<p class="notice"><strong>${esc(d.admin.username)}</strong> has been created as an Admin.</p><p class="notice">Give this one-time invitation to the new administrator. It expires ${esc(date(d.expiresAt))} and becomes invalid after Authenticator setup.</p><div class="invite-box"><code id="invite-url">${esc(location.origin + d.invitationUrl)}</code><button class="admin-btn primary" id="copy-invite">COPY INVITATION</button></div><div class="admin-modal-actions"><button class="admin-btn" id="invite-done">DONE</button></div>`);
-    document.getElementById('copy-invite').onclick = async () => { await navigator.clipboard.writeText(location.origin + d.invitationUrl); document.getElementById('copy-invite').textContent='COPIED'; };
+    const fullUrl = location.origin + d.invitationUrl;
+    modal('ADMIN CREATED', `<p class="notice"><strong>${esc(d.admin.username)}</strong> is ready as an Admin account.</p><p class="notice">Send this one-time invitation to the administrator. It expires ${esc(date(d.expiresAt))} and becomes invalid after setup.</p><div class="invite-box"><code id="invite-url">${esc(fullUrl)}</code><button class="admin-btn primary" id="copy-invite">COPY INVITATION</button></div><div class="admin-modal-actions"><button class="admin-btn" id="invite-done">DONE</button></div>`);
+    document.getElementById('copy-invite').onclick = () => copyText(fullUrl, document.getElementById('copy-invite'));
     document.getElementById('invite-done').onclick = () => document.getElementById('admin-modal')?.remove();
   }
 
   function actionModal(row, action, label, description, buttonLabel) {
     const close = modal(label, `<p class="notice">${description}</p><div class="admin-error" id="action-error"></div><div class="admin-modal-actions"><button class="admin-btn" id="action-cancel">CANCEL</button><button class="admin-btn primary" id="action-confirm">${buttonLabel}</button></div>`);
     document.getElementById('action-cancel').onclick=close;
-    document.getElementById('action-confirm').onclick=async()=>{const btn=document.getElementById('action-confirm');btn.disabled=true;try{const d=await api(`/api/admin/administrators/${encodeURIComponent(row.admin_id)}/${action}`,{method:'POST'});close();if(d.invitationUrl)inviteModal({...d,admin:{username:row.username},invitationUrl:d.invitationUrl});load()}catch(e){document.getElementById('action-error').textContent=e.message;btn.disabled=false}};
+    document.getElementById('action-confirm').onclick=async()=>{const btn=document.getElementById('action-confirm');btn.disabled=true;try{const d=await api(`/api/admin/administrators/${encodeURIComponent(row.admin_id)}/${action}`,{method:'POST'});close();if(d.invitationUrl)inviteModal({...d,admin:{username:row.username,email:row.email,role:'admin'},invitationUrl:d.invitationUrl});load()}catch(e){document.getElementById('action-error').textContent=e.message;btn.disabled=false}};
   }
 
   function render(rows) {
     const cards = rows.map(r => {
       const status = !r.enabled ? '<span class="admin-badge off"><i></i>DISABLED</span>' : r.configured ? '<span class="admin-badge"><i></i>ACTIVE</span>' : '<span class="admin-badge pending"><i></i>PENDING</span>';
+      const state = r.pending_invitation ? 'INVITATION PENDING' : r.configured ? 'AUTHENTICATOR READY' : 'SETUP REQUIRED';
       const action = r.role === 'owner' ? '' : `<button class="admin-menu" data-id="${esc(r.admin_id)}" aria-label="Administrator actions">···</button>`;
-      return `<article class="admin-card"><div class="admin-name"><strong>${esc(r.username)}${r.username==='Yuki'?' · YOU':''}</strong><small>${esc(r.role)}</small></div><div class="admin-email">${esc(r.email)}<small>${r.last_login_at?'Last login · '+esc(date(r.last_login_at)):'Never signed in'}</small></div><div>${status}</div><div class="admin-role">${r.pending_invitation?'INVITATION PENDING':r.configured?'AUTHENTICATOR READY':'SETUP REQUIRED'}</div><div class="admin-actions">${action}</div></article>`;
+      return `<article class="admin-card"><div class="admin-name"><strong>${esc(r.username)}${r.username==='Yuki'?' · YOU':''}</strong><small>${esc(r.role)}</small></div><div class="admin-email">${esc(r.email)}<small>Created · ${esc(date(r.created_at))}</small></div><div>${status}</div><div class="admin-role">${state}</div><div class="admin-actions">${action}</div></article>`;
     }).join('');
-    content.innerHTML = `<section class="page admins-wrap"><div class="admin-toolbar"><div><h2>Administrators</h2><p>Manage who can enter the MELO Control Room. Owner access is restricted to Yuki.</p></div><button class="admin-add" id="add-admin">+ ADD ADMIN</button></div><div class="admin-list">${cards || '<div class="admin-empty">No administrator accounts found.</div>'}</div><div class="health-strip"><span><strong>OWNER CONTROL.</strong> Administrator actions are protected server-side.</span><span class="right">${rows.length} ACCOUNT${rows.length===1?'':'S'} </span></div></section>`;
+    content.innerHTML = `<section class="page admins-wrap"><div class="admin-toolbar"><div><h2>Administrators</h2><p>Manage who can enter the MELO Control Room. The Owner account is protected and cannot be disabled or deleted.</p></div><button class="admin-add" id="add-admin">+ ADD ADMIN</button></div><div class="admin-list">${cards || '<div class="admin-empty">No administrator accounts found.</div>'}</div><div class="health-strip"><span><strong>OWNER CONTROL.</strong> Administrator actions are enforced server-side.</span><span class="right">${rows.length} ACCOUNT${rows.length===1?'':'S'}</span></div></section>`;
     document.getElementById('add-admin').onclick=addModal;
     document.querySelectorAll('.admin-menu').forEach(btn=>btn.onclick=()=>{
       const row=rows.find(x=>x.admin_id===btn.dataset.id); if(!row)return;
       const options = row.enabled ? `<button class="admin-btn" id="disable-admin">DISABLE ACCOUNT</button>` : `<button class="admin-btn primary" id="enable-admin">ENABLE ACCOUNT</button>`;
-      const close=modal(`${esc(row.username)}`, `<p class="notice">${esc(row.email)} · ${esc(row.role)}</p><div class="admin-modal-actions" style="justify-content:flex-start;flex-wrap:wrap">${options}<button class="admin-btn" id="revoke-admin">REVOKE SESSIONS</button><button class="admin-btn" id="reset-admin">RESET AUTHENTICATOR</button><button class="admin-btn danger" id="delete-admin">DELETE ACCOUNT</button></div>`);
+      const close=modal(`${esc(row.username)}`, `<p class="notice">${esc(row.email)} · ${esc(row.role)} · created ${esc(date(row.created_at))}</p><div class="admin-modal-actions" style="justify-content:flex-start;flex-wrap:wrap">${options}<button class="admin-btn" id="revoke-admin">REVOKE SESSIONS</button><button class="admin-btn" id="reset-admin">RESET AUTHENTICATOR</button><button class="admin-btn danger" id="delete-admin">DELETE ACCOUNT</button></div>`);
       document.getElementById('disable-admin')?.addEventListener('click',()=>{close();actionModal(row,'disable','DISABLE ACCOUNT',`Disable <strong>${esc(row.username)}</strong>? They will be signed out and unable to enter the Control Room until re-enabled.`,'DISABLE');});
       document.getElementById('enable-admin')?.addEventListener('click',()=>{close();actionModal(row,'enable','ENABLE ACCOUNT',`Restore Control Room access for <strong>${esc(row.username)}</strong>?`,'ENABLE');});
       document.getElementById('revoke-admin').onclick=()=>{close();actionModal(row,'revoke-sessions','REVOKE SESSIONS',`Sign <strong>${esc(row.username)}</strong> out of all current Control Room sessions?`,'REVOKE');};
