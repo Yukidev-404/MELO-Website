@@ -1,3 +1,9 @@
+const inviteToken = new URLSearchParams(location.search).get('token');
+if (inviteToken) {
+  location.replace(`/admin/admin-invite.html?token=${encodeURIComponent(inviteToken)}`);
+  throw new Error('Invitation redirect');
+}
+
 const form = document.getElementById('adminLoginForm');
 const message = document.getElementById('adminMessage');
 const submit = document.getElementById('submitButton');
@@ -18,8 +24,6 @@ const steps = document.querySelectorAll('#setupSteps span');
 let configured = false;
 let setupStarted = false;
 
-// Keep browser-native validation from silently blocking the submit handler.
-// All validation is performed explicitly below so the user always gets a visible MELO error.
 form.noValidate = true;
 
 function showStep(step) {
@@ -59,7 +63,6 @@ async function requestJson(path, options = {}) {
   } catch {
     throw new Error('Unable to reach the MELO admin service. Check your connection and try again.');
   }
-
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
   return data;
@@ -100,42 +103,22 @@ form.addEventListener('submit', async (event) => {
   event.preventDefault();
   message.textContent = '';
   submit.disabled = true;
-
   const username = usernameInput.value.trim();
-
   try {
     if (!validUsername()) throw new Error('Enter a valid administrator username.');
-
     if (configured) {
       const code = normalTotpCode.value.trim();
       if (!validCode(code)) throw new Error('Enter the current 6-digit Authenticator code.');
-
-      const data = await requestJson('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-MELO-Client': 'admin-console' },
-        body: JSON.stringify({ username, code })
-      });
-
+      const data = await requestJson('/api/admin/login', {method:'POST',headers:{'Content-Type':'application/json','X-MELO-Client':'admin-console'},body:JSON.stringify({username,code})});
       window.location.href = data.redirect || '/admin/';
       return;
     }
-
     if (!setupStarted) {
       const email = emailInput.value.trim().toLowerCase();
       const token = setupToken.value.trim();
       if (!email) throw new Error('Enter the administrator email address.');
       if (!token) throw new Error('Enter the one-time setup key.');
-
-      const data = await requestJson('/api/admin/setup/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-MELO-Client': 'admin-console',
-          'X-MELO-Setup-Token': token
-        },
-        body: JSON.stringify({ username, email })
-      });
-
+      const data = await requestJson('/api/admin/setup/start', {method:'POST',headers:{'Content-Type':'application/json','X-MELO-Client':'admin-console','X-MELO-Setup-Token':token},body:JSON.stringify({username,email})});
       totpQr.src = data.qrCodeDataUrl;
       setupKey.value = data.setupKey;
       totpSetup.hidden = false;
@@ -149,16 +132,9 @@ form.addEventListener('submit', async (event) => {
       message.textContent = 'Setup started. Add MELO Admin to your authenticator app.';
       return;
     }
-
     const code = totpCode.value.trim();
     if (!validCode(code)) throw new Error('Enter the current 6-digit Authenticator code.');
-
-    const data = await requestJson('/api/admin/setup/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-MELO-Client': 'admin-console' },
-      body: JSON.stringify({ username, email: emailInput.value.trim().toLowerCase(), code })
-    });
-
+    const data = await requestJson('/api/admin/setup/verify', {method:'POST',headers:{'Content-Type':'application/json','X-MELO-Client':'admin-console'},body:JSON.stringify({username,email:emailInput.value.trim().toLowerCase(),code})});
     window.location.href = data.redirect || '/admin/';
   } catch (error) {
     message.textContent = error.message || 'Unable to reach the admin authentication service.';
