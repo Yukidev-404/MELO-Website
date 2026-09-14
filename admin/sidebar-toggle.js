@@ -7,19 +7,14 @@
   const STORAGE_KEY = 'melo_control_room_sidebar_collapsed';
   const desktop = () => window.innerWidth > 760;
 
-  // Give the collapsed icon rail accessible MELO-themed hover labels.
-  const labels = () => {
-    sidebar.querySelectorAll('.nav-item').forEach(item => {
-      const label = Array.from(item.childNodes)
-        .filter(node => node.nodeType === Node.TEXT_NODE)
-        .map(node => node.textContent.trim())
-        .filter(Boolean)
-        .join(' ');
-      if (label) item.dataset.tooltip = label;
-      item.setAttribute('aria-label', label || item.getAttribute('aria-label') || 'Navigation');
-    });
-  };
-  labels();
+  // Give every sidebar item a stable tooltip label. This also covers the standalone Console link.
+  sidebar.querySelectorAll('.nav-item').forEach(item => {
+    const label = (item.textContent || '').replace(/\s+/g, ' ').trim();
+    if (label) {
+      item.dataset.tooltip = label;
+      item.setAttribute('aria-label', label);
+    }
+  });
 
   const setCollapsed = (collapsed, save = true) => {
     if (!desktop()) return;
@@ -37,7 +32,7 @@
     setCollapsed(!document.body.classList.contains('sidebar-collapsed'));
   });
 
-  document.addEventListener('keydown', (event) => {
+  document.addEventListener('keydown', event => {
     if (!desktop()) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
       event.preventDefault();
