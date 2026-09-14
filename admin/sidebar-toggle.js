@@ -6,32 +6,24 @@
 
   const STORAGE_KEY = 'melo_control_room_sidebar_collapsed';
   const desktop = () => window.innerWidth > 760;
+  let tooltip = null;
+  let hoveredItem = null;
 
-  // Give every sidebar item a clean label and build the tooltip outside the
-  // sidebar so it can never be clipped by the collapsed rail's overflow.
-  sidebar.querySelectorAll('.nav-item').forEach(item => {
-    const label = Array.from(item.childNodes)
-      .filter(node => node.nodeType === Node.TEXT_NODE)
-      .map(node => node.textContent.trim())
-      .filter(Boolean)
-      .join(' ')
+  function getLabel(item) {
+    return item.dataset.tooltip
+      || Array.from(item.childNodes).filter(n => n.nodeType === Node.TEXT_NODE)
+        .map(n => n.textContent.trim()).filter(Boolean).join(' ')
       || item.getAttribute('aria-label')
       || item.textContent.replace(/\s+/g, ' ').trim();
+  }
+
+  function showTooltip(item) {
+    if (!document.body.classList.contains('sidebar-collapsed') || !desktop()) return;
+    const label = getLabel(item);
     if (!label) return;
-
-    item.dataset.tooltip = label;
-    item.setAttribute('aria-label', label);
-
-    item.addEventListener('mouseenter', () => {
-      if (!document.body.classList.contains('sidebar-collapsed') || !desktop()) return;
-      showTooltip(item, label);
-    });
-    item.addEventListener('mouseleave', hideTooltip);
-  });
-
-  let tooltip = null;
-  function showTooltip(item, label) {
+    hoveredItem = item;
     hideTooltip();
+    hoveredItem = item;
     tooltip = document.createElement('div');
     tooltip.className = 'melo-sidebar-tooltip';
     tooltip.textContent = label;
@@ -42,11 +34,38 @@
     tooltip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
     requestAnimationFrame(() => tooltip?.classList.add('visible'));
   }
+
   function hideTooltip() {
-    if (!tooltip) return;
-    tooltip.remove();
+    if (tooltip) tooltip.remove();
     tooltip = null;
   }
+
+  // Event delegation is intentional: Administrators is injected later for
+  // the Owner account, so it must receive the same hover behavior as static tabs.
+  sidebar.addEventListener('mouseover', event => {
+    const item = event.target.closest?.('.nav-item');
+    if (!item || !sidebar.contains(item)) return;
+    if (item === hoveredItem && tooltip) return;
+    showTooltip(item);
+  });
+  sidebar.addEventListener('mouseout', event => {
+    const item = event.target.closest?.('.nav-item');
+    const next = event.relatedTarget?.closest?.('.nav-item');
+    if (item && item !== next) {
+      hoveredItem = null;
+      hideTooltip();
+    }
+  });
+
+  // Stamp labels onto current items. Dynamically added items are handled by
+  // getLabel() through the delegated hover listeners above.
+  sidebar.querySelectorAll('.nav-item').forEach(item => {
+    const label = getLabel(item);
+    if (label) {
+      item.dataset.tooltip = label;
+      item.setAttribute('aria-label', label);
+    }
+  });
 
   const setCollapsed = (collapsed, save = true) => {
     if (!desktop()) return;
@@ -58,8 +77,7 @@
     if (save) localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
   };
 
-  const saved = localStorage.getItem(STORAGE_KEY) === '1';
-  if (desktop()) setCollapsed(saved, false);
+  if (desktop()) setCollapsed(localStorage.getItem(STORAGE_KEY) === '1', false);
 
   button.addEventListener('click', () => {
     setCollapsed(!document.body.classList.contains('sidebar-collapsed'));
@@ -75,6 +93,7 @@
 
   window.addEventListener('resize', () => {
     hideTooltip();
+    hoveredItem = null;
     if (!desktop()) document.body.classList.remove('sidebar-collapsed');
     else setCollapsed(localStorage.getItem(STORAGE_KEY) === '1', false);
   });
