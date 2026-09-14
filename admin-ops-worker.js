@@ -12,6 +12,7 @@ export default {
     if (url.pathname === '/api/admin/audit-log' && request.method === 'GET') return auditList(env, url);
     if (url.pathname === '/api/admin/flag' && request.method === 'POST') return flagMutation(request, env, session);
     if (url.pathname === '/api/admin/crash/status' && request.method === 'POST') return crashStatus(request, env, session);
+    if (url.pathname === '/api/admin/release' && request.method === 'GET') return releaseList(env, session);
     if (url.pathname === '/api/admin/release' && request.method === 'POST') return releasePublish(request, env, session);
     if (url.pathname === '/api/admin/release-status' && request.method === 'POST') return releaseMutation(request, env, session);
     return null;
@@ -114,6 +115,13 @@ async function ensureCrashSchema(env) {
 async function ensureReleaseSchema(env) {
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS releases (version TEXT NOT NULL,build TEXT NOT NULL DEFAULT '',platform TEXT NOT NULL,release_status TEXT NOT NULL DEFAULT 'staged',release_notes TEXT,download_url TEXT,released_at INTEGER NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,PRIMARY KEY(version,build,platform))`).run();
   try { await env.DB.prepare("ALTER TABLE releases ADD COLUMN download_url TEXT").run(); } catch (e) { if (!/duplicate column|already exists/i.test(String(e?.message || ''))) throw e; }
+}
+
+async function releaseList(env, session) {
+  if (session.role !== OWNER || session.username !== OWNER_NAME) return json({ error: 'Owner access required.' }, 403);
+  await ensureReleaseSchema(env);
+  const result = await env.DB.prepare('SELECT version,build,platform,release_status,release_notes,download_url,released_at,created_at,updated_at FROM releases ORDER BY released_at DESC,updated_at DESC LIMIT 100').all();
+  return json({ ok: true, rows: result?.results || [], generatedAt: Math.floor(Date.now() / 1000) });
 }
 
 async function releasePublish(request, env, session) {
