@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="melo-theme.css">
 <link rel="stylesheet" href="mobile.css">
 <link rel="stylesheet" href="administrators.css">
+<link rel="stylesheet" href="session-timeout.css?v=20260914-1">
 </head>
 <body>
 <div class="app-shell">
@@ -19,7 +20,7 @@
       <p class="nav-label">MANAGEMENT</p><a class="nav-item" href="/admin/?view=users"><span>◌</span>Users</a><a class="nav-item" href="/admin/?view=installations"><span>⌘</span>Installations</a>
       <p class="nav-label">MONITORING</p><a class="nav-item" href="/admin/?view=crashes"><span>△</span>Crashes</a><a class="nav-item" href="/admin/?view=bug-reports"><span>✦</span>Bug Reports</a><a class="nav-item" href="/admin/?view=security"><span>◇</span>Security</a><a class="nav-item" href="/admin/?view=services"><span>◈</span>API / Services</a>
       <p class="nav-label">PRODUCT</p><a class="nav-item" href="/admin/?view=releases"><span>□</span>Releases</a><a class="nav-item" href="/admin/?view=flags"><span>◉</span>Feature Flags</a><a class="nav-item" href="/admin/?view=analytics"><span>∿</span>Analytics</a>
-      <p class="nav-label">SYSTEM</p><a class="nav-item" href="/admin/?view=health"><span>⌬</span>System Health</a><a class="nav-item" href="/admin/?view=settings"><span>⚙</span>Admin Settings</a>
+      <p class="nav-label">SYSTEM</p><a class="nav-item" href="/admin/?view=health"><span>⌬</span>System Health</a><a class="nav-item" href="/admin/?view=settings"><span>⚙</span>Admin Settings</a><a class="nav-item" href="/admin/?view=audit"><span>≋</span>Audit Log</a>
       <p class="nav-label owner-only">OWNER</p><a class="nav-item active owner-only" href="/admin/administrators.html"><span>◎</span>Administrators</a>
     </nav>
     <div class="sidebar-footer"><div class="admin-avatar">YS</div><div class="admin-info"><strong>Owner</strong><span id="identity">Yuki</span><small><i></i> SECURE SESSION</small></div><button id="logout" class="logout-icon" aria-label="Log out">↗</button></div>
@@ -27,5 +28,6 @@
   <main class="content"><header class="content-header"><div><p class="kicker">PRIVATE ADMINISTRATION</p><h1>Administrators</h1></div><div class="header-meta"><span class="service-pill"><i></i> OWNER ONLY</span><span class="clock" id="clock">--:--:--</span></div></header><div id="page-content"></div></main>
 </div>
 <script src="administrators.js"></script>
+<script src="session-timeout.js?v=20260914-1"></script>
 </body>
 </html>
