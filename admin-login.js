@@ -53,7 +53,7 @@ async function checkStatus() {
     intro.textContent = configured
       ? 'Enter your administrator username and current Authenticator code.'
       : 'First-time setup: create the administrator identity and Authenticator.';
-    usernameInput.placeholder = data.username || 'your username';
+    usernameInput.placeholder = 'your username';
     submit.disabled = false;
   } catch {
     intro.textContent = 'Unable to reach the MELO admin service.';
