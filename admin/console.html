@@ -18,7 +18,7 @@
   </header>
   <main class="console-main">
     <section class="console-hero">
-      <div><p class="eyebrow">SYSTEM OPERATIONS</p><h1>Console <em>/ read-only</em></h1><p>MELO-native operations terminal connected to the protected Control Room APIs.</p></div>
+      <div><p class="eyebrow">SYSTEM OPERATIONS</p><h1>Console <em>/ controlled ops</em></h1><p>MELO-native operations terminal connected to protected, allowlisted Control Room APIs.</p></div>
       <div class="console-state"><span>EDGE CONTROL PLANE</span><strong><i></i><b id="connection-state">ONLINE</b></strong><small id="last-check">LAST CHECK —</small></div>
     </section>
     <section class="terminal-card">
@@ -27,7 +27,7 @@
       <form id="console-form" class="terminal-input-row" autocomplete="off"><span>›</span><input id="console-input" aria-label="Console command" spellcheck="false" placeholder="type a command…"><button type="submit">RUN</button></form>
     </section>
     <section class="console-lower">
-      <div class="quick-panel"><div class="section-head"><div><span>QUICK COMMANDS</span><h2>Operations</h2></div><small>READ ONLY</small></div><div id="quick-commands" class="quick-grid"></div><div class="command-hint"><span>⌘</span> <b>Tab</b> autocomplete <span>↑ ↓</span> history <span>Ctrl L</span> clear terminal</div></div>
+      <div class="quick-panel"><div class="section-head"><div><span>QUICK COMMANDS</span><h2>Operations</h2></div><small>READ + CONTROLLED WRITE</small></div><div id="quick-commands" class="quick-grid"></div><div class="command-hint"><span>⌘</span> <b>Tab</b> autocomplete <span>↑ ↓</span> history <span>Ctrl L</span> clear terminal</div></div>
       <div class="stream-panel"><div class="section-head"><div><span>LIVE SYSTEM STREAM</span><h2>Telemetry feed</h2></div><button id="stream-toggle" type="button">PAUSE</button></div><div class="stream-status"><i></i><span id="stream-status-text">Polling every 5s</span><span id="stream-count">0 events</span></div><div id="stream-output" class="stream-output"><div class="stream-empty">Waiting for telemetry…</div></div></div>
     </section>
     <section class="drilldown-card" id="installation-drilldown">
@@ -36,11 +36,12 @@
       <div id="installation-detail" class="installation-detail" hidden></div>
     </section>
     <div id="suggestions" class="suggestions" hidden></div>
-    <footer class="console-footer"><span><i></i> Commands execute through existing authenticated Admin APIs.</span><span>No arbitrary shell · No SQL · No secrets</span></footer>
+    <footer class="console-footer"><span><i></i> Read operations use authenticated Admin APIs; write operations require confirmation and are audited.</span><span>No shell · No SQL · No secrets</span></footer>
   </main>
 </div>
 <script src="console.js?v=20260914-4"></script>
 <script src="console-drilldown.js?v=20260914-1"></script>
+<script src="console-ops.js?v=20260914-1"></script>
 <script src="session-timeout.js?v=20260914-1"></script>
 </body>
 </html>
