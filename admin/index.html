@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MELO / CONTROL ROOM</title>
 <script>
-  // The production Control Room runs on the Worker origin so admin sessions,
-  // TOTP state, and D1 all stay same-origin. GitHub Pages is the public site.
   if (location.hostname === 'yukidev-404.github.io') {
     location.replace('https://melo-website.tajtaranga.workers.dev/admin/' + location.search);
   }
@@ -22,6 +20,7 @@
 <link rel="stylesheet" href="bug-reports.css">
 <link rel="stylesheet" href="crashes-view.css">
 <link rel="stylesheet" href="consistency-polish.css">
+<link rel="stylesheet" href="melo-theme.css">
 <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
