@@ -1,5 +1,11 @@
-worker.js
-wrangler.jsonc
-admin-auth/
+node_modules/
+.github/
 .git/
 .gitignore
+admin-auth/
+admin-auth-worker.js
+worker.js
+wrangler.jsonc
+package.json
+package-lock.json
+.assetsignore
