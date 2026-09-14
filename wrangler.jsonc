@@ -7,6 +7,11 @@
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
+    "exclude": [
+      "node_modules/**",
+      ".git/**",
+      ".github/**"
+    ],
     "run_worker_first": [
       "/api/*",
       "/admin/*"
