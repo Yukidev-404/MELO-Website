@@ -1,5 +1,6 @@
 (() => {
   const POLL_MS = 10000;
+  const NOTIFICATION_API = `/api/admin/notifications?v=20260914-2`;
   const nav = {
     crashes: document.querySelector('.nav-item[data-view="crashes"]'),
     'bug-reports': document.querySelector('.nav-item[data-view="bug-reports"]')
@@ -27,9 +28,10 @@
 
   async function check() {
     try {
-      const r = await fetch('/api/admin/notifications', {
+      const r = await fetch(NOTIFICATION_API, {
         credentials: 'include',
-        cache: 'no-store'
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
       });
       if (!r.ok) return;
       const data = await r.json();
