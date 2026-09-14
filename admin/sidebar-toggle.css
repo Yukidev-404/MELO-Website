@@ -8,8 +8,6 @@
   .sidebar-toggle span:last-child{width:1px;height:13px;background:currentColor;left:calc(50% + 1px);top:calc(50% - 6px)}
   .sidebar-toggle:after{content:"";position:absolute;right:-1px;top:8px;width:3px;height:16px;border-right:1px solid #e15a9b;opacity:.9}
   .content{margin-left:226px;width:calc(100% - 226px);transition:width .22s ease,margin-left .22s ease}
-
-  /* Collapsed state becomes a slim MELO icon rail instead of disappearing completely. */
   body.sidebar-collapsed .sidebar{width:58px;padding-left:8px;padding-right:8px;border-right-color:#252525;overflow:hidden}
   body.sidebar-collapsed .sidebar .side-brand,body.sidebar-collapsed .sidebar-footer{opacity:0;visibility:hidden;pointer-events:none}
   body.sidebar-collapsed .sidebar nav{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:55px;padding-top:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;opacity:1;visibility:visible}
@@ -20,7 +18,6 @@
   body.sidebar-collapsed .sidebar .nav-item.active{background:#171217;border-color:#332732;color:#f2d7e4}
   body.sidebar-collapsed .sidebar .nav-item span{width:18px;height:18px;margin:0;display:grid;place-items:center;font-size:0;color:currentColor}
   body.sidebar-collapsed .sidebar .nav-item span:before{font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:400;color:currentColor}
-  /* MELO-native minimalist icon set */
   body.sidebar-collapsed .sidebar .nav-item[data-view="dashboard"] span:before{content:"⌁"}
   body.sidebar-collapsed .sidebar .nav-item[data-view="users"] span:before{content:"○"}
   body.sidebar-collapsed .sidebar .nav-item[data-view="installations"] span:before{content:"⌘"}
@@ -36,12 +33,15 @@
   body.sidebar-collapsed .sidebar .nav-item[data-view="settings"] span:before{content:"⚙"}
   body.sidebar-collapsed .sidebar .nav-item[href*="console"] span:before{content:"›_";font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}
 
+  /* MELO tooltip appears to the right of an icon when hovered. */
+  body.sidebar-collapsed .sidebar .nav-item[data-tooltip]::after{content:attr(data-tooltip);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%) translateX(-3px);z-index:100;white-space:nowrap;padding:7px 10px;background:#151215;border:1px solid #3b2a35;border-radius:4px;color:#eee;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;font-weight:500;letter-spacing:.02em;line-height:1;box-shadow:0 8px 24px rgba(0,0,0,.45),0 0 12px rgba(225,90,155,.08);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
+  body.sidebar-collapsed .sidebar .nav-item[data-tooltip]:hover::after{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0)}
+
   /* Notification dots stay visible on the icon rail and blink/pulse above the icon. */
   body.sidebar-collapsed .sidebar .nav-item.has-notification{padding:0}
   body.sidebar-collapsed .sidebar .nav-item .nav-notification-dot{position:absolute;top:3px;right:3px;width:6px;height:6px;margin:0;z-index:4;border-radius:50%;background:#f48bbf;box-shadow:0 0 0 2px #0d0d0d,0 0 8px rgba(244,139,191,.65);animation:melo-notify-blink 1.15s ease-in-out infinite}
   body.sidebar-collapsed .sidebar .nav-item .nav-notification-dot.crash{background:#ff7070;box-shadow:0 0 0 2px #0d0d0d,0 0 8px rgba(255,112,112,.7)}
   @keyframes melo-notify-blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.22;transform:scale(.72)}}
-
   body.sidebar-collapsed .sidebar-toggle{right:12px;left:12px;margin:0 auto;color:#b9b0b7}
   body.sidebar-collapsed .sidebar-toggle:hover{color:#f0d7e3;border-color:#b12b72}
   body.sidebar-collapsed .content{margin-left:58px;width:calc(100% - 58px)}
