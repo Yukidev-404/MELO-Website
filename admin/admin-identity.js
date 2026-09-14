@@ -1,16 +1,22 @@
 (() => {
   const identity = document.getElementById('identity');
   const info = document.querySelector('.admin-info');
+  const avatar = document.querySelector('.admin-avatar');
   const nav = document.querySelector('aside.sidebar nav');
   if (!identity) return;
 
-  fetch('/api/admin/me', { credentials: 'include', cache: 'no-store' })
+  fetch('/api/admin/me', { credentials:'include', cache:'no-store' })
     .then(r => r.ok ? r.json() : null)
     .then(d => {
       if (!d?.username) return;
       identity.textContent = d.username;
       const label = info?.querySelector('strong');
       if (label) label.textContent = d.role === 'owner' ? 'Owner' : 'Admin';
+      if (avatar) {
+        const letters = String(d.username).trim().split(/\s+/).map(x => x[0]).join('').slice(0,2).toUpperCase();
+        avatar.textContent = letters || 'ME';
+        avatar.title = `${d.username} · ${d.role === 'owner' ? 'Owner' : 'Admin'}`;
+      }
 
       if (d.role !== 'owner' || d.username !== 'Yuki' || !nav || nav.querySelector('[data-owner-admins]')) return;
       const section = document.createElement('p');
