@@ -311,7 +311,7 @@ function toBase64(data){let binary="";for(const byte of data)binary+=String.from
 function fromBase64(value){const binary=atob(value);return Uint8Array.from(binary,c=>c.charCodeAt(0));}
 function toBase64Url(data){return toBase64(data).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");}
 function normalizeEmail(value){return String(value||"").trim().toLowerCase();}
-function normalizeUsername(value){const username=String(value||"").trim().toLowerCase();return /^[a-z0-9][a-z0-9_-]{2,31}$/.test(username)?username:"";}
+function normalizeUsername(value){const username=String(value||"").trim();return /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(username)?username:"";}
 function isEmail(value){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length<=254;}
 function timingSafeEqual(a,b){if(a.length!==b.length)return false;let result=0;for(let i=0;i<a.length;i++)result|=a.charCodeAt(i)^b.charCodeAt(i);return result===0;}
 function sameOrigin(request,url){const origin=request.headers.get("Origin");return !origin||origin===url.origin;}
