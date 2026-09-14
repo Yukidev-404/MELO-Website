@@ -15,5 +15,8 @@
       }
     }catch(e){c.innerHTML=`<section class="page"><div class="empty">Unable to load system view. ${esc(e.message)}</div></section>`}
   };
-  window.addEventListener('popstate',render);setTimeout(render,0);setInterval(render,30000);
+  window.addEventListener('popstate',render);
+  window.addEventListener('controlroom:viewchange',render);
+  setTimeout(render,0);
+  setInterval(render,30000);
 })();
