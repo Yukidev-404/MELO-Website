@@ -1,0 +1,72 @@
+/* MELO Classic — visual theme layer. Keeps the existing Control Room layout/data intact. */
+:root{
+  --melo-bg:#080808;
+  --melo-panel:#0d0d0d;
+  --melo-panel-2:#111;
+  --melo-border:#252525;
+  --melo-border-soft:#1b1b1b;
+  --melo-text:#f3eee8;
+  --melo-muted:#77736f;
+  --melo-pink:#ff4fa3;
+  --melo-pink-soft:#d995b8;
+  --melo-green:#69d69a;
+}
+html,body{background:var(--melo-bg)!important;color:var(--melo-text)!important}
+body{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;letter-spacing:.01em}
+.sidebar{width:226px;background:#090909!important;border-right:1px solid #242124!important;padding-top:20px!important}
+.side-brand{padding-bottom:20px!important;border-color:#252225!important}
+.side-brand strong{font-family:Georgia,"Times New Roman",serif!important;font-size:17px!important;letter-spacing:.01em}
+.brand-mark{border-color:var(--melo-pink)!important;color:var(--melo-pink)!important;background:rgba(255,79,163,.045)}
+.side-brand small,.nav-label{font-family:ui-monospace,SFMono-Regular,Consolas,monospace!important}
+.nav-label{color:#666064!important;letter-spacing:.18em!important}
+.nav-item{position:relative;color:#8e888d!important;border-color:transparent!important;border-radius:0!important}
+.nav-item span{color:#6f6870!important}
+.nav-item:hover{color:#f1e9ed!important;background:#121012!important}
+.nav-item.active{color:#fff!important;background:#171317!important;border-color:#2d252b!important;box-shadow:inset 2px 0 0 var(--melo-pink)}
+.nav-item.active span{color:var(--melo-pink)!important}
+.sidebar-footer{border-color:#242124!important}
+.admin-avatar{background:#171317!important;color:#f2dbe7!important;border:1px solid #352a31}
+.admin-info small{color:#666!important}.admin-info i,.service-pill i{background:var(--melo-green)!important;box-shadow:0 0 7px rgba(105,214,154,.25)}
+.content{padding-left:30px!important;padding-right:30px!important}
+.content-header{border-color:#252225!important}
+.kicker{color:#6e686d!important}
+.content-header h1{font-family:Georgia,"Times New Roman",serif!important;font-size:27px!important}
+.content-header h1::first-letter{color:var(--melo-text)}
+.service-pill{border:1px solid #28342e;padding:7px 10px;color:#8e9b93!important;background:#0b110e;letter-spacing:.12em}
+.clock{color:#777!important}
+.page{max-width:1200px!important;padding-top:24px!important}
+.hero-line{border-color:#252225!important}
+.hero-title{font-family:Georgia,"Times New Roman",serif!important}
+.hero-title em{color:#aaa2a7!important}
+.metrics{gap:10px!important;margin-top:20px!important}
+.metric,.panel,.mini-panel{background:linear-gradient(145deg,#101010,#0b0b0b)!important;border-color:#272327!important;border-radius:0!important;position:relative;overflow:hidden}
+.metric::after,.mini-panel::after{content:"";position:absolute;right:10px;top:10px;width:5px;height:5px;background:var(--melo-pink);transform:rotate(45deg);opacity:.65}
+.metric:hover,.mini-panel:hover{border-color:#40323a!important}
+.metric small,.panel-label{color:#777!important;letter-spacing:.14em!important}
+.metric strong{font-size:27px!important;color:#f1ece8!important}
+.metric .delta{color:var(--melo-green)!important}
+.panel-head{border-color:#242124!important;background:rgba(255,255,255,.008)}
+.panel-head h2,.mini-panel h3{font-family:Georgia,"Times New Roman",serif!important;font-size:16px!important}
+.panel-head h2::before{content:"✦";color:var(--melo-pink);font-family:Georgia,serif;font-size:10px;margin-right:8px}
+.panel-head span{color:#777!important}
+.data-table th{color:#696269!important;border-color:#202020!important}
+.data-table td{border-color:#1b191b!important}
+.data-row:hover{background:#151115!important}
+.accent{color:var(--melo-pink)!important}
+.activity-row{border-color:#1b191b!important}
+.activity-type{color:var(--melo-pink-soft)!important}
+.activity-type.ok,.status-text.good,.accent.green{color:var(--melo-green)!important}
+.health-strip{border-color:#282329!important;background:#101010!important}
+.health-strip strong{color:#eee8e8!important}
+.subgrid{gap:10px!important}
+.kv{border-color:#1d1a1d!important}
+.modal,.installation-modal{border-color:#3a3036!important;background:#0b0b0b!important}
+.modal-head,.installation-modal-head{border-color:#282228!important}
+.modal-head h2{font-family:Georgia,"Times New Roman",serif!important}
+.modal-close{color:#9a9297!important}
+.search,.filter{background:#0d0d0d!important;border-color:#302930!important}
+.filter:hover,.search:focus{border-color:#654052!important}
+/* Tiny MELO decorative marks without changing functionality. */
+.hero-line::after{content:"GOOD MUSIC  ·  BETTER DAYS";color:#51484e;font-size:7px;letter-spacing:.22em;align-self:flex-start;margin-top:3px}
+.page::before{content:"MELO  //  CONTROL SYSTEM";display:block;color:#3f383d;font-size:7px;letter-spacing:.22em;margin-bottom:7px}
+@media(max-width:760px){.content{padding-left:16px!important;padding-right:16px!important}.hero-line::after{display:none}.page::before{display:none}}
