@@ -13,6 +13,10 @@
   function boot(){line('<span class="accent">MELO CONTROL ROOM CONSOLE</span>  <span class="dim">v3 · read-only operations</span>','info');line('Protected session detected. Commands are limited to existing authenticated Admin APIs.','info');line('Type <span class="accent">help</span> to begin · <span class="accent">Tab</span> autocomplete · <span class="accent">↑ ↓</span> history · <span class="accent">Ctrl+L</span> clear.','info')}
   function help(){line('<span class="accent">AVAILABLE COMMANDS</span>');line('  help                         command reference');line('  status                       control-plane service status');line('  health                       Worker + D1 health snapshot');line('  stats [--today]              telemetry and installation statistics');line('  users [--active]             telemetry-backed client population');line('  installations [--recent]    installation fleet');line('  inspect <installation-id>    inspect one installation');line('  reports [--open]             crash + bug-report overview');line('  version                      release ledger');line('  uptime                       edge runtime information');line('  about                        console/security information');line('  clear                        clear terminal');line('<span class="dim">Only whitelisted read-only operations are accepted. No shell, SQL, secrets, or destructive actions.</span>')}
   function normalizeId(value){return String(value||'').trim().replace(/^['"]|['"]$/g,'')}
+  function normalizeTimestamp(value){const n=Number(value);if(!Number.isFinite(n)||n<=0)return null;return n>1e12?n:n*1000}
+  function formatTimestamp(value){const ms=normalizeTimestamp(value);return ms?new Date(ms).toLocaleString([],{hour12:false}):'—'}
+  function formatAge(value){const ms=normalizeTimestamp(value);if(!ms)return '—';const seconds=Math.max(0,Math.floor((Date.now()-ms)/1000));if(seconds<60)return `${seconds}s ago`;if(seconds<3600)return `${Math.floor(seconds/60)}m ago`;if(seconds<86400)return `${Math.floor(seconds/3600)}h ago`;return `${Math.floor(seconds/86400)}d ago`}
+  function isActive(value){const ms=normalizeTimestamp(value);return !!ms && Date.now()-ms<7*86400000}
   async function inspectInstallation(id){
     id=normalizeId(id);
     if(!id){line('Usage: <span class="accent">inspect &lt;installation-id&gt;</span>','warn');line('Tip: run <span class="accent">installations --recent</span> first and copy an installation ID.','info');return}
@@ -23,11 +27,10 @@
     line(`  id                 <b>${esc(row.installation_id??row.id??'—')}</b>`);
     line(`  version            <span class="accent">${esc(row.app_version??row.version??'—')}</span>`);
     line(`  platform           ${esc(row.platform??'—')}`);
-    const last=Number(row.last_seen||0); const lastText=last?new Date(last*1000).toLocaleString([],{hour12:false}):'—';
-    const age=last?Math.max(0,Math.floor(Date.now()/1000)-last):null;
-    line(`  last heartbeat     ${esc(lastText)}`);
-    line(`  heartbeat age      ${age==null?'—':age<60?`${age}s ago`:age<3600?`${Math.floor(age/60)}m ago`:`${Math.floor(age/3600)}h ago`}`);
-    line(`  state              <span class="${age!=null&&age<=300?'good':'warn'}">${age!=null&&age<=300?'ACTIVE':'STALE / UNKNOWN'}</span>`);
+    const last=row.last_seen??row.last_heartbeat??row.updated_at;
+    line(`  last heartbeat     ${esc(formatTimestamp(last))}`);
+    line(`  heartbeat age      ${esc(formatAge(last))}`);
+    line(`  state              <span class="${isActive(last)?'good':'warn'}">${isActive(last)?'ACTIVE':'STALE'}</span>`);
     const recent=(d.recentActivity||[]).filter(e=>String(e.installation_id||'').toLowerCase()===String(row.installation_id??row.id??'').toLowerCase()).slice(0,8);
     line(`  recent events      ${recent.length}`);
     if(recent.length) recent.forEach(e=>line(`    ${esc(new Date(Number(e.timestamp||0)*1000).toLocaleTimeString([],{hour12:false}))}  <span class="accent">${esc(String(e.event_type||'EVENT').toUpperCase())}</span>  ${esc(e.app_version||'—')}  ${esc(e.platform||'—')}`));
