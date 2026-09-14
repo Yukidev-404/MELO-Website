@@ -12,6 +12,7 @@ const views = {
   'bug-reports':{title:'Bug Reports',heading:'Bug Reports',copy:'Review manually submitted MELO bug reports.'},
   security:{title:'Security',heading:'Security Center',copy:'Administrative authentication and protected rate-limit activity.'},
   services:{title:'API / Services',heading:'Services',copy:'Current control-plane and telemetry service status.'},
+  chat:{title:'Admin Chat',heading:'Admin Chat',copy:'Private shared room for the MELO administration team.'},
   releases:{title:'Releases',heading:'Releases',copy:'Production versions, builds and rollout status recorded in D1.'},
   flags:{title:'Feature Flags',heading:'Feature Flags',copy:'Feature flag state recorded in D1.'},
   analytics:{title:'Analytics',heading:'Analytics',copy:'Adoption and event metrics derived from telemetry.'},
@@ -77,7 +78,7 @@ function settingsHtml(d){return`<section class="page"><div class="page-intro"><h
 let currentView='dashboard',refreshTimer;
 // These pages have their own renderer scripts. The core renderer must never fetch
 // or replace their content, otherwise asynchronous responses can overwrite them.
-const specializedViews=new Set(['users','installations','bug-reports','crashes','security','services','releases','flags','analytics','health','settings']);
+const specializedViews=new Set(['users','installations','bug-reports','crashes','security','services','chat','releases','flags','analytics','health','settings']);
 async function render(view,search=''){
  currentView=views[view]?view:'dashboard';document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('active',a.dataset.view===currentView));title.textContent=views[currentView].title;
   history.replaceState(null,'',`/admin/?view=${currentView}${search?`&q=${encodeURIComponent(search)}`:''}`);
