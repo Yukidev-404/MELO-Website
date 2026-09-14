@@ -1,10 +1,10 @@
 (()=>{
   const content=document.getElementById('page-content');
   let timer;
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   const date=ts=>ts?new Date(Number(ts)*1000).toLocaleString([],{dateStyle:'medium',timeStyle:'short'}):'—';
   const isView=()=>new URLSearchParams(location.search).get('view')==='releases';
-  const owner=async()=>{try{const r=await fetch('/api/admin/me',{credentials:'include',cache:'no-store'});const d=r.ok?await r.json():null;return d?.role==='owner'&&d?.username==='Yuki'}catch{return false}};
+  const owner=async()=>{try{const r=await fetch('/api/admin/me',{credentials:'include',cache:'no-store'});if(!r.ok)return false;const d=await r.json();const me=d?.admin||d?.user||d;return String(me?.role||'').toLowerCase()==='owner'&&String(me?.username||'').trim().toLowerCase()==='yuki'}catch{return false}};
   async function load(){
     if(!isView())return;
     try{
