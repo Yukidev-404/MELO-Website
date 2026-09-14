@@ -1,7 +1,7 @@
 (() => {
   const out=document.getElementById('terminal-output'),input=document.getElementById('console-input'),form=document.getElementById('console-form'),suggestions=document.getElementById('suggestions'),streamOut=document.getElementById('stream-output'),streamToggle=document.getElementById('stream-toggle');
   const state=document.getElementById('connection-state'),lastCheck=document.getElementById('last-check'),streamStatus=document.getElementById('stream-status-text'),streamCount=document.getElementById('stream-count');
-  const commands=['help','status','health','stats','stats --today','users','users --active','installations','installations --recent','reports','reports --open','version','uptime','clear','about'];
+  const commands=['help','status','health','stats','stats --today','users','users --active','installations','installations --recent','inspect','reports','reports --open','version','uptime','clear','about'];
   const quick=['status','health','stats --today','users --active','installations --recent','reports --open','version'];
   const history=[];let historyIndex=-1,streamPaused=false,knownEvents=new Set(),streamTotal=0;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10,10 +10,33 @@
   const line=(text='',kind='output')=>{const el=document.createElement('div');el.className=`line ${kind}`;el.innerHTML=`<span class="dim">[${esc(stamp())}]</span> ${text}`;out.appendChild(el);out.scrollTop=out.scrollHeight};
   const table=(rows,cols)=>rows.length?rows.map(r=>cols.map(c=>`${c[0]}: ${esc(r[c[1]])}`).join('  ·  ')).join('<br>'):'<span class="dim">No records returned.</span>';
   const setOnline=ok=>{state.textContent=ok?'ONLINE':'DEGRADED';state.parentElement.querySelector('i').style.background=ok?'#8ed9ad':'#e2c69b';state.parentElement.querySelector('i').style.boxShadow=ok?'0 0 9px #8ed9ad':'0 0 9px #e2c69b';lastCheck.textContent=`LAST CHECK ${stamp()}`};
-  function boot(){line('<span class="accent">MELO CONTROL ROOM CONSOLE</span>  <span class="dim">v2 · read-only operations</span>','info');line('Protected session detected. Commands are limited to existing authenticated Admin APIs.','info');line('Type <span class="accent">help</span> to begin · <span class="accent">Tab</span> autocomplete · <span class="accent">↑ ↓</span> history · <span class="accent">Ctrl+L</span> clear.','info')}
-  function help(){line('<span class="accent">AVAILABLE COMMANDS</span>');line('  help                         command reference');line('  status                       control-plane service status');line('  health                       Worker + D1 health snapshot');line('  stats [--today]              telemetry and installation statistics');line('  users [--active]             telemetry-backed client population');line('  installations [--recent]    installation fleet');line('  reports [--open]             crash + bug-report overview');line('  version                      release ledger');line('  uptime                       edge runtime information');line('  about                        console/security information');line('  clear                        clear terminal');line('<span class="dim">Only whitelisted read-only operations are accepted. No shell, SQL, secrets, or destructive actions.</span>')}
-  async function run(cmd){const raw=cmd.trim();if(!raw)return;history.push(raw);historyIndex=history.length;line(`<span class="prompt">melo@control-room:~$</span> ${esc(raw)}`,'cmd');const parts=raw.toLowerCase().split(/\s+/),base=parts[0],arg=parts[1]||'';try{
+  function boot(){line('<span class="accent">MELO CONTROL ROOM CONSOLE</span>  <span class="dim">v3 · read-only operations</span>','info');line('Protected session detected. Commands are limited to existing authenticated Admin APIs.','info');line('Type <span class="accent">help</span> to begin · <span class="accent">Tab</span> autocomplete · <span class="accent">↑ ↓</span> history · <span class="accent">Ctrl+L</span> clear.','info')}
+  function help(){line('<span class="accent">AVAILABLE COMMANDS</span>');line('  help                         command reference');line('  status                       control-plane service status');line('  health                       Worker + D1 health snapshot');line('  stats [--today]              telemetry and installation statistics');line('  users [--active]             telemetry-backed client population');line('  installations [--recent]    installation fleet');line('  inspect <installation-id>    inspect one installation');line('  reports [--open]             crash + bug-report overview');line('  version                      release ledger');line('  uptime                       edge runtime information');line('  about                        console/security information');line('  clear                        clear terminal');line('<span class="dim">Only whitelisted read-only operations are accepted. No shell, SQL, secrets, or destructive actions.</span>')}
+  function normalizeId(value){return String(value||'').trim().replace(/^['"]|['"]$/g,'')}
+  async function inspectInstallation(id){
+    id=normalizeId(id);
+    if(!id){line('Usage: <span class="accent">inspect &lt;installation-id&gt;</span>','warn');line('Tip: run <span class="accent">installations --recent</span> first and copy an installation ID.','info');return}
+    const d=await api('/api/admin/installations'),rows=d.rows||[];
+    const row=rows.find(r=>String(r.installation_id??r.id??'').toLowerCase()===id.toLowerCase()||String(r.id??'').toLowerCase()===id.toLowerCase());
+    if(!row){line(`<span class="warn">Installation not found:</span> ${esc(id)}`,'warn');line('Run <span class="accent">installations --recent</span> to see known IDs.','info');return}
+    line('<span class="accent">INSTALLATION INSPECTION</span>');
+    line(`  id                 <b>${esc(row.installation_id??row.id??'—')}</b>`);
+    line(`  version            <span class="accent">${esc(row.app_version??row.version??'—')}</span>`);
+    line(`  platform           ${esc(row.platform??'—')}`);
+    const last=Number(row.last_seen||0); const lastText=last?new Date(last*1000).toLocaleString([],{hour12:false}):'—';
+    const age=last?Math.max(0,Math.floor(Date.now()/1000)-last):null;
+    line(`  last heartbeat     ${esc(lastText)}`);
+    line(`  heartbeat age      ${age==null?'—':age<60?`${age}s ago`:age<3600?`${Math.floor(age/60)}m ago`:`${Math.floor(age/3600)}h ago`}`);
+    line(`  state              <span class="${age!=null&&age<=300?'good':'warn'}">${age!=null&&age<=300?'ACTIVE':'STALE / UNKNOWN'}</span>`);
+    const recent=(d.recentActivity||[]).filter(e=>String(e.installation_id||'').toLowerCase()===String(row.installation_id??row.id??'').toLowerCase()).slice(0,8);
+    line(`  recent events      ${recent.length}`);
+    if(recent.length) recent.forEach(e=>line(`    ${esc(new Date(Number(e.timestamp||0)*1000).toLocaleTimeString([],{hour12:false}))}  <span class="accent">${esc(String(e.event_type||'EVENT').toUpperCase())}</span>  ${esc(e.app_version||'—')}  ${esc(e.platform||'—')}`));
+    else line('    <span class="dim">No recent telemetry events in the current dashboard window.</span>');
+    line('<span class="dim">Read-only inspection · source: authenticated Admin API.</span>','info');
+  }
+  async function run(cmd){const raw=cmd.trim();if(!raw)return;history.push(raw);historyIndex=history.length;line(`<span class="prompt">melo@control-room:~$</span> ${esc(raw)}`,'cmd');const parts=raw.split(/\s+/),lower=raw.toLowerCase().split(/\s+/),base=lower[0],arg=lower[1]||'';try{
     if(base==='clear'){out.innerHTML='';return}if(base==='help'){help();return}if(base==='about'){line('<span class="accent">MELO Control Room Console</span>');line('Read-only operations interface for the MELO administration surface.');line('Authentication: protected admin session · Data: existing D1-backed Admin APIs.');line('Safety: allowlist only · no arbitrary execution · no secrets displayed.');return}
+    if(base==='inspect'){await inspectInstallation(parts.slice(1).join(' '));return}
     if(!commands.some(c=>c.split(' ')[0]===base)){line(`Unknown command: <span class="warn">${esc(base)}</span>. Type <span class="accent">help</span>.`,'warn');return}
     if(base==='status'){const d=await api('/api/admin/services'),ss=d.services||[];setOnline(ss.every(s=>/OK|ACTIVE|OPERATIONAL/i.test(s.status)));line(`<span class="accent">CONTROL PLANE STATUS</span>  ${ss.length} checks`);ss.forEach(s=>line(`  ${esc(s.service)}  <span class="good">${esc(s.status)}</span>  ${s.latencyMs==null?'—':esc(s.latencyMs)+' ms'}  <span class="dim">${esc(s.note)}</span>`));return}
     if(base==='health'){const d=await api('/api/admin/health-detail');setOnline(true);line(`<span class="accent">SYSTEM HEALTH</span>  generated ${stamp()}`);(d.components||[]).forEach(c=>line(`  ${esc(c.component)}  <span class="${/OK|ACTIVE|OPERATIONAL/i.test(c.status)?'good':'warn'}">${esc(c.status)}</span>  ${esc(c.detail)}`));return}
