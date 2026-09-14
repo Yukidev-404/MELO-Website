@@ -23,15 +23,24 @@ export default {
       return authWorker.fetch(request, env, ctx);
     }
 
-    // Invitation pages are public. Keep them outside the authenticated /admin/*
-    // gate and canonicalize the short URL so it cannot fall through to the
-    // legacy admin router.
-    if (url.pathname === "/admin/admin-invite" || url.pathname === "/admin/admin-invite/") {
-      url.pathname = "/admin/admin-invite.html";
-      return Response.redirect(url.toString(), 302);
+    // Invitation pages are public. Cloudflare's default HTML handling redirects
+    // .html files to clean URLs, so serve the backing no-extension asset directly
+    // to avoid a clean-url <-> .html redirect loop.
+    if (
+      url.pathname === "/admin/admin-invite" ||
+      url.pathname === "/admin/admin-invite/" ||
+      url.pathname === "/admin/admin-invite.html"
+    ) {
+      const assetUrl = new URL(request.url);
+      assetUrl.pathname = "/admin/admin-invite-page";
+      const asset = await env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      const headers = new Headers(asset.headers);
+      headers.set("Content-Type", "text/html; charset=UTF-8");
+      headers.set("Cache-Control", "no-store");
+      return new Response(asset.body, { status: asset.status, headers });
     }
 
-    if (url.pathname === "/admin/admin-invite.html" || url.pathname === "/admin/admin-invite.js") {
+    if (url.pathname === "/admin/admin-invite.js") {
       return env.ASSETS.fetch(request);
     }
 
