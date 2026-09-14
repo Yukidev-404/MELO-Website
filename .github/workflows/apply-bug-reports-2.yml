@@ -10,6 +10,9 @@ jobs:
       - name: Apply Bug Reports
         run: |
           if [[ "${{ github.event.head_commit.message }}" == Implement\ MELO\ Bug\ Reports* ]]; then exit 0; fi
+          # The Worker now has a split auth/router entrypoint. Bug-report
+          # handling is already provided by legacy-worker.js in that layout.
+          if grep -q 'import legacyWorker from "./legacy-worker.js";' worker.js && grep -q 'async function handleBugReports(' legacy-worker.js; then exit 0; fi
           python scripts/apply_bug_reports.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
