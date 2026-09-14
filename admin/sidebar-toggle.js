@@ -7,6 +7,20 @@
   const STORAGE_KEY = 'melo_control_room_sidebar_collapsed';
   const desktop = () => window.innerWidth > 760;
 
+  // Give the collapsed icon rail accessible MELO-themed hover labels.
+  const labels = () => {
+    sidebar.querySelectorAll('.nav-item').forEach(item => {
+      const label = Array.from(item.childNodes)
+        .filter(node => node.nodeType === Node.TEXT_NODE)
+        .map(node => node.textContent.trim())
+        .filter(Boolean)
+        .join(' ');
+      if (label) item.dataset.tooltip = label;
+      item.setAttribute('aria-label', label || item.getAttribute('aria-label') || 'Navigation');
+    });
+  };
+  labels();
+
   const setCollapsed = (collapsed, save = true) => {
     if (!desktop()) return;
     document.body.classList.toggle('sidebar-collapsed', collapsed);
