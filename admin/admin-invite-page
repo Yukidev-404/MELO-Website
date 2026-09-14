@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MELO / INVITATION</title>
-  <link rel="stylesheet" href="admin-invite.css?v=3b5f160">
+  <link rel="stylesheet" href="/admin/admin-invite.css?v=3b5f160">
 </head>
 <body>
   <main class="invite-shell">
@@ -31,6 +31,6 @@
     </section>
     <footer class="footer"><span class="note">MELO · Music for a softer day.</span><span class="secure">Protected administrator setup</span></footer>
   </main>
-  <script src="admin-invite.js?v=3b5f160"></script>
+  <script src="/admin/admin-invite.js?v=3b5f160"></script>
 </body>
 </html>
