@@ -1,4 +1,5 @@
 import { qrcode } from "qrcode-generator";
+import originalWorker from "./worker.js";
 
 const ADMIN_EMAIL_FALLBACK = "tajtaranga@gmail.com";
 const DEFAULT_OWNER_USERNAME = "yuki";
@@ -7,8 +8,6 @@ const SESSION_TTL = 8 * 60 * 60;
 const SETUP_TTL = 10 * 60;
 const RATE_WINDOW = 10 * 60;
 const MAX_ATTEMPTS = 5;
-
-import originalWorker from "./worker.js";
 
 export default {
   async fetch(request, env) {
@@ -50,17 +49,40 @@ async function ensureAuthSchema(env) {
       expires_at INTEGER NOT NULL,
       FOREIGN KEY (admin_id) REFERENCES admin_accounts(admin_id) ON DELETE CASCADE
     )`),
-    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_identity_sessions_admin ON admin_identity_sessions(admin_id)`)
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_identity_sessions_admin ON admin_identity_sessions(admin_id)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_sessions (
+      token_hash TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_attempts (
+      key TEXT PRIMARY KEY,
+      window_start INTEGER NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0
+    )`)
   ]);
 
-  const existing = await env.DB.prepare("SELECT COUNT(*) AS count FROM admin_accounts").first();
-  if (Number(existing?.count || 0) === 0) {
-    const legacy = await env.DB.prepare("SELECT email, totp_secret_enc, pending_secret_enc, pending_expires_at, setup_complete, created_at, updated_at FROM admin_config WHERE id=1").first();
-    if (legacy?.email || legacy?.totp_secret_enc || legacy?.pending_secret_enc) {
-      const now = Math.floor(Date.now() / 1000);
-      await env.DB.prepare(`INSERT OR IGNORE INTO admin_accounts (admin_id,username,email,role,totp_secret_enc,pending_secret_enc,pending_expires_at,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
-        .bind("admin_owner", DEFAULT_OWNER_USERNAME, normalizeEmail(legacy.email || ADMIN_EMAIL_FALLBACK), "owner", legacy.totp_secret_enc || null, legacy.pending_secret_enc || null, legacy.pending_expires_at || null, 1, legacy.created_at || now, legacy.updated_at || now).run();
-    }
+  const legacy = await env.DB.prepare("SELECT email, totp_secret_enc, pending_secret_enc, pending_expires_at, setup_complete, created_at, updated_at FROM admin_config WHERE id=1").first();
+  const existing = await env.DB.prepare("SELECT admin_id, username, email, role, totp_secret_enc, pending_secret_enc, pending_expires_at FROM admin_accounts ORDER BY created_at LIMIT 1").first();
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!existing && (legacy?.email || legacy?.totp_secret_enc || legacy?.pending_secret_enc)) {
+    await env.DB.prepare(`INSERT OR IGNORE INTO admin_accounts (admin_id,username,email,role,totp_secret_enc,pending_secret_enc,pending_expires_at,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+      .bind(
+        "admin_owner",
+        DEFAULT_OWNER_USERNAME,
+        normalizeEmail(legacy.email || ADMIN_EMAIL_FALLBACK),
+        "owner",
+        legacy.totp_secret_enc || null,
+        legacy.pending_secret_enc || null,
+        legacy.pending_expires_at || null,
+        1,
+        legacy.created_at || now,
+        legacy.updated_at || now
+      ).run();
+  } else if (existing && !existing.totp_secret_enc && legacy?.totp_secret_enc) {
+    await env.DB.prepare(`UPDATE admin_accounts SET totp_secret_enc=?, pending_secret_enc=NULL, pending_expires_at=NULL, updated_at=? WHERE admin_id=?`)
+      .bind(legacy.totp_secret_enc, now, existing.admin_id).run();
   }
 }
 
@@ -88,7 +110,9 @@ async function setupStart(request, env, url) {
   await env.DB.prepare(`INSERT INTO admin_accounts (admin_id,username,email,role,pending_secret_enc,pending_expires_at,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
     .bind("admin_owner", username, email, "owner", encrypted, pendingUntil, 1, now, now).run();
   const otpauth = `otpauth://totp/${encodeURIComponent("MELO")}:${encodeURIComponent(username)}?secret=${secret}&issuer=${encodeURIComponent("MELO")}&algorithm=SHA1&digits=6&period=30`;
-  const qr = qrcode(0, "M"); qr.addData(otpauth); qr.make();
+  const qr = qrcode(0, "M");
+  qr.addData(otpauth);
+  qr.make();
   const svg = qr.createSvgTag({ cellSize: 5, margin: 4, scalable: true });
   return json({ setupKey: secret, qrCodeDataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, expiresIn: SETUP_TTL });
 }
@@ -113,6 +137,7 @@ async function completeLogin(request, env, url, body, isSetup) {
 
   const row = await env.DB.prepare("SELECT * FROM admin_accounts WHERE username=? AND enabled=1").bind(username).first();
   if (!row) return json({ error: "Invalid administrator credentials." }, 401);
+
   if (isSetup) {
     if (row.totp_secret_enc || !email || email !== normalizeEmail(row.email)) return json({ error: "Invalid administrator setup." }, 401);
     if (!row.pending_secret_enc || !row.pending_expires_at || row.pending_expires_at < Math.floor(Date.now() / 1000)) return json({ error: "Setup expired. Start authenticator setup again." }, 410);
@@ -121,7 +146,14 @@ async function completeLogin(request, env, url, body, isSetup) {
   }
 
   const encrypted = isSetup ? row.pending_secret_enc : row.totp_secret_enc;
-  const secret = await decryptSecret(encrypted, env.ADMIN_ENCRYPTION_KEY);
+  let secret;
+  try {
+    secret = await decryptSecret(encrypted, env.ADMIN_ENCRYPTION_KEY);
+  } catch (error) {
+    console.error("MELO admin TOTP decrypt failed", error);
+    return json({ error: "Admin authentication is temporarily unavailable." }, 503);
+  }
+
   if (!(await verifyTotp(secret, code))) return json({ error: "Invalid or expired Authenticator code." }, 401);
 
   const now = Math.floor(Date.now() / 1000);
@@ -129,19 +161,22 @@ async function completeLogin(request, env, url, body, isSetup) {
     await env.DB.prepare("UPDATE admin_accounts SET totp_secret_enc=pending_secret_enc,pending_secret_enc=NULL,pending_expires_at=NULL,updated_at=? WHERE admin_id=?").bind(now, row.admin_id).run();
     await env.DB.prepare("INSERT INTO admin_config (id,email,setup_complete,created_at,updated_at) VALUES (1,?,1,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,setup_complete=1,updated_at=excluded.updated_at").bind(row.email, now, now).run();
   }
+
   await env.DB.prepare("DELETE FROM admin_attempts WHERE key=?").bind(`login:${username}`).run();
-  return createSessionResponse(env, url.origin, row.admin_id);
+  return createSessionResponse(env, row.admin_id);
 }
 
-async function createSessionResponse(env, origin, adminId) {
+async function createSessionResponse(env, adminId) {
   const raw = randomToken(32);
   const hash = await sha256Hex(raw);
   const now = Math.floor(Date.now() / 1000);
   const expires = now + SESSION_TTL;
+
   await env.DB.batch([
     env.DB.prepare("INSERT INTO admin_sessions (token_hash,created_at,expires_at) VALUES (?,?,?) ON CONFLICT(token_hash) DO UPDATE SET expires_at=excluded.expires_at").bind(hash, now, expires),
     env.DB.prepare("INSERT INTO admin_identity_sessions (token_hash,admin_id,created_at,expires_at) VALUES (?,?,?,?)").bind(hash, adminId, now, expires)
   ]);
+
   const headers = new Headers({ "Content-Type": "application/json", "Cache-Control": "no-store" });
   headers.append("Set-Cookie", `${SESSION_COOKIE}=${raw}; Max-Age=${SESSION_TTL}; Path=/; HttpOnly; Secure; SameSite=Strict`);
   return new Response(JSON.stringify({ ok: true, redirect: "/admin/" }), { status: 200, headers });
@@ -204,20 +239,73 @@ async function verifyTotp(secret, code) {
 
 async function totpForCounter(secret, counter) {
   const key = await crypto.subtle.importKey("raw", base32Decode(secret), { name:"HMAC", hash:"SHA-1" }, false, ["sign"]);
-  const buffer = new ArrayBuffer(8); const view = new DataView(buffer);
-  view.setUint32(0, Math.floor(counter / 0x100000000)); view.setUint32(4, counter >>> 0);
+  const buffer = new ArrayBuffer(8);
+  const view = new DataView(buffer);
+  view.setUint32(0, Math.floor(counter / 0x100000000));
+  view.setUint32(4, counter >>> 0);
   const digest = new Uint8Array(await crypto.subtle.sign("HMAC", key, buffer));
   const offset = digest[digest.length - 1] & 0x0f;
   const binary = ((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) | (digest[offset + 2] << 8) | digest[offset + 3];
   return String(binary % 1000000).padStart(6, "0");
 }
 
-function base32Decode(value) { const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"; const clean=String(value).toUpperCase().replace(/=+$/g,""); let bits=0,buffer=0; const output=[]; for(const char of clean){const index=alphabet.indexOf(char);if(index<0)throw new Error("Invalid Base32 secret");buffer=(buffer<<5)|index;bits+=5;if(bits>=8){bits-=8;output.push((buffer>>bits)&0xff);}}return new Uint8Array(output); }
-function generateBase32Secret(bytes=20){const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";const random=new Uint8Array(bytes);crypto.getRandomValues(random);let buffer=0,bits=0,output="";for(const byte of random){buffer=(buffer<<8)|byte;bits+=8;while(bits>=5){bits-=5;output+=alphabet[(buffer>>bits)&31];}}if(bits)output+=alphabet[(buffer<<(5-bits))&31];return output;}
-async function encryptSecret(secret,encryptionKey){const key=await deriveKey(encryptionKey);const iv=crypto.getRandomValues(new Uint8Array(12));const data=new TextEncoder().encode(secret);const encrypted=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,data));return `${toBase64(iv)}.${toBase64(encrypted)}`;}
-async function decryptSecret(value,encryptionKey){const [ivText,dataText]=String(value).split(".");const key=await deriveKey(encryptionKey);const plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:fromBase64(ivText)},key,fromBase64(dataText));return new TextDecoder().decode(plaintext);}
-async function deriveKey(secret){const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(secret||""));return crypto.subtle.importKey("raw",digest,{name:"AES-GCM"},false,["encrypt","decrypt"]);}
-async function sha256Hex(value){const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)));return [...digest].map(b=>b.toString(16).padStart(2,"0")).join("");}
+function base32Decode(value) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = String(value).toUpperCase().replace(/=+$/g, "");
+  let bits = 0, buffer = 0;
+  const output = [];
+  for (const char of clean) {
+    const index = alphabet.indexOf(char);
+    if (index < 0) throw new Error("Invalid Base32 secret");
+    buffer = (buffer << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      output.push((buffer >> bits) & 0xff);
+    }
+  }
+  return new Uint8Array(output);
+}
+
+function generateBase32Secret(bytes=20) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const random = new Uint8Array(bytes);
+  crypto.getRandomValues(random);
+  let buffer=0,bits=0,output="";
+  for (const byte of random) {
+    buffer=(buffer<<8)|byte;
+    bits+=8;
+    while(bits>=5){bits-=5;output+=alphabet[(buffer>>bits)&31];}
+  }
+  if(bits)output+=alphabet[(buffer<<(5-bits))&31];
+  return output;
+}
+
+async function encryptSecret(secret,encryptionKey){
+  const key=await deriveKey(encryptionKey);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const data=new TextEncoder().encode(secret);
+  const encrypted=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,data));
+  return `${toBase64(iv)}.${toBase64(encrypted)}`;
+}
+
+async function decryptSecret(value,encryptionKey){
+  const [ivText,dataText]=String(value).split(".");
+  const key=await deriveKey(encryptionKey);
+  const plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:fromBase64(ivText)},key,fromBase64(dataText));
+  return new TextDecoder().decode(plaintext);
+}
+
+async function deriveKey(secret){
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(secret||""));
+  return crypto.subtle.importKey("raw",digest,{name:"AES-GCM"},false,["encrypt","decrypt"]);
+}
+
+async function sha256Hex(value){
+  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)));
+  return [...digest].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
 function randomToken(bytes){const data=new Uint8Array(bytes);crypto.getRandomValues(data);return toBase64Url(data);}
 function toBase64(data){let binary="";for(const byte of data)binary+=String.fromCharCode(byte);return btoa(binary);}
 function fromBase64(value){const binary=atob(value);return Uint8Array.from(binary,c=>c.charCodeAt(0));}
