@@ -34,6 +34,9 @@
         setInterval(update, 60000);
       }
 
+      // The Administrators section is intentionally owner-only. It is added
+      // after the initial sidebar script runs, so initialize its collapsed-rail
+      // metadata here as well.
       if (d.role !== 'owner' || d.username !== 'Yuki' || !nav || nav.querySelector('[data-owner-admins]')) return;
       const section = document.createElement('p');
       section.className = 'nav-label';
@@ -43,6 +46,8 @@
       item.className = 'nav-item';
       item.href = '/admin/administrators.html';
       item.dataset.ownerAdmins = 'item';
+      item.dataset.tooltip = 'Administrators';
+      item.setAttribute('aria-label', 'Administrators');
       item.innerHTML = '<span>◎</span>Administrators';
       nav.append(section, item);
     })
