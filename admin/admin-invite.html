@@ -1,2 +1,98 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MELO / ACCOUNT SETUP</title><script>if(location.hostname==='yukidev-404.github.io'){location.replace('https://melo-website.tajtaranga.workers.dev/admin/admin-invite.html'+location.search)}</script><link rel="stylesheet" href="../control-room.css"><link rel="stylesheet" href="../melo-theme.css"><style>body{min-height:100vh;display:grid;place-items:center}.setup{width:min(500px,calc(100% - 40px));background:#111115;border:1px solid rgba(255,255,255,.09);padding:32px;box-sizing:border-box}.brand{font-weight:800;letter-spacing:.08em}.brand small{display:block;font-size:9px;color:#888;margin-top:4px}.kicker{margin:30px 0 7px;font-size:9px;letter-spacing:.12em;color:#f1a9c8}.setup h1{font-size:24px;margin:0 0 8px}.copy{font-size:12px;line-height:1.7;color:#97939b}.field{margin-top:18px}.field label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:7px}.field input{width:100%;box-sizing:border-box;background:#0b0b0e;border:1px solid rgba(255,255,255,.12);color:#eee;padding:12px;font:14px inherit}.field input:focus{outline:none;border-color:rgba(244,139,191,.5)}button{margin-top:18px;width:100%;padding:13px;border:1px solid #f4a6c9;background:#f4a6c9;color:#171217;font-weight:800;letter-spacing:.08em;cursor:pointer}.qr{margin:20px auto;padding:12px;width:210px;background:#fff}.qr img{display:block;width:100%;height:auto}.key{font-family:monospace;word-break:break-all;color:#f1b5d0}.message{margin-top:14px;min-height:16px;font-size:11px;color:#ff8aa8}.success{color:#8ed9ad}.hidden{display:none}</style></head><body><main class="setup"><div class="brand">MELO<small>CONTROL ROOM</small></div><div class="kicker">ADMINISTRATOR ACCOUNT SETUP</div><h1 id="title">Invitation</h1><p class="copy" id="copy">Checking your invitation…</p><div id="setup" class="hidden"><div class="field"><label>USERNAME</label><input id="username" readonly></div><div class="field"><label>AUTHENTICATOR</label><div class="qr"><img id="qr" alt="Authenticator QR code"></div><p class="copy">Scan this QR code with your Authenticator app. If you cannot scan it, use this setup key:</p><div class="key" id="key"></div></div><div class="field"><label>6-DIGIT AUTHENTICATOR CODE</label><input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div><button id="verify">VERIFY &amp; ENTER CONTROL ROOM →</button></div><div id="start"><button id="begin">SET UP AUTHENTICATOR →</button></div><div class="message" id="message"></div></main><script src="admin-invite.js?v=245867a"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MELO / INVITATION</title>
+  <script>
+    if(location.hostname==='yukidev-404.github.io'){
+      location.replace('https://melo-website.tajtaranga.workers.dev/admin/admin-invite.html'+location.search)
+    }
+  </script>
+  <link rel="stylesheet" href="admin-invite.css?v=3b5f160">
+</head>
+<body>
+  <main class="invite-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">♫</div>
+        <div>
+          <div class="brand-name">MELO</div>
+          <small class="brand-sub">Control Room</small>
+        </div>
+      </div>
+      <div class="top-label"><span>●</span>Administrator invitation</div>
+    </header>
+
+    <section class="invite-card" aria-labelledby="title">
+      <div class="card-head">
+        <p class="eyebrow">Administrator access</p>
+        <h1 id="title">Your invitation is here.</h1>
+        <p class="card-copy" id="copy">Checking your invitation…</p>
+      </div>
+
+      <div class="steps" aria-label="Account setup progress">
+        <div class="step active"><span class="step-dot">1</span><span>Set up</span></div>
+        <div class="step"><span class="step-dot">2</span><span>Verify</span></div>
+        <div class="step"><span class="step-dot">3</span><span>Enter MELO</span></div>
+      </div>
+
+      <div class="setup-area">
+        <div id="start">
+          <div class="identity"><span class="identity-dot"></span><span>Invited account</span><b id="startUsername">—</b></div>
+          <div class="start-panel">
+            <div class="start-panel-copy">
+              <strong>Connect your Authenticator</strong>
+              <span>Set up two-factor authentication before entering the protected Control Room.</span>
+            </div>
+            <button class="primary" id="begin" type="button">SET UP AUTHENTICATOR&nbsp; →</button>
+          </div>
+        </div>
+
+        <div id="setup" class="hidden">
+          <div class="setup-intro">
+            <div class="intro-icon">⌁</div>
+            <div>
+              <div class="intro-title">One last security step</div>
+              <div class="intro-copy">Add MELO to your authenticator, then confirm the 6-digit code it gives you.</div>
+            </div>
+          </div>
+
+          <div class="identity"><span class="identity-dot"></span><span>Administrator</span><b id="username">—</b></div>
+
+          <div class="auth-grid">
+            <div class="qr-side">
+              <div class="qr-frame"><img id="qr" alt="Authenticator QR code"></div>
+              <div class="qr-caption">Scan with your authenticator app</div>
+            </div>
+            <div class="manual-side">
+              <div class="manual-title">Can't scan the QR code?</div>
+              <p class="manual-copy">Enter this setup key manually in Google Authenticator, Microsoft Authenticator, Authy, or another compatible app.</p>
+              <div class="key-box">
+                <div class="key" id="key"></div>
+                <button class="copy-key" id="copyKey" type="button" aria-label="Copy setup key" title="Copy setup key">⧉</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="verify-row">
+            <div class="field">
+              <label for="code">6-digit authenticator code</label>
+              <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-label="6-digit authenticator code">
+            </div>
+            <button class="primary" id="verify" type="button">VERIFY &amp; ENTER&nbsp; →</button>
+          </div>
+        </div>
+
+        <div class="message" id="message" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span class="note">MELO · Music for a softer day.</span>
+      <span class="secure">Protected administrator setup</span>
+    </footer>
+  </main>
+  <script src="admin-invite.js?v=3b5f160"></script>
+</body>
+</html>
