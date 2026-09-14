@@ -15,6 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Always perform a real Wrangler deployment from the current main tree.
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         env:
