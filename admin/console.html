@@ -6,31 +6,52 @@
 <title>MELO / CONSOLE</title>
 <link rel="stylesheet" href="control-room.css">
 <link rel="stylesheet" href="admin-polish.css">
-<link rel="stylesheet" href="console.css">
+<link rel="stylesheet" href="console.css?v=20260914-3">
 </head>
 <body class="console-page">
 <div class="console-shell">
   <header class="console-header">
-    <div class="console-brand"><a href="/admin/">M</a><div><strong>MELO</strong><span>CONTROL ROOM / CONSOLE</span></div></div>
+    <div class="console-brand"><a href="/admin/" aria-label="Back to Control Room">M</a><div><strong>MELO</strong><span>CONTROL ROOM / CONSOLE</span></div></div>
     <div class="console-meta"><span class="console-live"><i></i> SESSION SECURE</span><span id="console-clock">--:--:--</span><a href="/admin/">BACK TO CONTROL ROOM</a></div>
   </header>
+
   <main class="console-main">
     <section class="console-hero">
-      <div><p class="eyebrow">SYSTEM OPERATIONS</p><h1>Console <em>/ read-only</em></h1><p>MELO-native operations terminal connected to the existing protected Control Room APIs.</p></div>
-      <div class="console-state"><span>EDGE CONTROL PLANE</span><strong><i></i>ONLINE</strong></div>
+      <div><p class="eyebrow">SYSTEM OPERATIONS</p><h1>Console <em>/ read-only</em></h1><p>MELO-native operations terminal connected to the protected Control Room APIs.</p></div>
+      <div class="console-state"><span>EDGE CONTROL PLANE</span><strong><i></i><b id="connection-state">ONLINE</b></strong><small id="last-check">LAST CHECK —</small></div>
     </section>
+
     <section class="terminal-card">
-      <div class="terminal-bar"><div class="terminal-dots"><i></i><i></i><i></i></div><span>melo@control-room:~$</span><button id="copy-output" type="button">COPY OUTPUT</button><button id="clear-output" type="button">CLEAR</button></div>
+      <div class="terminal-bar">
+        <div class="terminal-dots"><i></i><i></i><i></i></div>
+        <span>melo@control-room:~$</span>
+        <span class="terminal-mode">ALLOWLIST · READ ONLY</span>
+        <button id="copy-output" type="button">COPY</button>
+        <button id="clear-output" type="button">CLEAR</button>
+      </div>
       <div id="terminal-output" class="terminal-output" aria-live="polite"></div>
-      <form id="console-form" class="terminal-input-row" autocomplete="off"><span>›</span><input id="console-input" aria-label="Console command" spellcheck="false" placeholder="type help to begin"><button type="submit">RUN</button></form>
+      <form id="console-form" class="terminal-input-row" autocomplete="off">
+        <span>›</span><input id="console-input" aria-label="Console command" spellcheck="false" placeholder="type a command…"><button type="submit">RUN</button>
+      </form>
     </section>
+
     <section class="console-lower">
-      <div class="quick-panel"><div class="section-head"><div><span>QUICK COMMANDS</span><h2>Operations</h2></div><small>READ ONLY</small></div><div id="quick-commands" class="quick-grid"></div></div>
-      <div class="stream-panel"><div class="section-head"><div><span>LIVE SYSTEM STREAM</span><h2>Telemetry feed</h2></div><button id="stream-toggle" type="button">PAUSE</button></div><div id="stream-output" class="stream-output"><div class="stream-empty">Waiting for telemetry…</div></div></div>
+      <div class="quick-panel">
+        <div class="section-head"><div><span>QUICK COMMANDS</span><h2>Operations</h2></div><small>READ ONLY</small></div>
+        <div id="quick-commands" class="quick-grid"></div>
+        <div class="command-hint"><span>⌘</span> <b>Tab</b> autocomplete <span>↑ ↓</span> history <span>Ctrl L</span> clear terminal</div>
+      </div>
+      <div class="stream-panel">
+        <div class="section-head"><div><span>LIVE SYSTEM STREAM</span><h2>Telemetry feed</h2></div><button id="stream-toggle" type="button">PAUSE</button></div>
+        <div class="stream-status"><i></i><span id="stream-status-text">Polling every 5s</span><span id="stream-count">0 events</span></div>
+        <div id="stream-output" class="stream-output"><div class="stream-empty">Waiting for telemetry…</div></div>
+      </div>
     </section>
+
+    <section class="console-footer"><span><i></i> Commands execute through existing authenticated Admin APIs.</span><span>No arbitrary shell · No SQL · No secrets</span></section>
     <div id="suggestions" class="suggestions" hidden></div>
   </main>
 </div>
-<script src="console.js"></script>
+<script src="console.js?v=20260914-3"></script>
 </body>
 </html>
