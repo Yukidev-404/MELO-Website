@@ -23,9 +23,10 @@ export default {
       return authWorker.fetch(request, env, ctx);
     }
 
-    // Invitation pages are public. Cloudflare's default HTML handling redirects
-    // .html files to clean URLs, so serve the backing no-extension asset directly
-    // to avoid a clean-url <-> .html redirect loop.
+    if (url.pathname === "/api/admin/notifications" || url.pathname === "/api/admin/crash/resolve") {
+      return handleSharedNotifications(request, env, url);
+    }
+
     if (
       url.pathname === "/admin/admin-invite" ||
       url.pathname === "/admin/admin-invite/" ||
@@ -53,6 +54,50 @@ export default {
   }
 };
 
+async function handleSharedNotifications(request, env, url) {
+  const session = await getIdentitySession(request, env);
+  if (!session) return json({ authenticated: false }, 401);
+  await ensureCrashStatusSchema(env);
+
+  if (url.pathname === "/api/admin/notifications" && request.method === "GET") {
+    const [bugs, crashes] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) AS count FROM bug_reports WHERE status NOT IN ('resolved','wont_fix')").first(),
+      env.DB.prepare("SELECT COUNT(*) AS count FROM crash_reports WHERE status = 'unresolved'").first()
+    ]);
+    return json({ ok: true, unread: {
+      bugReports: Number(bugs?.count || 0),
+      crashes: Number(crashes?.count || 0)
+    }});
+  }
+
+  if (url.pathname === "/api/admin/crash/resolve" && request.method === "POST") {
+    let body;
+    try { body = await request.json(); } catch { return json({ error: "Invalid JSON payload." }, 400); }
+    const id = String(body?.id || "");
+    if (!/^.+$/.test(id) || id.length > 128) return json({ error: "Invalid crash ID." }, 400);
+    const result = await env.DB.prepare("UPDATE crash_reports SET status='resolved', resolved_at=? WHERE crash_id=?").bind(Math.floor(Date.now()/1000), id).run();
+    if (!result?.meta?.changes) return json({ error: "Crash report not found." }, 404);
+    return json({ ok: true, crash_id: id, status: "resolved" });
+  }
+
+  return json({ error: "Method not allowed." }, 405);
+}
+
+async function ensureCrashStatusSchema(env) {
+  try {
+    await env.DB.prepare("ALTER TABLE crash_reports ADD COLUMN status TEXT NOT NULL DEFAULT 'unresolved'").run();
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    if (!message.includes("duplicate column") && !message.includes("already exists")) throw error;
+  }
+  try {
+    await env.DB.prepare("ALTER TABLE crash_reports ADD COLUMN resolved_at INTEGER").run();
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    if (!message.includes("duplicate column") && !message.includes("already exists")) throw error;
+  }
+}
+
 async function getIdentitySession(request, env) {
   const cookie = request.headers.get("Cookie") || "";
   const match = cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
@@ -75,4 +120,8 @@ async function getIdentitySession(request, env) {
 async function sha256Hex(value) {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
   return [...digest].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function json(data, status=200) {
+  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 }
