@@ -26,6 +26,7 @@ const date=ts=>ts?new Date(Number(ts)*1000).toLocaleString([], {dateStyle:'mediu
 const ago=ts=>{if(!ts)return'—';const s=Math.max(0,Math.floor(Date.now()/1000)-Number(ts));if(s<60)return`${s}s ago`;if(s<3600)return`${Math.floor(s/60)}m ago`;if(s<86400)return`${Math.floor(s/3600)}h ago`;return`${Math.floor(s/86400)}d ago`};
 
 async function api(path,params={}){const q=new URLSearchParams(params);const r=await fetch(path+(q.toString()?`?${q}`:''),{credentials:'include',cache:'no-store'});if(r.status===401){location.href='../admin-login.html';throw Error('Authentication required')}if(!r.ok)throw Error(`Request failed (${r.status})`);return r.json()}
+window.api=api;
 function metric(label,value,note){return`<article class="metric"><small>${esc(label)}</small><strong>${esc(value)}</strong><span class="delta">${esc(note)}</span></article>`}
 function statusDot(status){const good=/OPERATIONAL|ACTIVE|PROTECTED|ON|OK/i.test(String(status));return`<span class="status-text ${good?'good':''}"><i></i>${esc(status)}</span>`}
 
