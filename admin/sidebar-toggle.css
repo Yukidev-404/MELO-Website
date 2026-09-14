@@ -1,0 +1,47 @@
+/* MELO Control Room — desktop retractable sidebar */
+@media (min-width:761px){
+  .sidebar-toggle{
+    width:34px;
+    height:34px;
+    flex:0 0 34px;
+    display:grid;
+    place-items:center;
+    gap:0;
+    margin-right:14px;
+    padding:0;
+    background:#101010;
+    border:1px solid #292929;
+    color:#9a9a9a;
+    cursor:pointer;
+    transition:background .16s ease,border-color .16s ease,color .16s ease,transform .2s ease;
+  }
+  .sidebar-toggle:hover{background:#161616;border-color:#3a3a3a;color:#eee}
+  .sidebar-toggle span{display:block;position:absolute;width:12px;height:1px;background:currentColor;transition:transform .2s ease,opacity .15s ease}
+  .sidebar-toggle span:first-child{transform:translateY(-3px)}
+  .sidebar-toggle span:last-child{transform:translateY(3px)}
+  body.sidebar-collapsed .sidebar-toggle span:first-child{transform:translateY(-3px) rotate(0)}
+  body.sidebar-collapsed .sidebar-toggle span:last-child{transform:translateY(3px) rotate(0)}
+
+  body.sidebar-collapsed .sidebar{
+    width:0;
+    padding-left:0;
+    padding-right:0;
+    border-right-color:transparent;
+    overflow:hidden;
+    pointer-events:none;
+  }
+  body.sidebar-collapsed .sidebar>*{opacity:0}
+  body.sidebar-collapsed .content{
+    margin-left:0;
+    width:100%;
+  }
+  .sidebar,.content{transition:width .22s ease,margin-left .22s ease,padding-left .22s ease,padding-right .22s ease,border-color .22s ease}
+  .sidebar-toggle{position:relative;z-index:6}
+  body.sidebar-collapsed .sidebar-toggle{margin-left:0}
+  body.sidebar-collapsed .content-header>div:nth-child(2){min-width:0}
+  .content-header{gap:0}
+}
+
+@media (max-width:760px){
+  .sidebar-toggle{display:none!important}
+}
