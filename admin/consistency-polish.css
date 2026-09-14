@@ -1,4 +1,4 @@
-/* MELO Control Room — Step 8B: cross-section consistency layer */
+/* MELO Control Room — Step 8C: cross-section spacing + consistency layer */
 :root{--melo-bg:#090909;--melo-panel:#0d0d0d;--melo-panel-2:#101010;--melo-border:#202020;--melo-border-soft:#181818;--melo-text:#ddd;--melo-muted:#666;--melo-green:#65d995}
 
 /* Shared rhythm */
@@ -8,17 +8,33 @@
 .panel,.mini-panel,.metric{transition:border-color .15s ease,background .15s ease,box-shadow .15s ease}
 .panel:hover,.mini-panel:hover{border-color:#292929}
 
+/* Shared panel spacing — keep content visually clear of borders */
+.panel-head{padding-left:18px;padding-right:18px}
+.panel-head h2{min-width:0}
+.metric{padding:18px 18px 17px}
+.mini-panel{padding:17px 18px}
+.page-intro{padding-left:0;padding-right:0}
+.health-strip{padding-left:17px;padding-right:17px}
+.toolbar{padding:0 1px}
+
+/* Tables across every section */
+.data-table th{white-space:nowrap;padding-left:16px;padding-right:16px}
+.data-table td{vertical-align:middle;overflow-wrap:anywhere;padding-left:16px;padding-right:16px}
+.data-table tbody tr:not(.data-row){background:#0d0d0d}
+.data-table tbody tr:not(.data-row):hover{background:#111}
+.data-table .mono{font-size:8px;letter-spacing:.01em}
+
+/* Activity/event lists */
+.activity-row{padding-left:16px;padding-right:16px}
+
+/* System/check rows and other dense two-column content */
+.system-checks>div{padding-left:16px;padding-right:16px}
+.kv{padding-left:2px;padding-right:2px}
+
 /* Shared live/status language */
 .panel-head span,.health-strip .right,.kicker,.nav-label,.eyebrow{font-variant-numeric:tabular-nums}
 .status-text,.service-pill,.status-large{white-space:nowrap}
 .status-text.good i,.service-pill i,.status-large i{box-shadow:0 0 0 3px rgba(101,217,149,.055)}
-
-/* Tables across every section */
-.data-table th{white-space:nowrap}
-.data-table td{vertical-align:middle;overflow-wrap:anywhere}
-.data-table tbody tr:not(.data-row){background:#0d0d0d}
-.data-table tbody tr:not(.data-row):hover{background:#111}
-.data-table .mono{font-size:8px;letter-spacing:.01em}
 
 /* Shared controls */
 .search,.filter,.release-action,.status-btn{min-height:34px;border-radius:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;transition:border-color .15s ease,background .15s ease,color .15s ease,box-shadow .15s ease}
@@ -51,9 +67,14 @@
 
 @media(max-width:760px){
   .status-text,.service-pill,.status-large{white-space:normal}
-  .panel-head{gap:12px}
+  .panel-head{gap:12px;padding-left:14px;padding-right:14px}
   .panel-head span{flex:0 0 auto}
-  .health-strip{gap:12px;align-items:flex-start;flex-wrap:wrap;padding:12px 13px}
+  .health-strip{gap:12px;align-items:flex-start;flex-wrap:wrap;padding:12px 14px}
   .health-strip .right{margin-left:auto}
   .data-table{min-width:520px}
+  .data-table th,.data-table td{padding-left:14px;padding-right:14px}
+  .activity-row{padding-left:14px;padding-right:14px}
+  .system-checks>div{padding-left:14px;padding-right:14px}
+  .metric{padding-left:15px;padding-right:15px}
+  .mini-panel{padding-left:15px;padding-right:15px}
 }
