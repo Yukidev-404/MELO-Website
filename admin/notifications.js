@@ -1,11 +1,13 @@
 (() => {
   const POLL_MS = 10000;
-  const NOTIFICATION_API = `/api/admin/notifications?v=20260914-2`;
-  const nav = {
-    crashes: document.querySelector('.nav-item[data-view="crashes"]'),
-    'bug-reports': document.querySelector('.nav-item[data-view="bug-reports"]')
-  };
-  if (!nav.crashes && !nav['bug-reports']) return;
+  const API_BASE = '/api/admin/notifications';
+
+  function getNav() {
+    return {
+      crashes: document.querySelector('.nav-item[data-view="crashes"]'),
+      bugReports: document.querySelector('.nav-item[data-view="bug-reports"]')
+    };
+  }
 
   function addDot(item, type) {
     if (!item) return;
@@ -13,7 +15,6 @@
     let dot = item.querySelector('.nav-notification-dot');
     if (!dot) {
       dot = document.createElement('i');
-      dot.className = 'nav-notification-dot';
       dot.setAttribute('aria-hidden', 'true');
       item.appendChild(dot);
     }
@@ -28,25 +29,31 @@
 
   async function check() {
     try {
-      const r = await fetch(NOTIFICATION_API, {
+      const r = await fetch(`${API_BASE}?v=${Date.now()}`, {
         credentials: 'include',
         cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
       });
       if (!r.ok) return;
       const data = await r.json();
       const unread = data?.unread || {};
+      const nav = getNav();
 
       if (Number(unread.crashes || 0) > 0) addDot(nav.crashes, 'crash');
       else clearDot(nav.crashes);
 
-      if (Number(unread.bugReports || 0) > 0) addDot(nav['bug-reports'], 'bug');
-      else clearDot(nav['bug-reports']);
+      if (Number(unread.bugReports || 0) > 0) addDot(nav.bugReports, 'bug');
+      else clearDot(nav.bugReports);
     } catch {}
   }
 
-  check();
-  setInterval(() => {
-    if (document.visibilityState === 'visible') check();
-  }, POLL_MS);
+  function start() {
+    check();
+    setInterval(() => {
+      if (document.visibilityState === 'visible') check();
+    }, POLL_MS);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
 })();
