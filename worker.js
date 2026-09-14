@@ -23,10 +23,12 @@ export default {
       return authWorker.fetch(request, env, ctx);
     }
 
+    // Invitation pages are public. Keep them outside the authenticated /admin/*
+    // gate and canonicalize the short URL so it cannot fall through to the
+    // legacy admin router.
     if (url.pathname === "/admin/admin-invite" || url.pathname === "/admin/admin-invite/") {
-      const inviteUrl = new URL(request.url);
-      inviteUrl.pathname = "/admin/admin-invite.html";
-      return env.ASSETS.fetch(new Request(inviteUrl.toString(), request));
+      url.pathname = "/admin/admin-invite.html";
+      return Response.redirect(url.toString(), 302);
     }
 
     if (url.pathname === "/admin/admin-invite.html" || url.pathname === "/admin/admin-invite.js") {
