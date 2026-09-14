@@ -99,9 +99,22 @@ async function getIdentitySession(request, env) {
   const match = cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
   if (!match) return null;
   const hash = await sha256Hex(match[1]);
-  const row = await env.DB.prepare(`SELECT s.token_hash,s.expires_at,a.admin_id,a.username,a.email,a.role FROM admin_identity_sessions s JOIN admin_accounts a ON a.admin_id=s.admin_id WHERE s.token_hash=? AND a.enabled=1`).bind(hash).first();
+  let row = await env.DB.prepare(`SELECT s.token_hash,s.expires_at,a.admin_id,a.username,a.email,a.role FROM admin_identity_sessions s JOIN admin_accounts a ON a.admin_id=s.admin_id WHERE s.token_hash=? AND a.enabled=1`).bind(hash).first();
+  if (!row) {
+    const legacy = await env.DB.prepare(`SELECT s.token_hash,s.expires_at,a.admin_id,a.username,a.email,a.role FROM admin_sessions s JOIN admin_accounts a ON a.enabled=1 WHERE s.token_hash=?`).bind(hash).first();
+    if (legacy) {
+      await env.DB.prepare("INSERT OR REPLACE INTO admin_identity_sessions (token_hash,admin_id,created_at,expires_at) VALUES (?,?,?,?)").bind(legacy.token_hash,legacy.admin_id,Math.floor(Date.now()/1000),legacy.expires_at).run();
+      row = legacy;
+    }
+  }
   if (!row) return null;
-  if (Number(row.expires_at) <= Math.floor(Date.now()/1000)) { await env.DB.prepare("DELETE FROM admin_identity_sessions WHERE token_hash=?").bind(hash).run(); return null; }
+  if (Number(row.expires_at) <= Math.floor(Date.now()/1000)) {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM admin_identity_sessions WHERE token_hash=?").bind(hash),
+      env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash=?").bind(hash)
+    ]);
+    return null;
+  }
   return row;
 }
 
