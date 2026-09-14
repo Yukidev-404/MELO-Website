@@ -23,4 +23,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy admin-auth-worker.js --name melo-website
+          command: deploy admin-auth-worker.js --name melo-website --compatibility-date 2026-09-13
