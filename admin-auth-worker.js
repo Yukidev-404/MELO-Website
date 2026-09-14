@@ -2,7 +2,7 @@ import { qrcode } from "qrcode-generator";
 import originalWorker from "./worker.js";
 
 const ADMIN_EMAIL_FALLBACK = "tajtaranga@gmail.com";
-const DEFAULT_OWNER_USERNAME = "yuki";
+const DEFAULT_OWNER_USERNAME = "Yuki";
 const SESSION_COOKIE = "melo_admin_session";
 const SESSION_TTL = 8 * 60 * 60;
 const SETUP_TTL = 10 * 60;
@@ -80,6 +80,9 @@ async function ensureAuthSchema(env) {
         legacy.created_at || now,
         legacy.updated_at || now
       ).run();
+  } else if (existing && existing.username === "yuki") {
+    await env.DB.prepare("UPDATE admin_accounts SET username=?, updated_at=? WHERE admin_id=?")
+      .bind(DEFAULT_OWNER_USERNAME, now, existing.admin_id).run();
   } else if (existing && !existing.totp_secret_enc && legacy?.totp_secret_enc) {
     await env.DB.prepare(`UPDATE admin_accounts SET totp_secret_enc=?, pending_secret_enc=NULL, pending_expires_at=NULL, updated_at=? WHERE admin_id=?`)
       .bind(legacy.totp_secret_enc, now, existing.admin_id).run();
