@@ -21,6 +21,53 @@ jobs:
           node --check admin-chat-worker.js
           node --check admin-ops-worker.js
 
+      # Keep Cloudflare Workers Builds watching the entire repository.
+      # This is intentionally non-blocking because the deployment token may
+      # not have Workers CI Write permission. The actual Worker deployment
+      # below remains the source-of-truth deployment path.
+      - name: Repair Cloudflare build watch paths
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          API="https://api.cloudflare.com/client/v4"
+          AUTH=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json")
+
+          WORKER_TAG="$(curl -fsSL "${AUTH[@]}" \
+            "${API}/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts" \
+            | jq -r '.result[] | select(.id == "melo-website") | .tag' | head -n1)"
+
+          if [ -z "${WORKER_TAG}" ] || [ "${WORKER_TAG}" = "null" ]; then
+            echo "Could not resolve the melo-website Worker tag; leaving build settings unchanged."
+            exit 0
+          fi
+
+          TRIGGER_JSON="$(curl -fsSL "${AUTH[@]}" \
+            "${API}/accounts/${CLOUDFLARE_ACCOUNT_ID}/builds/workers/${WORKER_TAG}/triggers")"
+
+          TRIGGER_UUID="$(printf '%s' "${TRIGGER_JSON}" | jq -r '
+            .result[]
+            | select((.branch_includes // []) | index("main"))
+            | .trigger_uuid' | head -n1)"
+
+          if [ -z "${TRIGGER_UUID}" ] || [ "${TRIGGER_UUID}" = "null" ]; then
+            echo "Could not resolve the production Workers Build trigger; leaving build settings unchanged."
+            exit 0
+          fi
+
+          CURRENT_INCLUDES="$(printf '%s' "${TRIGGER_JSON}" | jq -c --arg id "${TRIGGER_UUID}" '.result[] | select(.trigger_uuid == $id) | .path_includes')"
+          CURRENT_EXCLUDES="$(printf '%s' "${TRIGGER_JSON}" | jq -c --arg id "${TRIGGER_UUID}" '.result[] | select(.trigger_uuid == $id) | .path_excludes')"
+          echo "Current Cloudflare build path includes: ${CURRENT_INCLUDES}"
+          echo "Current Cloudflare build path excludes: ${CURRENT_EXCLUDES}"
+
+          curl -fsSL "${AUTH[@]}" -X PATCH \
+            "${API}/accounts/${CLOUDFLARE_ACCOUNT_ID}/builds/triggers/${TRIGGER_UUID}" \
+            --data '{"branch_includes":["main"],"branch_excludes":[],"path_includes":["*"],"path_excludes":[]}' \
+            | jq '{success, errors, result: {trigger_uuid: .result.trigger_uuid, branch_includes: .result.branch_includes, path_includes: .result.path_includes, path_excludes: .result.path_excludes}}'
+
       # Always perform a real Wrangler deployment from the current main tree.
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
