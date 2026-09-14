@@ -58,11 +58,19 @@ async function handleSharedAdminReports(request, env, url) {
   await ensureCrashStatusSchema(env);
 
   if (url.pathname === "/api/admin/notifications" && request.method === "GET") {
+    // Notification state is intentionally global/shared across all administrators.
+    // Viewing a report never clears it. Only an explicit resolution clears it.
     const [bugs, crashes] = await Promise.all([
-      env.DB.prepare("SELECT COUNT(*) AS count FROM bug_reports WHERE status NOT IN ('resolved','wont_fix')").first(),
+      env.DB.prepare("SELECT COUNT(*) AS count FROM bug_reports WHERE status IN ('new','reviewing')").first(),
       env.DB.prepare("SELECT COUNT(*) AS count FROM crash_reports WHERE status = 'unresolved'").first()
     ]);
-    return json({ ok: true, unread: { bugReports: Number(bugs?.count || 0), crashes: Number(crashes?.count || 0) } });
+    return json({
+      ok: true,
+      unread: {
+        bugReports: Number(bugs?.count || 0),
+        crashes: Number(crashes?.count || 0)
+      }
+    });
   }
 
   if (url.pathname === "/api/admin/crashes" && request.method === "GET") {
