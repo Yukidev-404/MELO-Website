@@ -1,6 +1,6 @@
 (() => {
-  const POLL_MS = 30000;
-  const STORAGE_KEY = 'melo-control-notification-state-v1';
+  const POLL_MS = 10000;
+  const STORAGE_KEY = 'melo-control-notification-state-v2';
   const nav = {
     crashes: document.querySelector('.nav-item[data-view="crashes"]'),
     'bug-reports': document.querySelector('.nav-item[data-view="bug-reports"]')
@@ -15,19 +15,15 @@
   async function getRows(path) {
     try {
       const r = await fetch(path, { credentials:'include', cache:'no-store' });
-      if (r.status === 401) return null;
-      if (!r.ok) return null;
+      if (r.status === 401 || !r.ok) return null;
       const d = await r.json();
       return Array.isArray(d.rows) ? d.rows : [];
     } catch { return null; }
   }
 
-  function newestId(rows, key) {
-    return rows
-      .map(r => String(r[key] || ''))
-      .filter(Boolean)
-      .sort()
-      .slice(-1)[0] || '';
+  function newestTimestamp(rows, type) {
+    const key = type === 'crash' ? 'timestamp' : 'submitted_at';
+    return rows.reduce((max, r) => Math.max(max, Number(r[key] || 0)), 0);
   }
 
   function addDot(item, type) {
@@ -59,23 +55,30 @@
       getRows('/api/admin/bug-reports')
     ]);
 
+    const crashNewest = crashes ? newestTimestamp(crashes, 'crash') : 0;
+    const bugNewest = bugs ? newestTimestamp(bugs, 'bug') : 0;
+
     if (!initialized) {
-      if (crashes) state.crashBaseline = newestId(crashes, 'crash_id');
-      if (bugs) state.bugBaseline = newestId(bugs, 'report_id');
+      if (crashes) {
+        state.crashSeenAt = state.crashSeenAt || crashNewest;
+        state.crashObservedAt = crashNewest;
+      }
+      if (bugs) {
+        state.bugSeenAt = state.bugSeenAt || bugNewest;
+        state.bugObservedAt = bugNewest;
+      }
       save();
       initialized = true;
       return;
     }
 
-    if (crashes) {
-      const newest = newestId(crashes, 'crash_id');
-      if (newest && state.crashBaseline && newest !== state.crashBaseline) addDot(nav.crashes, 'crash');
-      if (newest) state.crashBaseline = newest;
+    if (crashes && crashNewest > Number(state.crashSeenAt || 0)) {
+      addDot(nav.crashes, 'crash');
+      state.crashObservedAt = crashNewest;
     }
-    if (bugs) {
-      const newest = newestId(bugs, 'report_id');
-      if (newest && state.bugBaseline && newest !== state.bugBaseline) addDot(nav['bug-reports'], 'bug');
-      if (newest) state.bugBaseline = newest;
+    if (bugs && bugNewest > Number(state.bugSeenAt || 0)) {
+      addDot(nav['bug-reports'], 'bug');
+      state.bugObservedAt = bugNewest;
     }
     save();
   }
@@ -84,8 +87,8 @@
     if (!item) return;
     item.addEventListener('click', () => {
       clearDot(item);
-      if (key === 'crashes') state.crashBaseline = state.crashBaseline || '';
-      if (key === 'bug-reports') state.bugBaseline = state.bugBaseline || '';
+      if (key === 'crashes' && state.crashObservedAt) state.crashSeenAt = state.crashObservedAt;
+      if (key === 'bug-reports' && state.bugObservedAt) state.bugSeenAt = state.bugObservedAt;
       save();
     });
   }
