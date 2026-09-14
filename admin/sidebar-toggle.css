@@ -8,15 +8,16 @@
   .sidebar-toggle span:last-child{width:1px;height:13px;background:currentColor;left:calc(50% + 1px);top:calc(50% - 6px)}
   .sidebar-toggle:after{content:"";position:absolute;right:-1px;top:8px;width:3px;height:16px;border-right:1px solid #e15a9b;opacity:.9}
   .content{margin-left:226px;width:calc(100% - 226px);transition:width .22s ease,margin-left .22s ease}
+
+  /* Clean icon rail: navigation begins just below the sidebar divider. */
   body.sidebar-collapsed .sidebar{width:58px;padding-left:8px;padding-right:8px;border-right-color:#252525;overflow:visible}
   body.sidebar-collapsed .sidebar .side-brand,body.sidebar-collapsed .sidebar-footer{opacity:0;visibility:hidden;pointer-events:none}
-  /* Start the icon rail directly at the divider/red line below the toggle. */
-  body.sidebar-collapsed .sidebar nav{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:-39px;padding-top:0;overflow:visible;scrollbar-width:none;opacity:1;visibility:visible}
-  body.sidebar-collapsed .sidebar .nav-label{display:none}
-  body.sidebar-collapsed .sidebar .nav-item{position:relative;width:40px;height:40px;min-height:40px;flex:0 0 40px;margin:0;padding:0;display:grid;place-items:center;background:transparent;border:1px solid transparent;color:#777;font-size:0;border-radius:3px;opacity:1;visibility:visible;overflow:visible}
+  body.sidebar-collapsed .sidebar nav{position:absolute;top:96px;left:8px;right:8px;margin:0!important;padding:0!important;display:flex;flex-direction:column;align-items:center;gap:8px;overflow:visible;opacity:1;visibility:visible}
+  body.sidebar-collapsed .sidebar .nav-label{display:none!important}
+  body.sidebar-collapsed .sidebar .nav-item{position:relative;width:40px;height:40px;min-height:40px;max-height:40px;flex:0 0 40px!important;margin:0!important;padding:0!important;display:grid;place-items:center;background:transparent;border:1px solid transparent;color:#777;font-size:0;border-radius:3px;opacity:1;visibility:visible;overflow:visible}
   body.sidebar-collapsed .sidebar .nav-item:hover{background:#151115;border-color:#2b252b;color:#ddd}
   body.sidebar-collapsed .sidebar .nav-item.active{background:#171217;border-color:#332732;color:#f2d7e4}
-  body.sidebar-collapsed .sidebar .nav-item span{width:18px;height:18px;margin:0;display:grid;place-items:center;font-size:0;color:currentColor}
+  body.sidebar-collapsed .sidebar .nav-item span{width:18px;height:18px;margin:0!important;padding:0;display:grid;place-items:center;font-size:0;color:currentColor}
   body.sidebar-collapsed .sidebar .nav-item span:before{font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1;font-weight:400;color:currentColor}
   body.sidebar-collapsed .sidebar .nav-item[data-view="dashboard"] span:before{content:"⌁"}
   body.sidebar-collapsed .sidebar .nav-item[data-view="users"] span:before{content:"○"}
@@ -33,9 +34,11 @@
   body.sidebar-collapsed .sidebar .nav-item[data-view="settings"] span:before{content:"⚙"}
   body.sidebar-collapsed .sidebar .nav-item[data-owner-admins="item"] span:before{content:"◎"}
   body.sidebar-collapsed .sidebar .nav-item[href*="console"] span:before{content:"›_";font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}
+
   .melo-sidebar-tooltip{position:fixed;z-index:2147483647;transform:translateY(-50%) translateX(-5px);padding:8px 11px;background:#151215;border:1px solid #4a3341;border-left:2px solid #e15a9b;border-radius:4px;color:#f1e9ee;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;font-weight:500;letter-spacing:.03em;line-height:1;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.55),0 0 12px rgba(225,90,155,.12);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
   .melo-sidebar-tooltip.visible{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0)}
-  body.sidebar-collapsed .sidebar .nav-item.has-notification{padding:0}
+
+  body.sidebar-collapsed .sidebar .nav-item.has-notification{padding:0!important}
   body.sidebar-collapsed .sidebar .nav-item .nav-notification-dot{position:absolute;top:3px;right:3px;width:6px;height:6px;margin:0;z-index:4;border-radius:50%;background:#f48bbf;box-shadow:0 0 0 2px #0d0d0d,0 0 8px rgba(244,139,191,.65);animation:melo-notify-blink 1.15s ease-in-out infinite}
   body.sidebar-collapsed .sidebar .nav-item .nav-notification-dot.crash{background:#ff7070;box-shadow:0 0 0 2px #0d0d0d,0 0 8px rgba(255,112,112,.7)}
   @keyframes melo-notify-blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.22;transform:scale(.72)}}
