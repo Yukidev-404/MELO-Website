@@ -26,13 +26,11 @@ export default {
     if (url.pathname === "/admin/admin-invite" || url.pathname === "/admin/admin-invite/") {
       const inviteUrl = new URL(request.url);
       inviteUrl.pathname = "/admin/admin-invite.html";
-      const authWorker = (await import("./admin-auth-worker.js")).default;
-      return authWorker.fetch(new Request(inviteUrl.toString(), request), env, ctx);
+      return env.ASSETS.fetch(new Request(inviteUrl.toString(), request));
     }
 
     if (url.pathname === "/admin/admin-invite.html" || url.pathname === "/admin/admin-invite.js") {
-      const authWorker = (await import("./admin-auth-worker.js")).default;
-      return authWorker.fetch(request, env, ctx);
+      return env.ASSETS.fetch(request);
     }
 
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
