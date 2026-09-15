@@ -1,4 +1,5 @@
 (() => {
+  const loading=document.getElementById('loadingScreen'), loadingFill=document.getElementById('loadingFill'), loadingPercent=document.getElementById('loadingPercent'), loadingLabel=document.getElementById('loadingLabel');
   const boot=document.getElementById('boot'), inner=document.querySelector('.boot-inner'), entry=document.getElementById('enter'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
   let playing=false, track=0, entering=false, hoverPlayed=false;
   const tracks=[['Pleasure','Dylan Sinclair'],['Enough','Deukota'],['Get It Together','Télépomusik Lofi Flip']];
@@ -11,6 +12,28 @@
   function playSfx(audio){
     try{audio.currentTime=0;const p=audio.play();if(p?.catch)p.catch(()=>{});}catch{}
   }
+  function finishLoading(){
+    if(!loading) return;
+    loadingLabel.textContent='ready ♡';
+    loading.classList.add('ready');
+    if(loadingFill) loadingFill.style.width='100%';
+    if(loadingPercent) loadingPercent.textContent='100%';
+    setTimeout(()=>loading.classList.add('done'),420);
+  }
+  function startLoading(){
+    if(!loading) return;
+    const start=performance.now();
+    const minTime=1750;
+    function tick(now){
+      const elapsed=now-start;
+      const progress=Math.min(100,Math.max(0,(elapsed/minTime)*100));
+      if(loadingFill) loadingFill.style.width=progress+'%';
+      if(loadingPercent) loadingPercent.textContent=Math.floor(progress)+'%';
+      if(progress<100){requestAnimationFrame(tick)}
+      else{finishLoading()}
+    }
+    requestAnimationFrame(tick);
+  }
   function enter(){
     if(entering || boot.classList.contains('hide')) return;
     entering=true;
@@ -21,6 +44,7 @@
   }
   function openRoom(name){rooms.forEach(r=>r.classList.toggle('open',r.dataset.room===name))}
   function setTrack(i){track=(i+tracks.length)%tracks.length;title.textContent=tracks[track][0];artist.textContent=tracks[track][1];playing=true;player.classList.add('playing');play.textContent='❚❚';}
+  startLoading();
   entry?.addEventListener('mouseenter',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;playSfx(hoverSfx);}});
   entry?.addEventListener('mouseleave',()=>{if(!entering){inner?.classList.remove('rim-hover');hoverPlayed=false;}});
   entry?.addEventListener('focus',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;playSfx(hoverSfx);}});
