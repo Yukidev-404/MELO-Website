@@ -50,11 +50,14 @@ form.addEventListener('submit',async e=>{
 
 forgotLink.addEventListener('click',e=>{
   e.preventDefault();
-  message.textContent='Password reset is not enabled yet. Create a new account or contact MELO support.';
+  message.textContent='Password reset will be added after MELO email delivery is configured.';
 });
 
 document.querySelectorAll('.social-login').forEach(button=>button.addEventListener('click',()=>{
-  message.textContent=`${button.dataset.provider} OAuth is not configured yet. Use MELO email + password for now.`;
+  const provider=String(button.dataset.provider||'').toLowerCase();
+  if(!provider) return;
+  message.textContent=`Connecting to ${button.dataset.provider}…`;
+  window.location.href=`/api/auth/oauth/${provider}`;
 }));
 
 setMode('user');
