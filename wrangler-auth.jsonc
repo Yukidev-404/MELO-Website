@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "melo-auth-v2",
+  "main": "melo-auth-worker.js",
+  "compatibility_date": "2026-09-13",
+  "keep_vars": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "melo-admin",
+      "database_id": "c06e7de7-d5cd-429a-9a9d-37dfc376bfda"
+    }
+  ]
+}
