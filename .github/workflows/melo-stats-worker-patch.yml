@@ -1,0 +1,155 @@
+name: Add MELO stats API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/melo-stats-worker-patch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Patch stats API
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess, sys
+
+          path = Path('melo-auth-worker.js')
+          text = path.read_text(encoding='utf-8')
+
+          marker = "async function handle(request, env) {"
+          if 'async function ensureStatsSchema' not in text:
+              stats = r'''
+
+async function ensureStatsSchema(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS listening_events (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    source TEXT,
+    track_id TEXT,
+    track_key TEXT,
+    title TEXT,
+    artist TEXT,
+    album TEXT,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    listened_seconds INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  )`).run();
+}
+
+async function statsEvent(request, env) {
+  await ensureStatsSchema(env);
+  const session = await getSession(request, env);
+  if (!session) return json({ error: 'Authentication required.' }, 401, {}, request);
+  const body = await readBody(request);
+  const eventType = String(body?.event_type || '').trim().toLowerCase();
+  const allowed = new Set(['play', 'listen', 'favorite', 'unfavorite']);
+  if (!allowed.has(eventType)) return json({ error: 'Invalid stats event.' }, 400, {}, request);
+  const source = String(body?.source || '').trim().toUpperCase().slice(0, 20);
+  const trackId = String(body?.track_id || '').trim().slice(0, 200);
+  const trackKey = String(body?.track_key || '').trim().slice(0, 500);
+  const title = String(body?.title || 'Unknown Track').trim().slice(0, 300);
+  const artist = String(body?.artist || 'Unknown Artist').trim().slice(0, 300);
+  const album = String(body?.album || 'Unknown Album').trim().slice(0, 300);
+  const duration = Math.max(0, Math.min(86400, Number(body?.duration_seconds || 0) | 0));
+  const listened = Math.max(0, Math.min(86400, Number(body?.listened_seconds || 0) | 0));
+  await env.DB.prepare(`INSERT INTO listening_events
+    (id,user_id,event_type,source,track_id,track_key,title,artist,album,duration_seconds,listened_seconds,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+      id(), session.user_id, eventType, source, trackId, trackKey, title, artist, album, duration, listened, now()
+    ).run();
+  return json({ ok: true }, 201, {}, request);
+}
+
+async function statsSummary(request, env) {
+  await ensureStatsSchema(env);
+  const session = await getSession(request, env);
+  if (!session) return json({ error: 'Authentication required.' }, 401, {}, request);
+  const rows = await env.DB.prepare(`SELECT event_type,source,track_id,track_key,title,artist,album,duration_seconds,listened_seconds,created_at
+    FROM listening_events WHERE user_id=? ORDER BY created_at DESC LIMIT 20000`).bind(session.user_id).all();
+  const events = rows.results || [];
+  const plays = events.filter(e => e.event_type === 'play');
+  const listens = events.filter(e => e.event_type === 'listen');
+  const totalListeningSeconds = listens.reduce((sum, e) => sum + Number(e.listened_seconds || 0), 0);
+  const uniqueTracks = new Set(plays.map(e => String(e.track_key || e.track_id || `${e.title}|${e.artist}`))).size;
+  const favoriteState = new Map();
+  for (const e of [...events].reverse()) {
+    if (e.event_type === 'favorite' || e.event_type === 'unfavorite') {
+      const key = String(e.track_key || e.track_id || `${e.title}|${e.artist}`);
+      favoriteState.set(key, e.event_type === 'favorite');
+    }
+  }
+  const favorites = [...favoriteState.values()].filter(Boolean).length;
+  const activeDates = new Set(events.map(e => new Date(Number(e.created_at) * 1000).toISOString().slice(0, 10)));
+  const today = new Date();
+  const dateKey = d => d.toISOString().slice(0, 10);
+  let streak = 0;
+  for (let i = 0; i < 3660; i++) {
+    const d = new Date(today.getTime() - i * 86400000);
+    if (!activeDates.has(dateKey(d))) break;
+    streak++;
+  }
+  const countBy = key => {
+    const map = new Map();
+    for (const e of plays) {
+      const value = String(e[key] || '').trim() || (key === 'artist' ? 'Unknown Artist' : 'Unknown Track');
+      map.set(value, (map.get(value) || 0) + 1);
+    }
+    return [...map.entries()].sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] || null;
+  };
+  const topArtist = countBy('artist');
+  const topTrack = countBy('title');
+  const xp = plays.length * 10 + Math.floor(totalListeningSeconds / 60) * 2 + favorites * 25;
+  const level = Math.max(1, Math.floor(xp / 100) + 1);
+  const levelXp = xp % 100;
+  return json({
+    user: { id: session.user_id, email: session.email, display_name: session.display_name, avatar_url: session.avatar_url || null },
+    stats: {
+      tracks_played: plays.length,
+      total_listening_seconds: totalListeningSeconds,
+      unique_tracks: uniqueTracks,
+      favorites,
+      days_active: activeDates.size,
+      listening_streak: streak,
+      top_artist: topArtist ? { name: topArtist[0], plays: topArtist[1] } : null,
+      top_track: topTrack ? { name: topTrack[0], plays: topTrack[1] } : null,
+      xp, level, level_xp: levelXp, level_progress: levelXp / 100
+    }
+  }, 200, {}, request);
+}
+'''
+              if marker not in text:
+                  raise SystemExit('Could not find handle marker')
+              text = text.replace(marker, stats + '\n' + marker, 1)
+
+          route = "    if (path === '/api/stats/event' && request.method === 'POST') return await statsEvent(request, env);\n    if (path === '/api/stats' && request.method === 'GET') return await statsSummary(request, env);\n"
+          handle_anchor = "    if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);\n"
+          if "path === '/api/stats/event'" not in text:
+              if handle_anchor not in text:
+                  raise SystemExit('Could not find route anchor')
+              text = text.replace(handle_anchor, route + handle_anchor, 1)
+
+          path.write_text(text, encoding='utf-8')
+          subprocess.run(['node', '--check', 'melo-auth-worker.js'], check=True)
+
+      - name: Remove one-time workflow
+        shell: bash
+        run: rm -f .github/workflows/melo-stats-worker-patch.yml
+      - name: Commit and push
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add melo-auth-worker.js .github/workflows/melo-stats-worker-patch.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "Add MELO listening stats API [skip ci]"
+          git push
