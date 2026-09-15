@@ -1,0 +1,30 @@
+name: Deploy MELO Auth Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'melo-auth-worker.js'
+      - 'wrangler-auth.jsonc'
+      - '.github/workflows/deploy-auth-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Auth Worker syntax
+        run: node --check melo-auth-worker.js
+
+      - name: Deploy Auth Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler-auth.jsonc --compatibility-date 2026-09-13
