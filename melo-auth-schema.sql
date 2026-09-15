@@ -41,7 +41,23 @@ CREATE TABLE IF NOT EXISTS oauth_states (
   expires_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS pending_signups (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  password_iterations INTEGER NOT NULL,
+  code_hash TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_sent_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_identities_user ON auth_identities(user_id);
 CREATE INDEX IF NOT EXISTS idx_oauth_states_expiry ON oauth_states(expires_at);
+CREATE INDEX IF NOT EXISTS idx_pending_signups_expiry ON pending_signups(expires_at);
