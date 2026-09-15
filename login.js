@@ -1,3 +1,4 @@
+const API_BASE = 'https://melo-website.tajtaranga.workers.dev';
 const modes=document.querySelectorAll('.mode');
 const form=document.getElementById('loginForm');
 const message=document.getElementById('demoMessage');
@@ -21,7 +22,7 @@ function setMode(nextMode){
   forgotLink.textContent=admin?'Admin password recovery is handled separately.':'Forgot password?';
   socialSection.hidden=admin;
   accountFooter.hidden=admin;
-  message.textContent=admin?'Use the dedicated secure admin login.':'';
+  message.textContent=admin?'Use the dedicated secure admin login':'';
 }
 
 modes.forEach(btn=>btn.addEventListener('click',()=>{
@@ -38,7 +39,7 @@ form.addEventListener('submit',async e=>{
   submit.disabled=true;
   message.textContent='Authenticating…';
   try{
-    const response=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({email:document.getElementById('email').value,password:document.getElementById('password').value})});
+    const response=await fetch(`${API_BASE}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({email:document.getElementById('email').value,password:document.getElementById('password').value})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok) throw new Error(data.error||'Login failed.');
     message.textContent=`Welcome back, ${data.user.display_name}. Redirecting…`;
@@ -57,7 +58,7 @@ document.querySelectorAll('.social-login').forEach(button=>button.addEventListen
   const provider=String(button.dataset.provider||'').toLowerCase();
   if(!provider) return;
   message.textContent=`Connecting to ${button.dataset.provider}…`;
-  window.location.href=`/api/auth/oauth/${provider}`;
+  window.location.href=`${API_BASE}/api/auth/oauth/${provider}`;
 }));
 
 setMode('user');
