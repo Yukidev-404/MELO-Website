@@ -25,7 +25,7 @@
   entry?.addEventListener('mouseleave',()=>{if(!entering){inner?.classList.remove('rim-hover');hoverPlayed=false;}});
   entry?.addEventListener('focus',()=>inner?.classList.add('rim-hover'));
   entry?.addEventListener('blur',()=>{if(!entering) inner?.classList.remove('rim-hover')});
-  entry?.addEventListener('pointerdown',()=>{inner?.classList.add('rim-active');playSfx(clickSfx);});
+  entry?.addEventListener('pointerdown',()=>inner?.classList.add('rim-active'));
   entry?.addEventListener('click',enter);
   document.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!boot.classList.contains('hide')) enter();
