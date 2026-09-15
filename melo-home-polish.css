@@ -1,0 +1,46 @@
+/* MELO homepage polish — layout refinement only */
+.home-map{isolation:isolate}
+.home-map:before{z-index:0}
+.home-title{left:clamp(28px,3.2vw,52px);top:clamp(30px,4.2vh,48px)}
+.home-title h1{max-width:480px}
+.home-title p{max-width:350px}
+.home-orbit{z-index:1}
+.home-card{z-index:10;will-change:transform;backdrop-filter:blur(3px)}
+.card-space,.card-download{left:clamp(9%,12vw,14%)}
+.card-gallery,.card-admin{right:clamp(9%,12vw,14%)}
+.card-space,.card-gallery{top:29%}
+.card-download,.card-admin{bottom:21%}
+.card-profile{bottom:3.5%}
+.home-player.player{z-index:7}
+.home-player.player:hover{transform:translate(-50%,-46%) scale(1.018)}
+.record-disc{will-change:transform,filter}
+.home-player:not(.playing) .record-disc{animation:recordBreath 4.8s ease-in-out infinite}
+.home-player.playing .record-disc{animation:recordSpin 3.2s linear infinite}
+.record-tonearm{will-change:transform}
+.home-player:hover .record-tonearm{transform:translate(1px,-1px) rotate(.35deg)}
+.home-tip,.home-signature{opacity:.78;transition:opacity .25s}
+.home-map:hover .home-tip,.home-map:hover .home-signature{opacity:1}
+@keyframes recordBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.006)}}
+@media(max-width:1100px){
+  .home-title{left:28px}
+  .home-title h1{font-size:clamp(36px,4.2vw,52px)}
+  .home-card{width:220px}
+  .card-space,.card-download{left:7%}
+  .card-gallery,.card-admin{right:7%}
+}
+@media(max-width:900px){
+  .home-card{width:185px}
+  .card-space,.card-download{left:3%}
+  .card-gallery,.card-admin{right:3%}
+  .card-space,.card-gallery{top:25%}
+  .card-download,.card-admin{bottom:17%}
+  .home-player:not(.playing) .record-disc{animation:none}
+}
+@media(max-width:650px){
+  .home-title{left:18px;top:18px}
+  .home-title h1{font-size:31px}
+  .home-card{width:154px}
+  .home-player.player:hover{transform:translate(-50%,-46%)}
+  .record-tonearm{transform:none!important}
+}
+@media(prefers-reduced-motion:reduce){.home-player:not(.playing) .record-disc{animation:none}.home-player:hover .record-tonearm{transform:none}.home-map:hover .home-tip,.home-map:hover .home-signature{opacity:.78}}
