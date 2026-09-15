@@ -6,7 +6,6 @@
 .home-title p{max-width:350px}
 .home-orbit{z-index:1}
 .home-card{z-index:10;will-change:transform;backdrop-filter:blur(3px);width:250px;height:91px;min-height:91px;max-height:91px}
-/* Cards sit just outside the vinyl's circular field, following its perimeter. */
 .card-discover{left:50%;top:3%;transform:translateX(-50%)}
 .card-web{left:calc(50% - 700px);top:29%}
 .card-gallery{right:calc(50% - 700px);top:29%}
@@ -26,55 +25,20 @@
 .home-tip,.home-signature{opacity:.78;transition:opacity .25s}
 .home-map:hover .home-tip,.home-map:hover .home-signature{opacity:1}
 @keyframes recordBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.006)}}
-@media(max-width:1500px){
-  .card-web,.card-gallery{top:29%}
-  .card-web,.card-download{left:3%}
-  .card-gallery,.card-radio{right:3%}
-  .card-download,.card-radio{top:58%}
-  .card-room{left:calc(50% - 360px);top:79%}
-  .card-profile{left:calc(50% + 110px);top:79%}
+@media(max-width:1500px){.card-web,.card-gallery{top:29%}.card-web,.card-download{left:3%}.card-gallery,.card-radio{right:3%}.card-download,.card-radio{top:58%}.card-room{left:calc(50% - 360px);top:79%}.card-profile{left:calc(50% + 110px);top:79%}}
+@media(max-width:1100px){.home-title{left:28px}.home-title h1{font-size:clamp(36px,4.2vw,52px)}.home-card{width:220px;height:82px;min-height:82px;max-height:82px}.card-web,.card-gallery{top:27%}.card-web,.card-download{left:3%}.card-gallery,.card-radio{right:3%}.card-download,.card-radio{top:58%}.card-room{left:calc(50% - 250px);top:78%}.card-profile{left:calc(50% + 30px);top:78%}}
+@media(max-width:900px){.home-card{width:185px;height:78px;min-height:78px;max-height:78px}.card-discover{top:4%;left:50%}.card-web,.card-gallery{top:25%}.card-web,.card-download{left:3%}.card-gallery,.card-radio{right:3%}.card-download,.card-radio{top:58%}.card-room{left:3%;top:79%}.card-profile{right:3%;left:auto;top:79%;transform:none}.card-profile:hover{transform:translateY(-7px) rotate(-1deg)}.home-player.player{width:min(37vw,310px);height:min(37vw,310px);min-width:230px;min-height:230px}.home-player:not(.playing) .record-disc{animation:none}}
+@media(max-width:650px){.home-title{left:18px;top:18px}.home-title h1{font-size:31px}.home-card{width:154px;height:70px;min-height:70px;max-height:70px}.card-discover{top:5%;left:50%}.card-web,.card-gallery{top:25%}.card-web,.card-download{left:3%}.card-gallery,.card-radio{right:3%}.card-download,.card-radio{top:57%}.card-room{left:3%;top:76%}.card-profile{right:3%;top:76%;left:auto}.home-player.player{width:52vw;height:52vw;min-width:180px;min-height:180px;top:52%}.home-player.player:hover{transform:translate(-50%,-46%)}.record-tonearm{transform:none!important}}
+@media(prefers-reduced-motion:reduce){.home-player:not(.playing) .record-disc{animation:none}.home-player:hover .record-tonearm{transform:none}.home-map:hover .home-tip,.home-map:hover .home-signature{opacity:.78}}
+
+/* Android / narrow-screen layout: convert the desktop orbital map into a clean vertical room. */
+@media(max-width:700px){
+html,body{width:100%;min-width:0;overflow-x:hidden;overflow-y:auto;-webkit-text-size-adjust:100%}body{overscroll-behavior-x:none}button,a{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.world{min-height:100dvh;height:auto;overflow-x:hidden;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)}
+.top{height:54px;padding:0 14px;gap:8px;position:fixed;top:0;z-index:100}.logo{font-size:21px;flex:0 0 auto}.top-center{display:none}.top-actions{margin-left:auto;gap:6px}.top-btn{min-height:36px;padding:8px 10px;font-size:8px;white-space:nowrap}
+.boot{min-height:100dvh;height:100dvh;overflow:hidden;padding:54px 14px 20px}.boot-inner{width:100%;max-width:520px;padding:10px 8px 20px}.boot-inner:before{width:86vw;height:86vw;max-width:430px;max-height:430px}.boot-inner:after{width:68vw;height:68vw;max-width:340px;max-height:340px}.anime-rim{width:96vw;height:96vw;max-width:500px;max-height:500px}.boot-mascot{width:min(78vw,360px);max-height:36vh;margin:8px auto 4px}.boot-sub{font-size:15px}.boot-copy{font-size:9px;line-height:1.65;max-width:330px;margin:12px auto 20px}.play-entry{min-height:48px;padding:13px 19px;font-size:12px;box-shadow:4px 4px 0 var(--ink)}.boot-foot{font-size:7px;margin-top:22px;line-height:1.6}
+.map.home-map{position:relative;inset:auto;min-height:calc(100dvh - 54px);height:auto;overflow:hidden;padding:76px 14px 86px}.home-map:before{position:fixed;inset:54px 0 0}.home-map:after,.home-orbit{display:none}.home-title{position:relative;left:auto;top:auto;width:100%;z-index:8;margin-bottom:16px}.home-title small{font-size:7px;margin-bottom:7px}.home-title h1{font-size:clamp(32px,10vw,44px);line-height:.9}.home-title p{display:block;font-size:8px;max-width:260px;margin-top:9px;line-height:1.5}
+.home-card{position:relative;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;width:100%!important;height:auto!important;min-height:68px;margin:8px 0;padding:11px 13px;border-width:1px;box-shadow:4px 4px 0 rgba(23,21,20,.11)}.home-card b{font-size:12px}.home-card small{font-size:7px;margin-top:5px}.home-card .card-mark{display:block;right:13px;top:19px;font-size:19px}.home-card:active{transform:translate(2px,2px);box-shadow:2px 2px 0 rgba(23,21,20,.11)}.home-card:hover{transform:none}.card-discover{margin-top:8px}
+.home-player.player{position:relative;left:auto;top:auto;width:min(74vw,300px);height:min(74vw,300px);min-width:0;min-height:0;margin:26px auto 24px;transform:none!important}.home-player.player:hover{transform:none!important}.record-tonearm{right:-13%;top:-5%;width:49%;height:83%;transform:none!important}.record-label{padding:8px}.record-label strong{font-size:clamp(19px,6vw,26px)}.record-label span{font-size:8px;margin-top:5px}.record-label em{font-size:5px;margin-top:5px}.record-play{opacity:1;width:40px;height:40px;font-size:11px}.home-player.playing .record-play{opacity:1}.home-tip{position:relative;left:auto;bottom:auto;margin-top:18px;font-size:7px;line-height:1.5}.home-signature{position:relative;right:auto;bottom:auto;margin-top:13px;font-size:6px;text-align:left}.home-signature strong{font-size:8px}.home-spark,.home-dot{display:none}
+.room{position:fixed;inset:0;z-index:200;padding:82px 18px calc(28px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}.room-close{position:sticky;top:0;float:right;margin:0 0 20px 12px;min-height:42px;padding:10px 13px;font-size:9px;z-index:3;background:var(--white)}.room-kicker{clear:both;font-size:8px;line-height:1.4;padding-top:4px}.room h2{font-size:clamp(42px,14vw,64px);margin:10px 0 18px}.room>p{font-size:9px;line-height:1.75;max-width:560px}.room-list{margin-top:22px}.room-row{display:grid;grid-template-columns:30px 1fr auto;gap:9px;align-items:center;padding:13px 0;min-height:62px}.room-row b{font-size:9px}.room-row strong{font-size:10px}.room-row small{display:block;font-size:7px;line-height:1.45;margin-top:4px}.room-row button{min-width:62px;min-height:38px;padding:8px 9px;font-size:7px}.room-grid{grid-template-columns:1fr;gap:12px;margin-top:20px}.room-card{min-height:0;padding:11px}.room-card img{height:auto;max-height:230px;object-fit:cover;margin-bottom:9px}.room-card h3{font-size:12px}.room-card p{font-size:8px;line-height:1.6}.download-big{display:flex;align-items:center;justify-content:center;min-height:48px;padding:12px 14px;text-align:center;font-size:8px;line-height:1.4}
 }
-@media(max-width:1100px){
-  .home-title{left:28px}
-  .home-title h1{font-size:clamp(36px,4.2vw,52px)}
-  .home-card{width:220px;height:82px;min-height:82px;max-height:82px}
-  .card-web,.card-gallery{top:27%}
-  .card-web,.card-download{left:3%}
-  .card-gallery,.card-radio{right:3%}
-  .card-download,.card-radio{top:58%}
-  .card-room{left:calc(50% - 250px);top:78%}
-  .card-profile{left:calc(50% + 30px);top:78%}
-}
-@media(max-width:900px){
-  .home-card{width:185px;height:78px;min-height:78px;max-height:78px}
-  .card-discover{top:4%;left:50%}
-  .card-web,.card-gallery{top:25%}
-  .card-web,.card-download{left:3%}
-  .card-gallery,.card-radio{right:3%}
-  .card-download,.card-radio{top:58%}
-  .card-room{left:3%;top:79%}
-  .card-profile{right:3%;left:auto;top:79%;transform:none}
-  .card-profile:hover{transform:translateY(-7px) rotate(-1deg)}
-  .home-player.player{width:min(37vw,310px);height:min(37vw,310px);min-width:230px;min-height:230px}
-  .home-player:not(.playing) .record-disc{animation:none}
-}
-@media(max-width:650px){
-  .home-title{left:18px;top:18px}
-  .home-title h1{font-size:31px}
-  .home-card{width:154px;height:70px;min-height:70px;max-height:70px}
-  .card-discover{top:5%;left:50%}
-  .card-web,.card-gallery{top:25%}
-  .card-web,.card-download{left:3%}
-  .card-gallery,.card-radio{right:3%}
-  .card-download,.card-radio{top:57%}
-  .card-room{left:3%;top:76%}
-  .card-profile{right:3%;top:76%;left:auto}
-  .home-player.player{width:52vw;height:52vw;min-width:180px;min-height:180px;top:52%}
-  .home-player.player:hover{transform:translate(-50%,-46%)}
-  .record-tonearm{transform:none!important}
-}
-@media(prefers-reduced-motion:reduce){
-  .home-player:not(.playing) .record-disc{animation:none}
-  .home-player:hover .record-tonearm{transform:none}
-  .home-map:hover .home-tip,.home-map:hover .home-signature{opacity:.78}
-}
+@media(max-width:380px){.top{padding:0 10px}.top-btn{padding:7px 8px;font-size:7px}.map.home-map{padding-left:11px;padding-right:11px}.home-card{min-height:64px;padding:10px 11px}.home-card .card-mark{display:none}.home-player.player{width:70vw;height:70vw;margin-top:22px}.room{padding-left:14px;padding-right:14px}.room-row{grid-template-columns:24px 1fr}.room-row button{grid-column:2;justify-self:start;margin-top:5px}}
