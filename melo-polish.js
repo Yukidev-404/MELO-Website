@@ -46,4 +46,36 @@
     if(!el || el.closest('.loading-screen')) return;
     el.animate?.([{transform:'scale(.98)'},{transform:'scale(1)'}],{duration:130,easing:'ease-out'});
   },{passive:true});
+
+  // ROOM 07 — hydrate the Player Card from the signed-in MELO session.
+  const API_BASE='https://melo-website.tajtaranga.workers.dev';
+  const hydratePlayerCard=async()=>{
+    const card=document.querySelector('.melo-player-card');
+    if(!card)return;
+    try{
+      const response=await fetch(`${API_BASE}/api/auth/me`,{credentials:'include',cache:'no-store'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.authenticated||!data.user)return;
+      const user=data.user;
+      const name=(user.display_name||user.email?.split('@')[0]||'MELO PLAYER').trim();
+      const shortId=user.id?String(user.id).replace(/-/g,'').slice(0,8).toLowerCase():'';
+      const avatar=card.querySelector('.pc-avatar img');
+      const nameEl=card.querySelector('.pc-identity h3');
+      const idEl=card.querySelector('.pc-identity p');
+      const status=card.querySelector('.pc-status');
+      const footLabel=card.querySelector('.pc-foot span');
+      const footText=card.querySelector('.pc-foot b');
+      const footLink=card.querySelector('.pc-foot a');
+      if(nameEl)nameEl.textContent=name;
+      if(idEl)idEl.textContent=shortId?`@melo-${shortId}`:'@melo-player';
+      if(avatar&&user.avatar_url)avatar.src=user.avatar_url;
+      if(avatar&&user.avatar_url)avatar.alt=`${name}'s MELO avatar`;
+      if(status)status.innerHTML='<span></span> MELO ACCOUNT CONNECTED';
+      if(footLabel)footLabel.textContent='YOUR CARD';
+      if(footText)footText.textContent='This card is connected to your MELO account →';
+      if(footLink){footLink.textContent='SIGNED IN';footLink.removeAttribute('href');footLink.setAttribute('aria-label','Signed in to MELO');footLink.style.pointerEvents='none';}
+      card.setAttribute('aria-label',`${name}'s MELO Player Card`);
+    }catch(error){console.debug('Player Card session lookup failed',error);}
+  };
+  hydratePlayerCard();
 })();
