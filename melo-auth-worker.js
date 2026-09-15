@@ -108,6 +108,15 @@ let desktopOAuthSchemaPromise = null;
 async function ensureDesktopOAuthSchema(env) {
   if (!desktopOAuthSchemaPromise) {
     desktopOAuthSchemaPromise = (async () => {
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS oauth_states (
+        state TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        redirect_uri TEXT NOT NULL,
+        code_verifier TEXT,
+        desktop_redirect_uri TEXT,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      )`).run();
       try {
         await env.DB.prepare('ALTER TABLE oauth_states ADD COLUMN desktop_redirect_uri TEXT').run();
       } catch (error) {
@@ -285,7 +294,7 @@ async function oauthStart(request, env, provider) {
   const requestUrl = new URL(request.url);
   const desktopRedirect = requestUrl.searchParams.get('redirect_uri');
   if (desktopRedirect && !validDesktopRedirectUri(desktopRedirect)) return json({ error: 'Invalid desktop redirect URI.' }, 400, {}, request);
-  if (desktopRedirect) await ensureDesktopOAuthSchema(env);
+  await ensureDesktopOAuthSchema(env);
   const redirectUri = `${origin(request, env)}/api/auth/oauth/${provider}/callback`;
   const state = randomToken(24), verifier = randomToken(32);
   await env.DB.prepare('INSERT INTO oauth_states (state,provider,redirect_uri,code_verifier,desktop_redirect_uri,created_at,expires_at) VALUES (?,?,?,?,?,?,?)').bind(state, provider, redirectUri, verifier, desktopRedirect || null, now(), now() + OAUTH_STATE_TTL).run();
