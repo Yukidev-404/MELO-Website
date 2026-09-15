@@ -22,12 +22,17 @@ async function post(path, body) {
   return data;
 }
 
-function showVerification(email) {
+function showVerification(email, developmentCode = '') {
   pendingEmail = email;
   verifyEmail.textContent = email;
   signupPanel.style.display = 'none';
   verifyPanel.style.display = 'block';
-  message.textContent = 'Check your inbox for the verification code.';
+  if (developmentCode) {
+    verificationCode.value = developmentCode;
+    message.textContent = `Development verification code: ${developmentCode}`;
+  } else {
+    message.textContent = 'Check your inbox for the verification code.';
+  }
   verificationCode.focus();
 }
 
@@ -42,7 +47,7 @@ form.addEventListener('submit', async e => {
   const submit = form.querySelector('.submit');
   const email = document.getElementById('email').value.trim().toLowerCase();
   submit.disabled = true;
-  message.textContent = 'Sending your verification code…';
+  message.textContent = 'Creating your verification code…';
   try {
     const data = await post('/api/auth/signup', {
       name: document.getElementById('name').value,
@@ -50,7 +55,7 @@ form.addEventListener('submit', async e => {
       password
     });
     if (!data.verification_required) throw new Error('Verification is required before your account can be created.');
-    showVerification(data.email || email);
+    showVerification(data.email || email, data.development_code || '');
   } catch (error) {
     message.textContent = error.message;
   } finally {
@@ -80,10 +85,15 @@ verifyForm.addEventListener('submit', async e => {
 
 resendButton.addEventListener('click', async () => {
   resendButton.disabled = true;
-  message.textContent = 'Sending a new code…';
+  message.textContent = 'Generating a new code…';
   try {
-    await post('/api/auth/resend-code', { email: pendingEmail });
-    message.textContent = 'A new verification code was sent. It expires in 10 minutes.';
+    const data = await post('/api/auth/resend-code', { email: pendingEmail });
+    if (data.development_code) {
+      verificationCode.value = data.development_code;
+      message.textContent = `Development verification code: ${data.development_code}`;
+    } else {
+      message.textContent = 'A new verification code was sent. It expires in 10 minutes.';
+    }
     verificationCode.focus();
   } catch (error) {
     message.textContent = error.message;
