@@ -1,21 +1,31 @@
 (() => {
   const boot=document.getElementById('boot'), inner=document.querySelector('.boot-inner'), entry=document.getElementById('enter'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
-  let playing=false, track=0, entering=false;
+  let playing=false, track=0, entering=false, hoverPlayed=false;
   const tracks=[['Pleasure','Dylan Sinclair'],['Enough','Deukota'],['Get It Together','Télépomusik Lofi Flip']];
+  const hoverSfx=new Audio('assets/melo-entry-hover.mp3?v=20260915-1');
+  const clickSfx=new Audio('assets/melo-entry-click.mp3?v=20260915-1');
+  hoverSfx.preload='auto';
+  clickSfx.preload='auto';
+  hoverSfx.volume=.35;
+  clickSfx.volume=.65;
+  function playSfx(audio){
+    try{audio.currentTime=0;const p=audio.play();if(p?.catch)p.catch(()=>{});}catch{}
+  }
   function enter(){
     if(entering || boot.classList.contains('hide')) return;
     entering=true;
     inner?.classList.remove('rim-hover');
     inner?.classList.add('rim-active');
+    playSfx(clickSfx);
     setTimeout(()=>{boot.classList.add('hide');map.classList.add('ready');},720);
   }
   function openRoom(name){rooms.forEach(r=>r.classList.toggle('open',r.dataset.room===name))}
   function setTrack(i){track=(i+tracks.length)%tracks.length;title.textContent=tracks[track][0];artist.textContent=tracks[track][1];playing=true;player.classList.add('playing');play.textContent='❚❚';}
-  entry?.addEventListener('mouseenter',()=>inner?.classList.add('rim-hover'));
-  entry?.addEventListener('mouseleave',()=>{if(!entering) inner?.classList.remove('rim-hover')});
+  entry?.addEventListener('mouseenter',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;playSfx(hoverSfx);}});
+  entry?.addEventListener('mouseleave',()=>{if(!entering){inner?.classList.remove('rim-hover');hoverPlayed=false;}});
   entry?.addEventListener('focus',()=>inner?.classList.add('rim-hover'));
   entry?.addEventListener('blur',()=>{if(!entering) inner?.classList.remove('rim-hover')});
-  entry?.addEventListener('pointerdown',()=>inner?.classList.add('rim-active'));
+  entry?.addEventListener('pointerdown',()=>{inner?.classList.add('rim-active');playSfx(clickSfx);});
   entry?.addEventListener('click',enter);
   document.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!boot.classList.contains('hide')) enter();
