@@ -1,12 +1,29 @@
 (() => {
-  const boot=document.getElementById('boot'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
-  let playing=false, track=0;
+  const boot=document.getElementById('boot'), inner=document.querySelector('.boot-inner'), entry=document.getElementById('enter'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
+  let playing=false, track=0, entering=false;
   const tracks=[['Pleasure','Dylan Sinclair'],['Enough','Deukota'],['Get It Together','Télépomusik Lofi Flip']];
-  function enter(){boot.classList.add('hide');map.classList.add('ready')}
+  function enter(){
+    if(entering || boot.classList.contains('hide')) return;
+    entering=true;
+    inner?.classList.remove('rim-hover');
+    inner?.classList.add('rim-active');
+    setTimeout(()=>{boot.classList.add('hide');map.classList.add('ready');},720);
+  }
   function openRoom(name){rooms.forEach(r=>r.classList.toggle('open',r.dataset.room===name))}
   function setTrack(i){track=(i+tracks.length)%tracks.length;title.textContent=tracks[track][0];artist.textContent=tracks[track][1];playing=true;player.classList.add('playing');play.textContent='❚❚';}
-  document.getElementById('enter')?.addEventListener('click',enter);
-  document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!boot.classList.contains('hide'))enter();if(e.key==='Escape')rooms.forEach(r=>r.classList.remove('open'));if(e.key==='ArrowRight')setTrack(track+1);if(e.key==='ArrowLeft')setTrack(track-1);if(e.key===' '&&boot.classList.contains('hide')){e.preventDefault();play?.click()}});
+  entry?.addEventListener('mouseenter',()=>inner?.classList.add('rim-hover'));
+  entry?.addEventListener('mouseleave',()=>{if(!entering) inner?.classList.remove('rim-hover')});
+  entry?.addEventListener('focus',()=>inner?.classList.add('rim-hover'));
+  entry?.addEventListener('blur',()=>{if(!entering) inner?.classList.remove('rim-hover')});
+  entry?.addEventListener('pointerdown',()=>inner?.classList.add('rim-active'));
+  entry?.addEventListener('click',enter);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!boot.classList.contains('hide')) enter();
+    if(e.key==='Escape')rooms.forEach(r=>r.classList.remove('open'));
+    if(e.key==='ArrowRight')setTrack(track+1);
+    if(e.key==='ArrowLeft')setTrack(track-1);
+    if(e.key===' '&&boot.classList.contains('hide')){e.preventDefault();play?.click()}
+  });
   document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>openRoom(b.dataset.open)));
   document.querySelectorAll('.room-close').forEach(b=>b.addEventListener('click',()=>b.closest('.room').classList.remove('open')));
   play?.addEventListener('click',()=>{playing=!playing;player.classList.toggle('playing',playing);play.textContent=playing?'❚❚':'▶'});
