@@ -97,6 +97,34 @@ async function ensurePendingSchema(env) {
   await pendingSchemaPromise;
 }
 
+function validDesktopRedirectUri(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port && url.pathname === '/callback' && !url.search && !url.hash;
+  } catch { return false; }
+}
+
+let desktopOAuthSchemaPromise = null;
+async function ensureDesktopOAuthSchema(env) {
+  if (!desktopOAuthSchemaPromise) {
+    desktopOAuthSchemaPromise = (async () => {
+      try {
+        await env.DB.prepare('ALTER TABLE oauth_states ADD COLUMN desktop_redirect_uri TEXT').run();
+      } catch (error) {
+        if (!/duplicate column|already exists/i.test(String(error?.message || error))) throw error;
+      }
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS desktop_oauth_codes (
+        code_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        consumed_at INTEGER,
+        created_at INTEGER NOT NULL
+      )`).run();
+    })().catch(error => { desktopOAuthSchemaPromise = null; throw error; });
+  }
+  await desktopOAuthSchemaPromise;
+}
+
 async function createSession(env, userId) {
   const raw = randomToken(32);
   const t = now();
@@ -105,9 +133,12 @@ async function createSession(env, userId) {
 }
 async function getSession(request, env) {
   const header = request.headers.get('Cookie') || '';
-  const match = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
-  if (!match) return null;
-  const row = await env.DB.prepare('SELECT s.*, u.email, u.display_name, u.avatar_url FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(match[1]), now()).first();
+  const cookieMatch = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
+  const bearer = request.headers.get('Authorization') || '';
+  const bearerMatch = bearer.match(/^Bearer\s+(.+)$/i);
+  const token = cookieMatch?.[1] || bearerMatch?.[1]?.trim();
+  if (!token) return null;
+  const row = await env.DB.prepare('SELECT s.*, u.email, u.display_name, u.avatar_url FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(token), now()).first();
   if (!row) return null;
   await env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE id=?').bind(now(), row.id).run();
   return row;
@@ -251,8 +282,13 @@ async function oauthStart(request, env, provider) {
   const config = PROVIDERS[provider];
   if (!config) return json({ error: 'Unsupported OAuth provider.' }, 404, {}, request);
   const { clientId } = providerCredentials(provider, env);
-  const redirectUri = `${origin(request, env)}/api/auth/oauth/${provider}/callback`, state = randomToken(24), verifier = randomToken(32);
-  await env.DB.prepare('INSERT INTO oauth_states (state,provider,redirect_uri,code_verifier,created_at,expires_at) VALUES (?,?,?,?,?,?)').bind(state, provider, redirectUri, verifier, now(), now() + OAUTH_STATE_TTL).run();
+  const requestUrl = new URL(request.url);
+  const desktopRedirect = requestUrl.searchParams.get('redirect_uri');
+  if (desktopRedirect && !validDesktopRedirectUri(desktopRedirect)) return json({ error: 'Invalid desktop redirect URI.' }, 400, {}, request);
+  if (desktopRedirect) await ensureDesktopOAuthSchema(env);
+  const redirectUri = `${origin(request, env)}/api/auth/oauth/${provider}/callback`;
+  const state = randomToken(24), verifier = randomToken(32);
+  await env.DB.prepare('INSERT INTO oauth_states (state,provider,redirect_uri,code_verifier,desktop_redirect_uri,created_at,expires_at) VALUES (?,?,?,?,?,?,?)').bind(state, provider, redirectUri, verifier, desktopRedirect || null, now(), now() + OAUTH_STATE_TTL).run();
   const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: config.scope, state });
   if (provider === 'google') params.set('access_type', 'online');
   if (provider === 'microsoft') params.set('response_mode', 'query');
@@ -289,8 +325,28 @@ async function oauthCallback(request, env, provider) {
     await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), user.id, provider, profile.id, email, now()).run();
   }
   await env.DB.prepare('UPDATE users SET last_login_at=?,updated_at=? WHERE id=?').bind(now(), now(), user.id).run();
+  if (stateRow.desktop_redirect_uri) {
+    await ensureDesktopOAuthSchema(env);
+    const rawCode = randomToken(32);
+    await env.DB.prepare('INSERT INTO desktop_oauth_codes (code_hash,user_id,expires_at,consumed_at,created_at) VALUES (?,?,?,?,?)').bind(await digest(rawCode), user.id, now() + 60, null, now()).run();
+    return redirect(`${stateRow.desktop_redirect_uri}?code=${encodeURIComponent(rawCode)}`);
+  }
   const sessionToken = await createSession(env, user.id);
   return redirect(`${origin(request, env)}/index.html?auth=success`, headersWithCookie(cookie(SESSION_COOKIE, sessionToken, SESSION_TTL)));
+}
+
+async function oauthDesktopExchange(request, env) {
+  await ensureDesktopOAuthSchema(env);
+  const body = await readBody(request);
+  const code = String(body?.code || '').trim();
+  if (!code || code.length < 20) return json({ error: 'Invalid desktop OAuth code.' }, 400, {}, request);
+  const row = await env.DB.prepare('SELECT * FROM desktop_oauth_codes WHERE code_hash=? AND expires_at>? AND consumed_at IS NULL').bind(await digest(code), now()).first();
+  if (!row) return json({ error: 'Desktop OAuth code is invalid or expired.' }, 400, {}, request);
+  const consumed = await env.DB.prepare('UPDATE desktop_oauth_codes SET consumed_at=? WHERE code_hash=? AND consumed_at IS NULL').bind(now(), row.code_hash).run();
+  if (!consumed?.meta?.changes) return json({ error: 'Desktop OAuth code has already been used.' }, 409, {}, request);
+  const sessionToken = await createSession(env, row.user_id);
+  const user = await env.DB.prepare('SELECT id,email,display_name,avatar_url FROM users WHERE id=?').bind(row.user_id).first();
+  return json({ authenticated: true, session_token: sessionToken, user }, 200, {}, request);
 }
 
 async function fetchOAuthProfile(provider, accessToken) {
@@ -323,6 +379,7 @@ async function handle(request, env) {
     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+    if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
     return json({ error: 'Not found.' }, 404, {}, request);
