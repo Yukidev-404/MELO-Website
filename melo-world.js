@@ -4,17 +4,22 @@
   const boot=document.getElementById('boot'), inner=document.querySelector('.boot-inner'), entry=document.getElementById('enter'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
   let playing=false, entering=false, hoverPlayed=false, audioUnlocked=false;
   const hoverSfx=new Audio('assets/melo-entry-hover.mp3?v=20260915-2'), clickSfx=new Audio('assets/melo-entry-click.mp3?v=20260915-2');
+  const ambientBgm=new Audio('assets/melo-bgm.mp3');
+  ambientBgm.loop=true; ambientBgm.preload='auto'; ambientBgm.volume=.18;
   hoverSfx.preload='auto'; clickSfx.preload='auto'; hoverSfx.volume=1; clickSfx.volume=.65;
   function playSfx(a){try{a.currentTime=0;const p=a.play();if(p?.catch)p.catch(()=>{})}catch{}}
   function unlockHoverAudio(){if(audioUnlocked)return;try{hoverSfx.muted=true;const p=hoverSfx.play();if(p?.then)p.then(()=>{hoverSfx.pause();hoverSfx.currentTime=0;hoverSfx.muted=false;audioUnlocked=true}).catch(()=>{hoverSfx.muted=false})}catch{hoverSfx.muted=false}}
+  function startAmbient(){try{const p=ambientBgm.play();if(p?.then)p.then(()=>{playing=true;updatePlayButton()}).catch(()=>{})}catch{}}
+  function stopAmbient(){ambientBgm.pause();playing=false;updatePlayButton()}
   function startLoading(){
     if(!loading)return;const start=performance.now();
     function tick(now){const progress=Math.min(100,((now-start)/2300)*100);if(loadingFill)loadingFill.style.width=progress+'%';if(loadingPercent)loadingPercent.textContent=Math.floor(progress)+'%';if(loadingBar)loadingBar.setAttribute('aria-valuenow',String(Math.floor(progress)));if(progress<100)requestAnimationFrame(tick)}
     requestAnimationFrame(tick);setTimeout(()=>loading?.classList.add('ring-on'),300);setTimeout(()=>loading?.classList.add('accent'),1000);setTimeout(()=>{if(loadingLabel)loadingLabel.textContent='loading melo...'},1750);setTimeout(()=>{loading?.classList.add('ready');if(loadingLabel)loadingLabel.textContent='ready ♡';if(loadingFill)loadingFill.style.width='100%';if(loadingPercent)loadingPercent.textContent='100%';if(loadingBar)loadingBar.setAttribute('aria-valuenow','100')},2080);setTimeout(()=>loading?.classList.add('done'),2300);
   }
-  function enter(){if(entering||boot.classList.contains('hide'))return;entering=true;unlockHoverAudio();inner?.classList.remove('rim-hover');inner?.classList.add('rim-active');playSfx(clickSfx);setTimeout(()=>{boot.classList.add('hide');map.classList.add('ready')},720)}
+  function enter(){if(entering||boot.classList.contains('hide'))return;entering=true;unlockHoverAudio();inner?.classList.remove('rim-hover');inner?.classList.add('rim-active');playSfx(clickSfx);setTimeout(()=>{boot.classList.add('hide');map.classList.add('ready');startAmbient()},720)}
   function openRoom(name){rooms.forEach(r=>r.classList.toggle('open',r.dataset.room===name))}
-  function togglePlayback(){playing=!playing;player?.classList.toggle('playing',playing);if(play)play.textContent=playing?'❚❚':'▶'}
+  function updatePlayButton(){if(play)play.textContent=playing?'❚❚':'▶';player?.classList.toggle('playing',playing)}
+  function togglePlayback(){if(ambientBgm.paused)startAmbient();else stopAmbient()}
   startLoading();
   entry?.addEventListener('mouseenter',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering&&audioUnlocked){hoverPlayed=true;playSfx(hoverSfx)}});
   entry?.addEventListener('mouseleave',()=>{if(!entering){inner?.classList.remove('rim-hover');hoverPlayed=false}});
