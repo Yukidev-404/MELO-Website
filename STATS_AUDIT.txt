@@ -1,0 +1,197 @@
+===== export default =====
+398:   } catch (error) {
+399:     console.error('MELO auth error', error);
+400:     return json({ error: error?.message || 'Authentication service error.' }, 500, {}, request);
+401:   }
+402: }
+403: export default { fetch: handle };
+---
+===== async fetch =====
+===== /api/ =====
+293:   const { clientId } = providerCredentials(provider, env);
+294:   const requestUrl = new URL(request.url);
+295:   const desktopRedirect = requestUrl.searchParams.get('redirect_uri');
+296:   if (desktopRedirect && !validDesktopRedirectUri(desktopRedirect)) return json({ error: 'Invalid desktop redirect URI.' }, 400, {}, request);
+297:   await ensureDesktopOAuthSchema(env);
+298:   const redirectUri = `${origin(request, env)}/api/auth/oauth/${provider}/callback`;
+299:   const state = randomToken(24), verifier = randomToken(32);
+300:   await env.DB.prepare('INSERT INTO oauth_states (state,provider,redirect_uri,code_verifier,desktop_redirect_uri,created_at,expires_at) VALUES (?,?,?,?,?,?,?)').bind(state, provider, redirectUri, verifier, desktopRedirect || null, now(), now() + OAUTH_STATE_TTL).run();
+301:   const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: config.scope, state });
+302:   if (provider === 'google') params.set('access_type', 'online');
+303:   if (provider === 'microsoft') params.set('response_mode', 'query');
+304:   return redirect(`${config.authorize}?${params}`);
+---
+383: async function handle(request, env) {
+384:   if (!env.DB) return json({ error: 'Authentication database is not configured.' }, 503, {}, request);
+385:   const path = new URL(request.url).pathname;
+386:   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+387:   try {
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+---
+384:   if (!env.DB) return json({ error: 'Authentication database is not configured.' }, 503, {}, request);
+385:   const path = new URL(request.url).pathname;
+386:   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+387:   try {
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+---
+385:   const path = new URL(request.url).pathname;
+386:   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+387:   try {
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+---
+386:   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+387:   try {
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+397:     return json({ error: 'Not found.' }, 404, {}, request);
+---
+387:   try {
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+397:     return json({ error: 'Not found.' }, 404, {}, request);
+398:   } catch (error) {
+---
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+397:     return json({ error: 'Not found.' }, 404, {}, request);
+398:   } catch (error) {
+399:     console.error('MELO auth error', error);
+---
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+397:     return json({ error: 'Not found.' }, 404, {}, request);
+398:   } catch (error) {
+399:     console.error('MELO auth error', error);
+400:     return json({ error: error?.message || 'Authentication service error.' }, 500, {}, request);
+---
+===== getSession =====
+138:   const raw = randomToken(32);
+139:   const t = now();
+140:   await env.DB.prepare('INSERT INTO sessions (id,user_id,token_hash,expires_at,created_at,last_seen_at) VALUES (?,?,?,?,?,?)').bind(id(), userId, await digest(raw), t + SESSION_TTL, t, t).run();
+141:   return raw;
+142: }
+143: async function getSession(request, env) {
+144:   const header = request.headers.get('Cookie') || '';
+145:   const cookieMatch = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
+146:   const bearer = request.headers.get('Authorization') || '';
+147:   const bearerMatch = bearer.match(/^Bearer\s+(.+)$/i);
+148:   const token = cookieMatch?.[1] || bearerMatch?.[1]?.trim();
+149:   if (!token) return null;
+---
+274:   const match = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
+275:   if (match) await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await digest(match[1])).run();
+276:   return json({ ok: true }, 200, headersWithCookie(clearCookie()), request);
+277: }
+278: async function me(request, env) {
+279:   const session = await getSession(request, env);
+280:   if (!session) return json({ authenticated: false }, 200, {}, request);
+281:   return json({ authenticated: true, user: { id: session.user_id, email: session.email, display_name: session.display_name, avatar_url: session.avatar_url } }, 200, {}, request);
+282: }
+283: 
+284: function providerCredentials(provider, env) {
+285:   const prefix = provider.toUpperCase();
+---
+===== auth/me =====
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+397:     return json({ error: 'Not found.' }, 404, {}, request);
+398:   } catch (error) {
+399:     console.error('MELO auth error', error);
+---
+===== auth/login =====
+386:   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+387:   try {
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+397:     return json({ error: 'Not found.' }, 404, {}, request);
+---
+===== logout =====
+267:   await env.DB.prepare('UPDATE users SET last_login_at=?, updated_at=? WHERE id=?').bind(now(), now(), user.id).run();
+268:   const token = await createSession(env, user.id);
+269:   return json({ user: { id: user.id, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url } }, 200, headersWithCookie(cookie(SESSION_COOKIE, token, SESSION_TTL)), request);
+270: }
+271: 
+272: async function logout(request, env) {
+273:   const header = request.headers.get('Cookie') || '';
+274:   const match = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
+275:   if (match) await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await digest(match[1])).run();
+276:   return json({ ok: true }, 200, headersWithCookie(clearCookie()), request);
+277: }
+278: async function me(request, env) {
+---
+387:   try {
+388:     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
+389:     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
+390:     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
+391:     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+392:     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
+393:     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
+394:     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
+395:     const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+396:     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
+397:     return json({ error: 'Not found.' }, 404, {}, request);
+398:   } catch (error) {
+---
+===== stats =====
