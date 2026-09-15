@@ -23,6 +23,22 @@ jobs:
       - name: Validate Auth Worker syntax
         run: node --check melo-auth-worker.js
 
+      - name: Guard OAuth callback schema
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('melo-auth-worker.js')
+          source = path.read_text(encoding='utf-8')
+          marker = 'async function oauthCallback(request, env, provider) {\n'
+          guard = marker + '  await ensureDesktopOAuthSchema(env);\n'
+          if marker not in source:
+              raise SystemExit('oauthCallback function was not found')
+          if guard not in source:
+              source = source.replace(marker, guard, 1)
+              path.write_text(source, encoding='utf-8')
+          PY
+          node --check melo-auth-worker.js
+
       - name: Deploy Auth Worker
         uses: cloudflare/wrangler-action@v3
         with:
