@@ -1,5 +1,6 @@
 (() => {
   const loading=document.getElementById('loadingScreen'), loadingFill=document.getElementById('loadingFill'), loadingPercent=document.getElementById('loadingPercent'), loadingLabel=document.getElementById('loadingLabel');
+  const loadingBar=loading?.querySelector('.loading-bar');
   const boot=document.getElementById('boot'), inner=document.querySelector('.boot-inner'), entry=document.getElementById('enter'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
   let playing=false, track=0, entering=false, hoverPlayed=false;
   const tracks=[['Pleasure','Dylan Sinclair'],['Enough','Deukota'],['Get It Together','Télépomusik Lofi Flip']];
@@ -12,27 +13,23 @@
   function playSfx(audio){
     try{audio.currentTime=0;const p=audio.play();if(p?.catch)p.catch(()=>{});}catch{}
   }
-  function finishLoading(){
-    if(!loading) return;
-    loadingLabel.textContent='ready ♡';
-    loading.classList.add('ready');
-    if(loadingFill) loadingFill.style.width='100%';
-    if(loadingPercent) loadingPercent.textContent='100%';
-    setTimeout(()=>loading.classList.add('done'),420);
-  }
   function startLoading(){
     if(!loading) return;
     const start=performance.now();
-    const minTime=1750;
     function tick(now){
       const elapsed=now-start;
-      const progress=Math.min(100,Math.max(0,(elapsed/minTime)*100));
+      const progress=Math.min(100,(elapsed/2300)*100);
       if(loadingFill) loadingFill.style.width=progress+'%';
       if(loadingPercent) loadingPercent.textContent=Math.floor(progress)+'%';
-      if(progress<100){requestAnimationFrame(tick)}
-      else{finishLoading()}
+      if(loadingBar) loadingBar.setAttribute('aria-valuenow',String(Math.floor(progress)));
+      if(progress<100) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
+    setTimeout(()=>loading?.classList.add('ring-on'),300);
+    setTimeout(()=>loading?.classList.add('accent'),1000);
+    setTimeout(()=>{if(loadingLabel) loadingLabel.textContent='loading melo...';},1750);
+    setTimeout(()=>{if(loading) loading.classList.add('ready');if(loadingLabel) loadingLabel.textContent='ready ♡';if(loadingFill) loadingFill.style.width='100%';if(loadingPercent) loadingPercent.textContent='100%';if(loadingBar) loadingBar.setAttribute('aria-valuenow','100');},2080);
+    setTimeout(()=>loading?.classList.add('done'),2300);
   }
   function enter(){
     if(entering || boot.classList.contains('hide')) return;
