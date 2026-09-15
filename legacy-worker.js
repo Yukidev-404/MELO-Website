@@ -17,6 +17,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
+      if (url.pathname.startsWith("/api/auth/")) return await env.AUTH.fetch(request);
       if (url.pathname.startsWith("/api/admin/")) return await handleApi(request, env, url);
       if (url.pathname.startsWith("/api/updates/")) return await handleUpdates(request, env, url);
       if (url.pathname.startsWith("/api/telemetry/")) return await handleTelemetry(request, env, url);
@@ -48,22 +49,10 @@ async function handleUpdates(request, env, url) {
   const release = candidates[0];
   const updateUrl = await resolveReleaseDownloadUrl(release, env);
   if (!updateUrl) return json({ update: false, current: { version: currentVersion, build: currentBuild } });
-  return json({
-    update: true,
-    version: String(release.version),
-    build: String(release.build || ""),
-    url: updateUrl,
-    notes: String(release.release_notes || ""),
-    releasedAt: Number(release.released_at || 0),
-    current: { version: currentVersion, build: currentBuild },
-    mandatory: false,
-  });
+  return json({ update: true, version: String(release.version), build: String(release.build || ""), url: updateUrl, notes: String(release.release_notes || ""), releasedAt: Number(release.released_at || 0), current: { version: currentVersion, build: currentBuild }, mandatory: false });
 }
 
 async function resolveReleaseDownloadUrl(release, env) {
-  // The existing release ledger currently stores metadata only. Keep this
-  // adapter isolated so the release table can later gain a download_url column
-  // or bind releases to GitHub Assets without changing the Desktop client.
   const explicit = String(release?.download_url || "").trim();
   if (/^https:\/\//i.test(explicit)) return explicit;
   const configured = String(env.MELO_WINDOWS_UPDATE_URL || "").trim();
@@ -404,7 +393,7 @@ async function createSessionResponse(env,origin){const raw=randomToken(32),hash=
 async function getSession(request,env){const cookie=request.headers.get("Cookie")||"";const match=cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));if(!match)return null;const hash=await sha256Hex(match[1]);const row=await env.DB.prepare("SELECT token_hash,expires_at FROM admin_sessions WHERE token_hash=?").bind(hash).first();if(!row)return null;if(row.expires_at<=Math.floor(Date.now()/1000)){await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash=?").bind(hash).run();return null;}return row;}
 async function me(request,env,url){const session=await getSession(request,env);if(!session)return json({authenticated:false},401);return json({authenticated:true,email:ADMIN_EMAIL,expiresAt:session.expires_at});}
 async function logout(request,env,url){if(!sameOrigin(request,url))return json({error:"Invalid origin."},403);const cookie=request.headers.get("Cookie")||"";const match=cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));if(match){const hash=await sha256Hex(match[1]);await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash=?").bind(hash).run();}const headers=new Headers({"Content-Type":"application/json","Cache-Control":"no-store"});headers.set("Set-Cookie",`${SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict`);return new Response(JSON.stringify({ok:true}),{status:200,headers});}
-async function rateLimited(env,key){const now=Math.floor(Date.now()/1000);const row=await env.DB.prepare("SELECT window_start,count FROM admin_attempts WHERE key=?").bind(key).first();if(!row||now-row.window_start>=RATE_WINDOW){await env.DB.prepare("INSERT INTO admin_attempts (key,window_start,count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start,count=1").bind(key,now).run();return false;}if(row.count>=MAX_ATTEMPTS)return true;await env.DB.prepare("UPDATE admin_attempts SET count=count+1 WHERE key=?").bind(key).run();return false;}
+async function rateLimited(env,key){const now=Math.floor(Date.now()/1000);const row=await env.DB.prepare("SELECT window_start,count FROM admin_attempts WHERE key=?").bind(key).first();if(!row||now-row.window_start>=RATE_WINDOW){await env.DB.prepare("INSERT INTO admin_attempts (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET window_start=excluded.window_start, count=1").bind(key,now).run();return false;}if(row.count>=MAX_ATTEMPTS)return true;await env.DB.prepare("UPDATE admin_attempts SET count=count+1 WHERE key=?").bind(key).run();return false;}
 async function verifyTotp(secret,code){const now=Math.floor(Date.now()/1000);for(const offset of [-1,0,1])if((await totpForCounter(secret,Math.floor(now/30)+offset))===code)return true;return false;}
 async function totpForCounter(secret,counter){const key=await crypto.subtle.importKey("raw",base32Decode(secret),{name:"HMAC",hash:"SHA-1"},false,["sign"]);const buffer=new ArrayBuffer(8),view=new DataView(buffer);view.setUint32(0,Math.floor(counter/0x100000000));view.setUint32(4,counter>>>0);const digest=new Uint8Array(await crypto.subtle.sign("HMAC",key,buffer));const offset=digest[digest.length-1]&0x0f;const binary=((digest[offset]&0x7f)<<24)|(digest[offset+1]<<16)|(digest[offset+2]<<8)|digest[offset+3];return String(binary%1000000).padStart(6,"0");}
 function base32Decode(value){const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";const clean=value.toUpperCase().replace(/=+$/g,"");let bits=0,buffer=0;const output=[];for(const char of clean){const index=alphabet.indexOf(char);if(index<0)throw new Error("Invalid Base32 secret");buffer=(buffer<<5)|index;bits+=5;if(bits>=8){bits-=8;output.push((buffer>>bits)&0xff);}}return new Uint8Array(output);}
