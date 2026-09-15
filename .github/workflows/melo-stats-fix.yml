@@ -1,0 +1,180 @@
+name: MELO Stats Fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch stats API and Player Card
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          worker = Path('melo-auth-worker.js')
+          src = worker.read_text(encoding='utf-8')
+          if '/api/stats/event' not in src:
+              stats = r'''
+
+          const STATS_SCHEMA = `
+            CREATE TABLE IF NOT EXISTS melo_listening_events (
+              id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              event_type TEXT NOT NULL,
+              source TEXT NOT NULL,
+              track_id TEXT,
+              track_key TEXT NOT NULL,
+              title TEXT,
+              artist TEXT,
+              album TEXT,
+              listened_seconds INTEGER NOT NULL DEFAULT 0,
+              created_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_melo_events_user_time ON melo_listening_events(user_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_melo_events_user_type ON melo_listening_events(user_id, event_type);
+            CREATE TABLE IF NOT EXISTS melo_favorites (
+              user_id TEXT NOT NULL,
+              track_key TEXT NOT NULL,
+              title TEXT,
+              artist TEXT,
+              album TEXT,
+              source TEXT,
+              updated_at INTEGER NOT NULL,
+              PRIMARY KEY(user_id, track_key)
+            );
+          `;
+
+          let statsSchemaPromise = null;
+          async function ensureStatsSchema(env) {
+            if (!statsSchemaPromise) {
+              statsSchemaPromise = (async () => {
+                const statements = STATS_SCHEMA.split(';').map(x => x.trim()).filter(Boolean);
+                for (const statement of statements) await env.DB.prepare(statement).run();
+              })().catch(error => { statsSchemaPromise = null; throw error; });
+            }
+            await statsSchemaPromise;
+          }
+
+          function statsText(value, fallback = '') {
+            return String(value ?? fallback).trim().slice(0, 300);
+          }
+          function statsKey(body) {
+            return statsText(body?.track_key || body?.track_id || `${body?.source || ''}:${body?.title || ''}:${body?.artist || ''}`).slice(0, 500);
+          }
+
+          async function statsEvent(request, env) {
+            const session = await getSession(request, env);
+            if (!session) return json({ error: 'Please sign in to MELO first.' }, 401, {}, request);
+            await ensureStatsSchema(env);
+            const body = await readBody(request);
+            const type = statsText(body?.event_type).toLowerCase();
+            if (!['play','listen','favorite','unfavorite'].includes(type)) return json({ error: 'Unsupported stats event.' }, 400, {}, request);
+            const source = statsText(body?.source, 'LOCAL').toUpperCase().slice(0, 20);
+            const key = statsKey(body);
+            if (!key) return json({ error: 'A track identity is required.' }, 400, {}, request);
+            const title = statsText(body?.title, 'Unknown Track');
+            const artist = statsText(body?.artist, 'Unknown Artist');
+            const album = statsText(body?.album, 'Unknown Album');
+            const trackId = statsText(body?.track_id).slice(0, 300);
+            const t = now();
+
+            if (type === 'favorite' || type === 'unfavorite') {
+              if (type === 'favorite') {
+                await env.DB.prepare(`INSERT INTO melo_favorites (user_id,track_key,title,artist,album,source,updated_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(user_id,track_key) DO UPDATE SET title=excluded.title,artist=excluded.artist,album=excluded.album,source=excluded.source,updated_at=excluded.updated_at`).bind(session.user_id,key,title,artist,album,source,t).run();
+              } else {
+                await env.DB.prepare('DELETE FROM melo_favorites WHERE user_id=? AND track_key=?').bind(session.user_id,key).run();
+              }
+              return json({ ok: true }, 200, {}, request);
+            }
+
+            let listened = Math.max(0, Math.min(86400, Number(body?.listened_seconds || 0) || 0));
+            if (type === 'play') listened = 0;
+            await env.DB.prepare('INSERT INTO melo_listening_events (id,user_id,event_type,source,track_id,track_key,title,artist,album,listened_seconds,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(id(),session.user_id,type,source,trackId,key,title,artist,album,Math.floor(listened),t).run();
+            return json({ ok: true }, 200, {}, request);
+          }
+
+          async function statsGet(request, env) {
+            const session = await getSession(request, env);
+            if (!session) return json({ error: 'Please sign in to view your Player Card.' }, 401, {}, request);
+            await ensureStatsSchema(env);
+            const userId = session.user_id;
+            const plays = await env.DB.prepare('SELECT COUNT(*) AS n FROM melo_listening_events WHERE user_id=? AND event_type=?').bind(userId,'play').first();
+            const listened = await env.DB.prepare('SELECT COALESCE(SUM(listened_seconds),0) AS seconds FROM melo_listening_events WHERE user_id=? AND event_type=?').bind(userId,'listen').first();
+            const unique = await env.DB.prepare('SELECT COUNT(DISTINCT track_key) AS n FROM melo_listening_events WHERE user_id=? AND event_type=?').bind(userId,'play').first();
+            const favorites = await env.DB.prepare('SELECT COUNT(*) AS n FROM melo_favorites WHERE user_id=?').bind(userId).first();
+            const daysRows = await env.DB.prepare("SELECT DISTINCT date(created_at,'unixepoch','localtime') AS day FROM melo_listening_events WHERE user_id=? AND event_type IN ('play','listen') ORDER BY day DESC").bind(userId).all();
+            const days = (daysRows.results || []).map(r => r.day).filter(Boolean);
+            let streak = 0;
+            if (days.length) {
+              const set = new Set(days);
+              let cursor = new Date();
+              cursor.setHours(0,0,0,0);
+              while (set.has(cursor.toISOString().slice(0,10))) { streak++; cursor.setDate(cursor.getDate()-1); }
+            }
+            const artistRow = await env.DB.prepare("SELECT artist, COUNT(*) AS n FROM melo_listening_events WHERE user_id=? AND event_type='play' AND artist IS NOT NULL AND artist!='' GROUP BY artist ORDER BY n DESC, artist ASC LIMIT 1").bind(userId).first();
+            const trackRow = await env.DB.prepare("SELECT title, artist, COUNT(*) AS n FROM melo_listening_events WHERE user_id=? AND event_type='play' AND track_key IS NOT NULL GROUP BY track_key,title,artist ORDER BY n DESC, title ASC LIMIT 1").bind(userId).first();
+            const seconds = Number(listened?.seconds || 0);
+            const xp = Math.max(0, Number(plays?.n || 0) * 10 + Math.floor(seconds / 60));
+            const level = Math.max(1, Math.floor(xp / 500) + 1);
+            const levelBase = (level - 1) * 500;
+            const progress = Math.max(0, Math.min(1, (xp - levelBase) / 500));
+            return json({
+              user: { id: session.user_id, email: session.email, display_name: session.display_name, avatar_url: session.avatar_url },
+              stats: {
+                tracks_played: Number(plays?.n || 0), total_listening_seconds: seconds,
+                unique_tracks: Number(unique?.n || 0), favorites: Number(favorites?.n || 0),
+                days_active: days.length, listening_streak: streak,
+                top_artist: artistRow ? { name: artistRow.artist, plays: Number(artistRow.n || 0) } : null,
+                top_track: trackRow ? { name: trackRow.title, artist: trackRow.artist, plays: Number(trackRow.n || 0) } : null,
+                xp, level, level_progress: progress
+              }
+            }, 200, {}, request);
+          }
+          '''
+              anchor='async function handle(request, env) {'
+              if anchor not in src: raise SystemExit('stats patch anchor not found')
+              src = src.replace(anchor, stats + '\n' + anchor, 1)
+              route = "    if (path === '/api/stats/event' && request.method === 'POST') return await statsEvent(request, env);\n    if (path === '/api/stats' && request.method === 'GET') return await statsGet(request, env);\n"
+              needle="    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });\n"
+              if needle not in src: raise SystemExit('OPTIONS route anchor not found')
+              src = src.replace(needle, needle + route, 1)
+              src = src.replace("'Access-Control-Allow-Headers': 'Content-Type'", "'Access-Control-Allow-Headers': 'Content-Type, Authorization'", 1)
+              worker.write_text(src, encoding='utf-8')
+          else:
+              print('Stats API already present; leaving worker stats code intact.')
+
+          # Replace the preview-ish Player Card with a proper MELO identity card.
+          card = r'''<!doctype html>
+          <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>MELO / PLAYER CARD</title>
+          <style>
+          :root{--pink:#ff47a3;--ink:#171517;--paper:#f4efe7;--card:#fffaf3;--muted:#8b8388;--line:#d9d1ca}*{box-sizing:border-box}html,body{margin:0;min-height:100%;overflow-x:hidden}body{background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif}.grain{position:fixed;inset:0;pointer-events:none;opacity:.055;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}.wrap{width:min(1180px,calc(100% - 36px));margin:auto;padding:28px 0 70px}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:20px}a{color:inherit;text-decoration:none}.brand{font-weight:900;letter-spacing:.18em;font-size:16px}.brand b{color:var(--pink);margin:0 8px}.back{font-size:11px;font-weight:800;letter-spacing:.12em}.hero{display:flex;justify-content:space-between;gap:30px;align-items:end;padding:52px 0 28px}.eyebrow{color:var(--pink);font-size:11px;font-weight:900;letter-spacing:.18em}.hero h1{font-size:clamp(54px,8vw,92px);line-height:.86;letter-spacing:-.07em;margin:10px 0 0}.hero p{max-width:360px;color:var(--muted);font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.card{position:relative;background:var(--card);border:2px solid var(--ink);box-shadow:12px 12px 0 #d5cec6;padding:22px;overflow:hidden}.card:after{content:"";position:absolute;width:620px;height:620px;border:2px solid rgba(255,71,163,.17);border-radius:50%;right:-310px;bottom:-470px;pointer-events:none}.cardtop{display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;border-bottom:1px solid var(--line);font:800 11px ui-monospace,SFMono-Regular,monospace;letter-spacing:.12em}.dot{display:inline-block;width:10px;height:10px;background:var(--pink);border-radius:50%;margin-right:10px}.code{color:var(--muted)}.profile{display:grid;grid-template-columns:210px 1fr;gap:28px;padding:30px 12px}.avatar{width:190px;height:190px;border:2px solid var(--ink);background:#ece6df;object-fit:cover;display:block}.avatarFallback{display:grid;place-items:center;font-size:70px;font-weight:900;color:var(--pink)}.label{font:10px 800 ui-monospace,SFMono-Regular,monospace;letter-spacing:.16em;color:var(--muted)}.name{font-size:clamp(34px,5vw,62px);line-height:.9;letter-spacing:-.06em;font-weight:900;margin:9px 0 12px;max-width:620px}.handle{font:14px ui-monospace,SFMono-Regular,monospace;color:var(--muted);overflow-wrap:anywhere}.status{display:inline-flex;align-items:center;gap:8px;margin-top:22px;border:1px solid #4e945b;padding:10px 13px;color:#3d7d48;font:10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em}.status i{width:8px;height:8px;border-radius:50%;background:#69ad74}.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.stat{padding:20px 16px;border-right:1px solid var(--line);min-width:0}.stat:last-child{border-right:0}.stat strong{display:block;font-size:30px;line-height:1;margin-top:12px;letter-spacing:-.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lower{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--line)}.feature{padding:24px 16px;border-right:1px solid var(--line);min-width:0}.feature:last-child{border-right:0}.feature strong{display:block;font-size:22px;margin-top:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.level{padding:24px 16px}.levelrow{display:flex;justify-content:space-between;align-items:end;gap:12px}.levelnum{font-size:46px;font-weight:900;line-height:.9}.xp{font:11px ui-monospace,SFMono-Regular,monospace;color:var(--muted)}.bar{height:10px;background:#e9e2dc;margin-top:16px}.bar i{display:block;height:100%;width:0;background:var(--pink);transition:width .6s ease}.foot{display:flex;justify-content:space-between;gap:20px;padding:18px 2px 0;font:10px/1.5 ui-monospace,SFMono-Regular,monospace;color:var(--muted)}.error{margin-top:16px;padding:12px;border:1px solid #e4b9ca;background:#fff3f8;color:#7e3154;font-size:12px}.loading{opacity:.55}
+          @media(max-width:760px){.wrap{width:min(100% - 24px,600px);padding-top:18px}.hero{display:block;padding-top:36px}.hero p{margin-top:18px}.card{padding:14px;box-shadow:7px 7px 0 #d5cec6}.profile{grid-template-columns:110px 1fr;gap:18px;padding:22px 4px}.avatar{width:110px;height:110px}.name{font-size:clamp(27px,8vw,42px)}.handle{font-size:10px}.status{font-size:8px;padding:8px 9px;margin-top:14px}.stats{grid-template-columns:repeat(2,1fr)}.stat{border-bottom:1px solid var(--line);padding:16px 12px}.stat:nth-child(2){border-right:0}.stat:nth-child(3),.stat:nth-child(4){border-bottom:0}.lower{grid-template-columns:1fr}.feature{border-right:0;border-bottom:1px solid var(--line)}.feature:last-child{border-bottom:0}.foot{display:block}.foot span{display:block;margin-top:5px}}
+          @media(max-width:390px){.wrap{width:calc(100% - 16px)}header{padding-bottom:14px}.brand{font-size:12px}.back{font-size:8px}.hero h1{font-size:47px}.cardtop{font-size:9px}.profile{grid-template-columns:82px 1fr;gap:13px;padding:18px 2px}.avatar{width:82px;height:82px}.name{font-size:25px}.label{font-size:8px}.handle{font-size:8px}.status{font-size:7px}.stat strong{font-size:24px}.feature strong{font-size:18px}}
+          </style></head><body><div class="grain"></div><div class="wrap"><header><a class="brand" href="index.html">MELO <b>/</b> PLAYER CARD</a><a class="back" href="index.html">← BACK TO MELO</a></header><section class="hero"><div><div class="eyebrow">ROOM 07 / YOUR IDENTITY</div><h1>PLAYER<br>CARD.</h1></div><p>A living MELO identity built from the music you actually play.</p></section>
+          <section class="card"><div class="cardtop"><span><i class="dot"></i>MELO PLAYER CARD</span><span class="code">MC / <span id="code">001</span></span></div><div class="profile"><div id="avatarBox" class="avatar avatarFallback">M</div><div><div class="label">PLAYER</div><div class="name" id="name">Loading…</div><div class="handle" id="handle">@melo</div><div class="status"><i></i>MELO ACCOUNT CONNECTED</div></div></div><div class="stats"><div class="stat"><div class="label">TRACKS PLAYED</div><strong id="tracks">—</strong></div><div class="stat"><div class="label">LISTENING TIME</div><strong id="time">—</strong></div><div class="stat"><div class="label">UNIQUE TRACKS</div><strong id="unique">—</strong></div><div class="stat"><div class="label">FAVORITES</div><strong id="favorites">—</strong></div></div><div class="lower"><div class="feature"><div class="label">TOP ARTIST</div><strong id="artist">—</strong></div><div class="feature"><div class="label">TOP TRACK</div><strong id="track">—</strong></div></div><div class="level"><div class="levelrow"><div><div class="label">MELO LEVEL</div><div class="levelnum" id="level">—</div></div><div class="xp" id="xp">— XP</div></div><div class="bar"><i id="bar"></i></div></div></section><div id="error"></div><div class="foot"><span>Stats sync from MELO Desktop → MELO account.</span><span>DAYS ACTIVE <b id="days">—</b> · STREAK <b id="streak">—</b></span></div></div>
+          <script>const API='https://melo-website.tajtaranga.workers.dev';const $=id=>document.getElementById(id);const time=s=>{s=Number(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h}h ${m}m`:m?`${m}m`:`${Math.floor(s)}s`};(async()=>{try{const r=await fetch(API+'/api/stats',{credentials:'include'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Please sign in to view your Player Card.');const u=d.user||{},s=d.stats||{};$('name').textContent=u.display_name||'MELO Listener';$('handle').textContent='@melo-'+String(u.id||'').slice(0,8);$('code').textContent=String(u.id||'001').slice(0,8).toUpperCase();if(u.avatar_url){const im=new Image();im.className='avatar';im.alt='';im.src=u.avatar_url;im.onload=()=>{const b=$('avatarBox');b.replaceWith(im)}}else $('avatarBox').textContent=(u.display_name||'M').trim().charAt(0).toUpperCase();$('tracks').textContent=(s.tracks_played||0).toLocaleString();$('time').textContent=time(s.total_listening_seconds);$('unique').textContent=(s.unique_tracks||0).toLocaleString();$('favorites').textContent=(s.favorites||0).toLocaleString();$('days').textContent=(s.days_active||0).toLocaleString();$('streak').textContent=(s.listening_streak||0)+' day'+(s.listening_streak===1?'':'s');$('artist').textContent=s.top_artist?.name||'—';$('track').textContent=s.top_track?.name||'—';$('level').textContent=s.level||1;$('xp').textContent=(s.xp||0)+' XP';$('bar').style.width=Math.round(Math.max(0,Math.min(1,Number(s.level_progress||0)))*100)+'%'}catch(e){$('error').className='error';$('error').textContent=e.message}})();</script></body></html>'''
+          Path('player-card.html').write_text(card,encoding='utf-8')
+          PY
+      - name: Validate JavaScript syntax
+        run: |
+          node --check melo-auth-worker.js
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('player-card.html').read_text(encoding='utf-8')
+          assert '/api/stats' in s and 'MELO PLAYER CARD' in s
+          print('Player Card validation OK')
+          PY
+      - name: Commit and remove patch workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add melo-auth-worker.js player-card.html
+          git commit -m 'Fix MELO stats API and Player Card [skip ci]'
+          rm -f .github/workflows/melo-stats-fix.yml
+          git add -A
+          git commit -m 'Remove temporary MELO stats fix workflow [skip ci]'
+          git push
