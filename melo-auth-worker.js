@@ -307,6 +307,9 @@ async function oauthStart(request, env, provider) {
 async function oauthCallback(request, env, provider) {
   const config = PROVIDERS[provider];
   if (!config) return new Response('Unsupported OAuth provider.', { status: 404 });
+  // The OAuth callback can be the first request handled by a fresh Worker isolate.
+  // Always initialize the desktop OAuth schema before touching oauth_states.
+  await ensureDesktopOAuthSchema(env);
   const url = new URL(request.url), state = url.searchParams.get('state'), code = url.searchParams.get('code');
   if (!state || !code) return new Response('OAuth authorization was cancelled or failed.', { status: 400 });
   const stateRow = await env.DB.prepare('SELECT * FROM oauth_states WHERE state=? AND provider=? AND expires_at>?').bind(state, provider, now()).first();
