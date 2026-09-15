@@ -4,6 +4,12 @@
   "main": "admin-chat-worker.js",
   "compatibility_date": "2026-09-13",
   "keep_vars": true,
+  "services": [
+    {
+      "binding": "AUTH",
+      "service": "melo-auth-v2"
+    }
+  ],
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
