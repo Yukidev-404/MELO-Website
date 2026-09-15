@@ -2,7 +2,7 @@
   const loading=document.getElementById('loadingScreen'), loadingFill=document.getElementById('loadingFill'), loadingPercent=document.getElementById('loadingPercent'), loadingLabel=document.getElementById('loadingLabel');
   const loadingBar=loading?.querySelector('.loading-bar');
   const boot=document.getElementById('boot'), inner=document.querySelector('.boot-inner'), entry=document.getElementById('enter'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
-  let playing=false, track=0, entering=false, hoverPlayed=false, audioUnlocked=false;
+  let playing=false, track=0, entering=false, hoverPlayed=false;
   const tracks=[['Pleasure','Dylan Sinclair'],['Enough','Deukota'],['Get It Together','Télépomusik Lofi Flip']];
   const hoverSfx=new Audio('assets/melo-entry-hover.mp3?v=20260915-2');
   const clickSfx=new Audio('assets/melo-entry-click.mp3?v=20260915-2');
@@ -10,42 +10,9 @@
   clickSfx.preload='auto';
   hoverSfx.volume=1.0;
   clickSfx.volume=.65;
-
   function playSfx(audio){
-    try{
-      audio.currentTime=0;
-      const p=audio.play();
-      if(p?.catch)p.catch(()=>{});
-    }catch{}
+    try{audio.currentTime=0;const p=audio.play();if(p?.catch)p.catch(()=>{});}catch{}
   }
-
-  // Browsers block audible programmatic audio until the page receives a user gesture.
-  // The entry click is already a deliberate MELO interaction, so use that gesture to
-  // unlock the hover sound without making any sound during the unlock itself.
-  function unlockHoverAudio(){
-    if(audioUnlocked) return;
-    try{
-      hoverSfx.muted=true;
-      hoverSfx.currentTime=0;
-      const p=hoverSfx.play();
-      if(p?.then){
-        p.then(()=>{
-          hoverSfx.pause();
-          hoverSfx.currentTime=0;
-          hoverSfx.muted=false;
-          audioUnlocked=true;
-        }).catch(()=>{
-          hoverSfx.muted=false;
-        });
-      }else{
-        hoverSfx.muted=false;
-        audioUnlocked=true;
-      }
-    }catch{
-      hoverSfx.muted=false;
-    }
-  }
-
   function startLoading(){
     if(!loading) return;
     const start=performance.now();
@@ -64,28 +31,23 @@
     setTimeout(()=>{if(loading) loading.classList.add('ready');if(loadingLabel) loadingLabel.textContent='ready ♡';if(loadingFill) loadingFill.style.width='100%';if(loadingPercent) loadingPercent.textContent='100%';if(loadingBar) loadingBar.setAttribute('aria-valuenow','100');},2080);
     setTimeout(()=>loading?.classList.add('done'),2300);
   }
-
   function enter(){
     if(entering || boot.classList.contains('hide')) return;
     entering=true;
-    unlockHoverAudio();
     inner?.classList.remove('rim-hover');
     inner?.classList.add('rim-active');
     playSfx(clickSfx);
     setTimeout(()=>{boot.classList.add('hide');map.classList.add('ready');},720);
   }
-
   function openRoom(name){rooms.forEach(r=>r.classList.toggle('open',r.dataset.room===name))}
   function setTrack(i){track=(i+tracks.length)%tracks.length;title.textContent=tracks[track][0];artist.textContent=tracks[track][1];playing=true;player.classList.add('playing');play.textContent='❚❚';}
-
   startLoading();
-  entry?.addEventListener('mouseenter',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;if(audioUnlocked)playSfx(hoverSfx);}});
+  entry?.addEventListener('mouseenter',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;playSfx(hoverSfx);}});
   entry?.addEventListener('mouseleave',()=>{if(!entering){inner?.classList.remove('rim-hover');hoverPlayed=false;}});
-  entry?.addEventListener('focus',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;if(audioUnlocked)playSfx(hoverSfx);}});
+  entry?.addEventListener('focus',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;playSfx(hoverSfx);}});
   entry?.addEventListener('blur',()=>{if(!entering) inner?.classList.remove('rim-hover')});
   entry?.addEventListener('pointerdown',()=>inner?.classList.add('rim-active'));
   entry?.addEventListener('click',enter);
-
   document.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!boot.classList.contains('hide')) enter();
     if(e.key==='Escape')rooms.forEach(r=>r.classList.remove('open'));
