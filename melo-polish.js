@@ -70,12 +70,21 @@
       if(idEl)idEl.textContent=shortId?`@melo-${shortId}`:'@melo-player';
       if(avatar&&user.avatar_url)avatar.src=user.avatar_url;
       if(avatar&&user.avatar_url)avatar.alt=`${name}'s MELO avatar`;
-      if(status)status.innerHTML='<span></span> MELO ACCOUNT CONNECTED';
-      if(footLabel)footLabel.textContent='YOUR CARD';
+      if(status){
+        status.classList.add('pc-connected');
+        status.innerHTML='<span></span> MELO ACCOUNT CONNECTED';
+      }
+      if(footLabel){footLabel.textContent='';footLabel.hidden=true;}
       if(footText)footText.textContent='This card is connected to your MELO account →';
       if(footLink){footLink.textContent='SIGNED IN';footLink.removeAttribute('href');footLink.setAttribute('aria-label','Signed in to MELO');footLink.style.pointerEvents='none';}
       card.setAttribute('aria-label',`${name}'s MELO Player Card`);
     }catch(error){console.debug('Player Card session lookup failed',error);}
   };
+
+  // Connected account state is intentionally green; the MELO pink accent remains for decorative elements.
+  const connectedStyle=document.createElement('style');
+  connectedStyle.textContent='.pc-status.pc-connected{border-color:#238636!important;color:#238636!important}.pc-status.pc-connected>span:first-child{background:#238636!important;animation:pcPulse 1.5s ease-in-out infinite}.pc-foot span[hidden]{display:none!important}';
+  document.head.appendChild(connectedStyle);
+
   hydratePlayerCard();
 })();
