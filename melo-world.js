@@ -2,11 +2,11 @@
   const boot=document.getElementById('boot'), inner=document.querySelector('.boot-inner'), entry=document.getElementById('enter'), map=document.getElementById('map'), player=document.getElementById('player'), play=document.getElementById('play'), bar=document.querySelector('.bar'), title=document.querySelector('.song'), artist=document.querySelector('.artist'), rooms=[...document.querySelectorAll('.room')];
   let playing=false, track=0, entering=false, hoverPlayed=false;
   const tracks=[['Pleasure','Dylan Sinclair'],['Enough','Deukota'],['Get It Together','Télépomusik Lofi Flip']];
-  const hoverSfx=new Audio('assets/melo-entry-hover.mp3?v=20260915-1');
-  const clickSfx=new Audio('assets/melo-entry-click.mp3?v=20260915-1');
+  const hoverSfx=new Audio('assets/melo-entry-hover.mp3?v=20260915-2');
+  const clickSfx=new Audio('assets/melo-entry-click.mp3?v=20260915-2');
   hoverSfx.preload='auto';
   clickSfx.preload='auto';
-  hoverSfx.volume=.35;
+  hoverSfx.volume=1.0;
   clickSfx.volume=.65;
   function playSfx(audio){
     try{audio.currentTime=0;const p=audio.play();if(p?.catch)p.catch(()=>{});}catch{}
@@ -23,7 +23,7 @@
   function setTrack(i){track=(i+tracks.length)%tracks.length;title.textContent=tracks[track][0];artist.textContent=tracks[track][1];playing=true;player.classList.add('playing');play.textContent='❚❚';}
   entry?.addEventListener('mouseenter',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;playSfx(hoverSfx);}});
   entry?.addEventListener('mouseleave',()=>{if(!entering){inner?.classList.remove('rim-hover');hoverPlayed=false;}});
-  entry?.addEventListener('focus',()=>inner?.classList.add('rim-hover'));
+  entry?.addEventListener('focus',()=>{inner?.classList.add('rim-hover');if(!hoverPlayed&&!entering){hoverPlayed=true;playSfx(hoverSfx);}});
   entry?.addEventListener('blur',()=>{if(!entering) inner?.classList.remove('rim-hover')});
   entry?.addEventListener('pointerdown',()=>inner?.classList.add('rim-active'));
   entry?.addEventListener('click',enter);
