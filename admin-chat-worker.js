@@ -5,7 +5,7 @@ const ONLINE_WINDOW=30;
 
 async function servePlayerCard(request,env,pathname){
   const assetUrl=new URL(request.url);
-  assetUrl.pathname=(pathname==="/player-card.html"||pathname==="/player-card.html/")?"/player-card-v2.html":pathname;
+  assetUrl.pathname="/player-card-live.html";
   const asset=await env.ASSETS.fetch(new Request(assetUrl.toString(),request));
   if(!asset.ok)return asset;
   let body=await asset.text();
@@ -21,7 +21,7 @@ async function servePlayerCard(request,env,pathname){
 
 export default{async fetch(r,e,c){
   const u=new URL(r.url);
-  if(u.pathname==="/player-card.html"||u.pathname==="/player-card.html/"||u.pathname==="/player-card-v2.html"||u.pathname==="/player-card-v2.html/")return servePlayerCard(r,e,u.pathname);
+  if(u.pathname==="/player-card.html"||u.pathname==="/player-card.html/"||u.pathname==="/player-card-v2.html"||u.pathname==="/player-card-v2.html/"||u.pathname==="/player-card-live.html"||u.pathname==="/player-card-live.html/")return servePlayerCard(r,e,u.pathname);
   if(u.pathname.startsWith("/api/auth/"))return e.AUTH.fetch(r);
   if(u.pathname==="/api/stats"||u.pathname==="/api/stats/event")return statsWorker.fetch(r,e,c);
   if(u.pathname.startsWith("/api/admin/chat")||u.pathname==="/api/admin/notifications"||u.pathname==="/api/admin/presence"||u.pathname==="/api/admin/audit-log"||u.pathname==="/api/admin/flag"||u.pathname==="/api/admin/crash/status"||u.pathname==="/api/admin/release-status")return h(r,e,u,c);
