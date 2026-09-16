@@ -8,31 +8,16 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="account-settings.css?v=20260917-1">
 </head>
-<body>
-<div class="grain"></div>
-<main class="page">
+<body><div class="grain"></div><main class="page">
 <a class="back" href="index.html">← BACK TO MELO</a>
-<header class="hero"><div><span class="kicker">MELO / ACCOUNT</span><h1>SETTINGS<span>.</span></h1></div><p>Shape your MELO identity. Changes are applied to your account and reflected across your Player Card.</p></header>
+<header class="hero"><div><span class="kicker">MELO / ACCOUNT</span><h1>SETTINGS<span>.</span></h1></div><p>Shape your MELO identity. Changes are applied to your account and reflected across your MELO profile.</p></header>
 <div id="notice" class="notice" role="status"></div>
-<section class="layout">
-<aside class="side"><div class="avatar-wrap"><img id="avatarPreview" alt="Profile picture"><label class="avatar-edit" for="avatarInput">EDIT</label><input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div id="sideName" class="side-name">Loading…</div><div id="sideHandle" class="side-handle">@melo</div><div id="sideProvider" class="side-provider">CHECKING CONNECTION…</div></aside>
+<section class="layout"><aside class="side"><div class="avatar-wrap"><img id="avatarPreview" alt="Profile picture"><label class="avatar-edit" for="avatarInput">EDIT</label><input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><div id="sideName" class="side-name">Loading…</div><div id="sideHandle" class="side-handle">@melo</div><div id="sideProvider" class="side-provider">CHECKING CONNECTION…</div></aside>
 <section class="content">
-<form id="profileForm" class="panel">
-<div class="panel-head"><div><span>01 / PROFILE</span><h2>Your identity</h2></div><span class="save-state" id="saveState">SYNCED</span></div>
-<div class="grid">
-<label>Display name<input id="displayName" maxlength="60" autocomplete="name" placeholder="Your name"></label>
-<label>MELO handle<input id="handle" maxlength="30" pattern="[A-Za-z0-9_-]+" autocomplete="username" placeholder="melo-player"></label>
-<label class="wide">Bio<textarea id="bio" maxlength="160" rows="3" placeholder="Tell people a little about your music world."></textarea><small><span id="bioCount">0</span>/160</small></label>
-<label>Pronouns<select id="pronouns"><option value="">Prefer not to say</option><option>he/him</option><option>she/her</option><option>they/them</option><option>he/they</option><option>she/they</option></select></label>
-<label>Country / region<input id="country" maxlength="60" autocomplete="country-name" placeholder="India"></label>
-</div>
-<div class="actions"><button type="submit" class="primary">SAVE CHANGES <b>→</b></button><button type="button" id="reset" class="secondary">DISCARD</button></div>
-</form>
+<form id="profileForm" class="panel"><div class="panel-head"><div><span>01 / PROFILE</span><h2>Your identity</h2></div><span class="save-state" id="saveState">SYNCED</span></div>
+<div class="grid"><label>Display name<input id="displayName" maxlength="60" autocomplete="name" placeholder="Your name"></label><label>MELO handle<input id="handle" maxlength="30" pattern="[A-Za-z0-9_-]+" autocomplete="username" placeholder="melo-player"></label><label class="wide">Bio<textarea id="bio" maxlength="160" rows="3" placeholder="Tell people a little about your music world."></textarea><small><span id="bioCount">0</span>/160</small></label><label>Pronouns<select id="pronouns"><option value="">Prefer not to say</option><option>he/him</option><option>she/her</option><option>they/them</option><option>he/they</option><option>she/they</option></select></label><label>Country / region<input id="country" maxlength="60" autocomplete="country-name" placeholder="India"></label></div>
+<div class="actions"><button type="submit" class="primary">SAVE CHANGES <b>→</b></button><button type="button" id="reset" class="secondary">DISCARD</button></div></form>
 <section class="panel"><div class="panel-head"><div><span>02 / CONNECTIONS</span><h2>Connected accounts</h2></div></div><div id="connections" class="connections"><div class="loading">CHECKING CONNECTIONS…</div></div><p class="hint">Your sign-in provider stays attached to your MELO account. Editing your MELO profile does not change your provider account.</p></section>
 <section class="panel"><div class="panel-head"><div><span>03 / PRIVACY</span><h2>Listening profile</h2></div></div><div class="switch-row"><div><b>Public Player Card</b><small>Allow your public card to be viewed from its shared link.</small></div><label class="switch"><input id="publicCard" type="checkbox" checked><i></i></label></div><div class="switch-row"><div><b>Show recently played</b><small>Display your recent listening on your Player Card.</small></div><label class="switch"><input id="showRecent" type="checkbox" checked><i></i></label></div><div class="switch-row"><div><b>Show top artists</b><small>Display your top artists on your Player Card.</small></div><label class="switch"><input id="showArtists" type="checkbox" checked><i></i></label></div></section>
-<section class="panel danger"><div class="panel-head"><div><span>04 / SECURITY</span><h2>Account security</h2></div></div><div class="security-row"><div><b>Sign out everywhere</b><small>End active MELO sessions on your devices.</small></div><button id="logoutAll" class="secondary">SIGN OUT ALL</button></div><div class="security-row"><div><b>Delete account</b><small>Permanently remove your MELO account and associated profile data.</small></div><button id="deleteAccount" class="danger-btn">DELETE</button></div></section>
-</section></section>
-<footer>MELO / YOUR MUSIC, YOUR IDENTITY.</footer>
-</main>
-<script src="account-settings.js?v=20260917-1"></script>
-</body></html>
+<section class="panel danger"><div class="panel-head"><div><span>04 / SECURITY</span><h2>Account security</h2></div></div><div class="security-row"><div><b>Sign out</b><small>End the current MELO session on this device.</small></div><button id="logoutAll" class="secondary">SIGN OUT</button></div><div class="security-row"><div><b>Remove MELO profile</b><small>Delete your MELO profile data stored by this website. Your underlying sign-in account is not deleted here.</small></div><button id="deleteAccount" class="danger-btn">REMOVE PROFILE</button></div></section>
+</section></section><footer>MELO / YOUR MUSIC, YOUR IDENTITY.</footer></main><script src="account-settings.js?v=20260917-2"></script></body></html>
