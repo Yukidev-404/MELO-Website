@@ -5,13 +5,15 @@
   #melo-player-card-room{position:relative;min-height:100%;padding:clamp(22px,4vw,48px);overflow:auto;background:#f5f0e8;color:#171514}
   #melo-player-card-room .pc2-close{position:absolute;top:22px;left:22px;border:1px solid #171514;background:transparent;color:#171514;padding:9px 13px;font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.12em;cursor:pointer;z-index:5}
   #melo-player-card-room .pc2-close:hover{background:#171514;color:#fff}
-  .pc2-shell{max-width:1120px;margin:0 auto;padding-top:34px}
+  .pc2-shell{max-width:1120px;margin:0 auto;padding-top:34px;position:relative}
   .pc2-eyebrow{display:flex;align-items:center;gap:9px;font:700 9px/1 'Space Grotesk',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#6f685f}
   .pc2-dot{width:7px;height:7px;border-radius:50%;background:#ff3b98;box-shadow:0 0 0 4px rgba(255,59,152,.1)}
   .pc2-head{display:flex;justify-content:space-between;align-items:flex-end;gap:25px;margin:18px 0 30px}
   .pc2-head h2{margin:0;font:800 clamp(48px,8vw,96px)/.82 'Space Grotesk',sans-serif;letter-spacing:-.075em}
   .pc2-head p{max-width:330px;margin:0;color:#766e65;font:400 10px/1.65 'Space Grotesk',sans-serif}
   .pc2-number{font:800 11px/1 'Space Grotesk',sans-serif;letter-spacing:.12em;border:1px solid #171514;padding:10px 12px;transform:rotate(2deg);white-space:nowrap}
+  .pc2-mascot{position:absolute;right:34px;top:158px;width:145px;height:145px;object-fit:contain;z-index:4;pointer-events:none;filter:drop-shadow(8px 10px 0 rgba(23,21,20,.10));transform:rotate(4deg);animation:pc2Float 4s ease-in-out infinite}
+  @keyframes pc2Float{0%,100%{translate:0 0}50%{translate:0 -7px}}
   .pc2-card{position:relative;background:#fffdf9;border:2px solid #171514;box-shadow:12px 12px 0 rgba(23,21,20,.13);min-height:430px;overflow:hidden}
   .pc2-card:before{content:'';position:absolute;inset:12px;border:1px solid rgba(23,21,20,.13);pointer-events:none}
   .pc2-card:after{content:'MELO';position:absolute;right:-25px;bottom:-30px;font:900 150px/.8 'Space Grotesk',sans-serif;letter-spacing:-.1em;color:rgba(255,59,152,.055);transform:rotate(-8deg);pointer-events:none}
@@ -36,6 +38,7 @@
   .pc2-sticker{position:absolute;right:24px;top:72px;border:1px solid #ff3b98;color:#ff3b98;padding:8px 10px;font:800 8px/1.05 'Space Grotesk',sans-serif;letter-spacing:.12em;transform:rotate(4deg);background:#fffdf9}
   @media(max-width:760px){
     #melo-player-card-room{padding:18px 14px}.pc2-shell{padding-top:38px}.pc2-head{display:block;margin-bottom:22px}.pc2-head h2{font-size:clamp(50px,16vw,78px);margin-bottom:15px}.pc2-head p{max-width:100%}.pc2-number{display:none}
+    .pc2-mascot{width:82px;height:82px;right:12px;top:156px;opacity:.95}
     .pc2-card{min-height:0;box-shadow:7px 8px 0 rgba(23,21,20,.13)}.pc2-sticker{top:62px;right:15px}.pc2-body{grid-template-columns:105px 1fr;gap:17px;padding:28px 20px 22px}.pc2-avatar{width:105px;height:105px}.pc2-avatar:before{width:82px;height:82px}.pc2-avatar:after{width:68px;height:68px}.pc2-avatar img{width:84px;height:84px}.pc2-name{font-size:29px}.pc2-id{font-size:9px;margin:8px 0 14px}.pc2-status{font-size:6px;padding:7px 8px}.pc2-rule{margin:0 20px}.pc2-stats{grid-template-columns:repeat(2,1fr);margin:0 20px}.pc2-stat{padding:14px 10px}.pc2-stat:nth-child(2){border-right:0}.pc2-stat strong{font-size:19px}.pc2-footer{padding:14px 20px;align-items:flex-start}.pc2-footer>div{max-width:65%}.pc2-sign{margin-left:auto}.pc2-card:after{font-size:80px;right:-8px;bottom:-8px}
   }
   `;
@@ -59,11 +62,12 @@
           <div><p>A small MELO identity card for the people who make music part of their everyday world.</p></div>
           <span class="pc2-number">MELO / 07</span>
         </div>
+        <img class="pc2-mascot" src="assets/melo-cat.png?v=20260916-2" alt="MELO mouse mascot">
         <article class="pc2-card">
           <div class="pc2-sticker">MUSIC<br>IS YOURS.</div>
           <div class="pc2-top"><span><i></i> MELO PLAYER CARD</span><b>MC / 001</b></div>
           <div class="pc2-body">
-            <div class="pc2-avatar"><img src="assets/melo-cat.png?v=20260916-1" alt="MELO mascot"></div>
+            <div class="pc2-avatar"><img src="assets/melo-cat.png?v=20260916-2" alt="MELO mascot"></div>
             <div>
               <span class="pc2-label">PLAYER</span>
               <h3 class="pc2-name">YOUR NAME</h3>
@@ -96,7 +100,7 @@
         const idEl=room.querySelector('.pc2-id');
         if(nameEl)nameEl.textContent=name;
         if(idEl)idEl.textContent=shortId?`@melo-${shortId}`:'@melo-player';
-        if(avatar&&user.avatar_url){avatar.src=user.avatar_url;avatar.alt=`${name}'s MELO avatar`;}
+        if(avatar&&user.avatar_url)avatar.src=user.avatar_url;
       }
     }catch(error){console.debug('MELO Player Card session lookup failed',error)}
     return true;
