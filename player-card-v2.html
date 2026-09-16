@@ -27,68 +27,21 @@
 <div class="portrait"><div class="portrait-frame"><img id="avatar" alt="Player avatar"><span class="portrait-label">MELO LISTENER</span></div></div>
 <div class="identity"><div class="identity-top"><div><div class="eyebrow">PLAYER</div><div id="name" class="name">Loading…</div><div id="handle" class="handle">@melo</div></div><div id="memberId" class="member-id">ID / —</div></div><div class="status"><i></i> MELO ACCOUNT CONNECTED</div><div class="meta"><div class="meta-item"><small>MEMBER SINCE</small><b id="member">—</b></div><div class="meta-item"><small>LOCATION</small><b id="location">India</b></div><div class="meta-item"><small>LISTENING ON</small><b>MELO Desktop</b></div></div><div class="stamp">MELO<span>✦<br>EST. 2026</span></div></div>
 </div>
-<div class="stats"><div class="stat"><div class="stat-icon">◉</div><div id="minutes" class="value">—</div><div class="statname">MINUTES LISTENED</div><div class="change">↗ listening time</div></div><div class="stat"><div class="stat-icon">♫</div><div id="tracks" class="value">—</div><div class="statname">TRACKS PLAYED</div><div class="change">↗ records played</div></div><div class="stat"><div class="stat-icon">♥</div><div id="liked" class="value">—</div><div class="statname">SONGS LIKED</div><div class="change">↗ favorites</div></div><div class="stat"><div class="stat-icon">ϟ</div><div id="streak" class="value">—</div><div class="statname">LISTENING STREAK</div><div class="change">↗ keep the run going</div></div></div>
-<div class="sections"><section class="panel"><div class="panel-head"><h2>Top Artists</h2><span>YOUR ROTATION</span></div><div id="artists" class="artists"></div></section><section class="panel"><div class="panel-head"><h2>Top Genres</h2><span>THIS MONTH</span></div><div id="genres" class="genres"></div></section></div>
-<div class="bottom"><section class="media"><h3>Most Played Song</h3><div class="mediarow"><img id="songCover" class="cover" alt=""><div class="mediacopy"><div id="song" class="song">—</div><div id="songArtist" class="artistname">—</div><div id="songPlays" class="plays">— plays</div></div><button class="play" type="button" aria-label="Play">▶</button></div></section><section class="media"><h3>Most Played Album</h3><div class="mediarow"><img id="albumCover" class="cover" alt=""><div class="mediacopy"><div id="album" class="song">—</div><div id="albumArtist" class="artistname">—</div><div id="albumPlays" class="plays">— plays</div></div></div></section><section class="activity"><h3>Recent Activity</h3><div id="activity" class="activitylist"></div></section></div>
-<div id="error" class="error" hidden>Stats are temporarily unavailable. Your Player Card still works — check back later.</div>
-</section>
-<div class="footer"><span>MELO / MUSIC FOR A BETTER YOU.</span><span>SAME SONGS, DIFFERENT ME. • PLAYER CARD</span></div>
-</main>
-</div>
+<div class="stats"><div class="stat"><div class="stat-icon">◉</div><div id="minutes" class="value">—</div><div class="statname">Minutes Listened</div></div><div class="stat"><div class="stat-icon">♪</div><div id="tracks" class="value">—</div><div class="statname">Tracks Played</div></div><div class="stat"><div class="stat-icon">♡</div><div id="liked" class="value">—</div><div class="statname">Songs Liked</div></div><div class="stat"><div class="stat-icon">↗</div><div id="streak" class="value">—</div><div class="statname">Day Streak</div></div></div>
+<div class="sections"><section class="panel"><div class="panel-head"><h2>Top Artists</h2><span>ACCOUNT DATA</span></div><div id="artists" class="artists"></div></section><section class="panel"><div class="panel-head"><h2>Top Genres</h2><span>ACCOUNT DATA</span></div><div id="genres" class="genres"></div></section></div>
+<div class="bottom"><section class="media"><h3>Recently Played</h3><div class="mediarow"><img id="cover" class="cover" alt=""><div class="mediacopy"><div id="song" class="song">—</div><div id="artist" class="artistname">—</div><div id="plays" class="plays">—</div></div></div></section><section class="activity"><h3>MELO Account</h3><div class="activitylist"><div class="activityrow"><div class="activityicon">@</div><div id="email" class="activitytext">—</div><div class="activitytime">EMAIL</div></div><div class="activityrow"><div class="activityicon">✓</div><div class="activitytext">Authenticated MELO session</div><div class="activitytime">LIVE</div></div><div class="activityrow"><div class="activityicon">◆</div><div id="uid" class="activitytext">—</div><div class="activitytime">USER ID</div></div></div></section><section class="media"><h3>Your MELO Identity</h3><div class="activitylist"><div class="activityrow"><div class="activityicon">♡</div><div class="activitytext">Your account owns this card</div><div class="activitytime">PRIVATE</div></div><div class="activityrow"><div class="activityicon">♪</div><div class="activitytext">Listening data belongs to this account</div><div class="activitytime">SYNC</div></div></div></section></div>
+<div id="message" class="error" style="display:none"></div></section>
+<div class="footer"><span>MELO // PLAYER CARD</span><span>MUSIC FOR A BETTER YOU.</span></div>
+</main></div>
 <script>
-const API_BASE='https://melo-website.tajtaranga.workers.dev';
-const STATS_API=`${API_BASE}/api/stats`;
-const AUTH_API=`${API_BASE}/api/auth/me`;
-const $=id=>document.getElementById(id);
-const first=(o,keys,def='—')=>{for(const k of keys){const v=k.split('.').reduce((a,b)=>a?.[b],o);if(v!==undefined&&v!==null&&v!=='')return v}return def};
-const fmt=v=>typeof v==='number'?v.toLocaleString():String(v??'—');
-function setText(id,v){if($(id))$(id).textContent=fmt(v)}
-function img(id,src){if($(id)&&src)$(id).src=src}
-function render(data){
- const p=data?.profile||data?.user||data;
- const name=first(p,['name','displayName','username'],'MELO Listener');
- setText('name',name);setText('handle',first(p,['handle','username','user.handle'],'@melo'));setText('member',first(p,['memberSince','createdAt','joined'],'2026'));setText('location',first(p,['location','country'],'India'));setText('memberId',`ID / ${first(p,['id','userId','code'],'001')}`);setText('code',first(p,['code','cardCode','id'],'001'));
- img('avatar',first(p,['avatar','avatarUrl','image','imageUrl'],''));img('mini',first(p,['avatar','avatarUrl','image','imageUrl'],''));
- const s=data?.stats||data;
- setText('minutes',first(s,['minutes','minutesListened','listeningMinutes','totalMinutes']));setText('tracks',first(s,['tracks','tracksPlayed','totalTracks','plays']));setText('liked',first(s,['liked','songsLiked','favorites','likedSongs']));setText('streak',first(s,['streak','listeningStreak','currentStreak','daysStreak']));
- const artists=first(data,['topArtists','artists','stats.topArtists'],[]);const genres=first(data,['topGenres','genres','stats.topGenres'],[]);renderArtists(Array.isArray(artists)?artists:[]);renderGenres(Array.isArray(genres)?genres:[]);
- const song=first(data,['mostPlayedSong','topSong','song'],{}),album=first(data,['mostPlayedAlbum','topAlbum','album'],{});
- setText('song',first(song,['name','title'],'—'));setText('songArtist',first(song,['artist','artistName'],'—'));setText('songPlays',`${fmt(first(song,['plays','playCount','count'],'—'))} plays`);img('songCover',first(song,['cover','coverUrl','image','imageUrl'],''));
- setText('album',first(album,['name','title'],'—'));setText('albumArtist',first(album,['artist','artistName'],'—'));setText('albumPlays',`${fmt(first(album,['plays','playCount','count'],'—'))} plays`);img('albumCover',first(album,['cover','coverUrl','image','imageUrl'],''));
- renderActivity(first(data,['recentActivity','activity','history'],[]));
-}
-function renderArtists(items){const el=$('artists');el.innerHTML='';if(!items.length){el.innerHTML='<div style="grid-column:1/-1;color:#8b847b;font-size:8px">No artist data yet.</div>';return}items.slice(0,5).forEach((a,i)=>{const d=document.createElement('div');d.className='artist';const im=document.createElement('img');im.src=first(a,['image','imageUrl','avatar','cover'],'');im.alt='';d.append(im);const b=document.createElement('b');b.textContent=first(a,['name','artist'],'Artist');const sm=document.createElement('small');sm.textContent=`#${i+1} ROTATION`;d.append(b,sm);el.append(d)})}
-function renderGenres(items){const el=$('genres');el.innerHTML='';if(!items.length){items=[{name:'Pop',value:72},{name:'J-pop',value:58},{name:'Hip-hop',value:46},{name:'Dream pop',value:35}]};const nums=items.slice(0,5).map(x=>Number(first(x,['value','percent','percentage','score','plays'],0))||0);const max=Math.max(...nums,1);items.slice(0,5).forEach((g,i)=>{const val=nums[i];const row=document.createElement('div');row.className='genre';row.innerHTML=`<span>${first(g,['name','genre'],'Genre')}</span><div class="gbar"><i style="width:${Math.min(100,Math.round(val/max*100))}%"></i></div><span class="pct">${val?Math.round(val):'—'}%</span>`;el.append(row)})}
-function renderActivity(items){const el=$('activity');el.innerHTML='';if(!Array.isArray(items)||!items.length){items=[{text:'Player Card opened',time:'now',icon:'✦'},{text:'MELO world entered',time:'recently',icon:'♫'},{text:'Listening identity synced',time:'recently',icon:'♡'}]};items.slice(0,4).forEach(a=>{const r=document.createElement('div');r.className='activityrow';r.innerHTML=`<span class="activityicon">${first(a,['icon'],'♫')}</span><span class="activitytext">${first(a,['text','title','name','action'],'Listening activity')}</span><span class="activitytime">${first(a,['time','date','createdAt'],'now')}</span>`;el.append(r)})}
-function showLoginState(){
- $('name').textContent='Sign in to MELO';
- $('handle').textContent='Your Player Card needs your MELO account';
- $('memberId').textContent='ID / —';
- $('member').textContent='—';
- $('location').textContent='—';
- $('code').textContent='—';
- ['minutes','tracks','liked','streak','song','songArtist','songPlays','album','albumArtist','albumPlays'].forEach(id=>setText(id,'—'));
- $('artists').innerHTML='<div style="grid-column:1/-1;color:#8b847b;font-size:8px">Sign in to load your account data.</div>';
- $('genres').innerHTML='<div style="color:#8b847b;font-size:8px">Sign in to load your account data.</div>';
- $('activity').innerHTML='<div class="activityrow"><span class="activityicon">♡</span><span class="activitytext">MELO account required</span><span class="activitytime">—</span></div>';
- $('error').hidden=false;
- $('error').innerHTML='You are not signed in. <a href="login.html" style="color:#a21b5e;text-decoration:underline;font-weight:700">SIGN IN TO MELO →</a>';
-}
-(async()=>{
- try{
-  const authRes=await fetch(AUTH_API,{cache:'no-store',credentials:'include'});
-  if(!authRes.ok)throw new Error(`auth ${authRes.status}`);
-  const auth=await authRes.json();
-  const user=auth?.user||auth?.data?.user||auth;
-  if(!user || user.authenticated===false || (!user.id && !user.email && !user.username))throw new Error('unauthenticated');
-  render({profile:user});
-  const statsRes=await fetch(STATS_API,{cache:'no-store',credentials:'include'});
-  if(statsRes.ok){
-   const stats=await statsRes.json();
-   if(stats && (stats.profile||stats.user||stats.stats||stats.topArtists||stats.topGenres||stats.mostPlayedSong||stats.mostPlayedAlbum||stats.recentActivity)) render({...stats,profile:{...user,...(stats.profile||{})}});
-  }
- }catch(e){showLoginState()}
-})();
+const API='https://melo-website.tajtaranga.workers.dev';const $=id=>document.getElementById(id);const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));const fallback=name=>'https://ui-avatars.com/api/?name='+encodeURIComponent(String(name||'MELO').slice(0,18))+'&background=ff3b98&color=fff&bold=true';
+function setText(id,v,f='—'){if($(id))$(id).textContent=(v===undefined||v===null||v==='')?f:String(v)}
+function showMessage(text){const el=$('message');el.style.display='block';el.textContent=text}
+function renderArtists(items){const a=Array.isArray(items)?items.slice(0,5):[];$('artists').innerHTML=a.length?a.map((x,i)=>'<div class="artist"><img src="'+esc(x.image||x.avatar||x.imageUrl||fallback(x.name))+'" alt=""><b>'+esc(x.name||'Unknown')+'</b><small>#'+(i+1)+(x.value!=null?' · '+Number(x.value).toLocaleString()+' plays':'')+'</small></div>').join(''):'<div style="font-size:8px;color:#8b847b">No listening history yet.</div>'}
+function renderGenres(items){const a=Array.isArray(items)?items.slice(0,5):[];const max=Math.max(...a.map(x=>Number(x.percent??x.value??0)||0),1);$('genres').innerHTML=a.length?a.map(x=>{const p=Number(x.percent??x.value??0)||0;return '<div class="genre"><span>'+esc(x.name||'Other')+'</span><div class="gbar"><i style="width:'+Math.max(4,Math.round(p/max*100))+'%"></i></div><span class="pct">'+Math.round(p)+'%</span></div>'}).join(''):'<div style="font-size:8px;color:#8b847b">No genre data yet.</div>'}
+function renderStats(data){const s=data?.stats||{};setText('minutes',s.minutes);setText('tracks',s.tracks);setText('liked',s.liked);setText('streak',s.streak);renderArtists(data?.topArtists||[]);renderGenres(data?.topGenres||[]);const song=data?.mostPlayedSong||{};const recent=Array.isArray(data?.recentActivity)?data.recentActivity[0]:null;setText('song',recent?.name||recent?.track_name||song.name);setText('artist',recent?.artist||recent?.artist_name||song.artist);setText('plays',song.plays!=null?Number(song.plays).toLocaleString()+' plays':'Recently played');if(song.cover)$('cover').src=song.cover}
+async function loadCard(){try{const ar=await fetch(API+'/api/auth/me',{credentials:'include',cache:'no-store'});let auth={};try{auth=await ar.json()}catch{}if(!ar.ok||!auth.authenticated||!auth.user){setText('name','Not signed in');setText('handle','@guest');setText('memberId','ID / —');$('avatar').src=fallback('MELO');$('mini').src=fallback('MELO');showMessage('Sign in to your MELO account on this website to view your private Player Card.');renderArtists([]);renderGenres([]);return}const u=auth.user;setText('name',u.display_name||u.name||'MELO Listener');setText('handle','@'+String(u.display_name||u.username||u.id||'melo').replace(/\s+/g,'').slice(0,24));setText('memberId','ID / '+String(u.id||'—').slice(0,24));setText('email',u.email||'—');setText('uid',u.id||'—');setText('member',u.created_at?new Date(Number(u.created_at)*1000).toLocaleDateString(undefined,{month:'short',year:'numeric'}):'MELO MEMBER');const av=u.avatar_url||u.avatar||fallback(u.display_name||u.name);$('avatar').src=av;$('mini').src=av;const sr=await fetch(API+'/api/stats',{credentials:'include',cache:'no-store'});if(sr.status===401){showMessage('Your MELO session expired. Sign in again to load your Player Card.');return}if(!sr.ok)throw new Error('stats '+sr.status);const data=await sr.json();renderStats(data)}catch(e){console.error('MELO Player Card:',e);showMessage('MELO account service could not be reached. Please try again later.')}}
+loadCard();
 </script>
 </body>
 </html>
