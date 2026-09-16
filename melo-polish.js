@@ -50,21 +50,29 @@
   }
 
   function installCursor(){
-    if(window.matchMedia('(max-width:760px)').matches||document.querySelector('.melo-cursor'))return;
-    const style=document.createElement('style');
+    if(window.matchMedia('(max-width:760px)').matches)return;
+    const existing=document.querySelector('.melo-cursor');
+    if(existing)existing.remove();
+
+    const style=document.getElementById('melo-player-card-cursor-style')||document.createElement('style');
     style.id='melo-player-card-cursor-style';
-    style.textContent=`html{cursor:none!important}html a,html button{cursor:none!important}.melo-cursor{position:fixed;left:0;top:0;width:13px;height:13px;border:1.5px solid #171514;border-radius:50%;pointer-events:none;z-index:2147483647;transform:translate(-50%,-50%);background:rgba(255,250,242,.72);transition:width .16s,height .16s,background .16s,border-color .16s;mix-blend-mode:multiply}.melo-cursor:after{content:'';position:absolute;width:3px;height:3px;left:50%;top:50%;transform:translate(-50%,-50%);background:#ff3b98;border-radius:50%}.melo-cursor.hover{width:28px;height:28px;border-color:#ff3b98;background:rgba(255,59,152,.08)}.melo-cursor.click{width:9px;height:9px}`;
+    style.textContent=`html,html *{cursor:none!important}.melo-cursor{position:fixed!important;left:0!important;top:0!important;width:14px!important;height:14px!important;border:2px solid #171514!important;border-radius:50%!important;pointer-events:none!important;z-index:2147483647!important;background:#ff3b98!important;box-shadow:0 0 0 3px rgba(255,255,255,.9),0 2px 12px rgba(23,21,20,.28)!important;opacity:0;transition:width .16s,height .16s,background .16s,border-color .16s,opacity .12s!important;transform:translate(-50%,-50%);will-change:transform}.melo-cursor:after{content:'';position:absolute;width:4px;height:4px;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:50%}.melo-cursor.hover{width:30px!important;height:30px!important;background:rgba(255,59,152,.18)!important;border-color:#ff3b98!important}.melo-cursor.click{width:9px!important;height:9px!important}`;
     document.head.appendChild(style);
-    const cursor=document.createElement('div');cursor.className='melo-cursor';cursor.setAttribute('aria-hidden','true');document.body.appendChild(cursor);
+
+    const cursor=document.createElement('div');
+    cursor.className='melo-cursor';
+    cursor.setAttribute('aria-hidden','true');
+    document.body.appendChild(cursor);
+
     let x=-100,y=-100,tx=-100,ty=-100,visible=false;
-    window.addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY;visible=true},{passive:true});
-    window.addEventListener('mouseleave',()=>{visible=false});
-    window.addEventListener('mouseenter',()=>{visible=true});
-    document.addEventListener('mouseover',e=>{if(e.target.closest('a,button,[role="button"]'))cursor.classList.add('hover')});
-    document.addEventListener('mouseout',e=>{if(e.target.closest('a,button,[role="button"]'))cursor.classList.remove('hover')});
+    const move=e=>{tx=e.clientX;ty=e.clientY;visible=true;cursor.style.opacity='1'};
+    window.addEventListener('mousemove',move,{passive:true});
+    window.addEventListener('mouseleave',()=>{visible=false;cursor.style.opacity='0'});
+    document.addEventListener('mouseover',e=>{if(e.target.closest('a,button,[role="button"],input,select,textarea'))cursor.classList.add('hover')});
+    document.addEventListener('mouseout',e=>{if(e.target.closest('a,button,[role="button"],input,select,textarea'))cursor.classList.remove('hover')});
     document.addEventListener('mousedown',()=>cursor.classList.add('click'));
     document.addEventListener('mouseup',()=>cursor.classList.remove('click'));
-    const render=()=>{x+=(tx-x)*.24;y+=(ty-y)*.24;cursor.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;cursor.style.opacity=visible?'1':'0';requestAnimationFrame(render)};
+    const render=()=>{x+=(tx-x)*.3;y+=(ty-y)*.3;cursor.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;if(visible)cursor.style.opacity='1';requestAnimationFrame(render)};
     render();
   }
 
@@ -127,6 +135,7 @@
 
   install();
   installCursor();
+  window.addEventListener('load',installCursor,{once:true});
   const boot=()=>{if(document.querySelector('.room[data-room="profile"]'))hydrate()};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
