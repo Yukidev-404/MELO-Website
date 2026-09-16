@@ -25,7 +25,7 @@ async function serveGetMelo(request,env){
   const asset=await env.ASSETS.fetch(new Request(assetUrl.toString(),request));
   if(!asset.ok)return asset;
   let body=await asset.text();
-  if(!body.includes("get-melo-releases.js"))body=body.replace(/<\/body>/i,'<script src="/get-melo-releases.js?v=20260916-2"></script></body>');
+  if(!body.includes("get-melo-releases.js"))body=body.replace(/<\/body>/i,'<script src="/get-melo-releases.js?v=20260916-3"></script></body>');
   const headers=new Headers(asset.headers);headers.set("Content-Type","text/html; charset=UTF-8");headers.set("Cache-Control","no-store");headers.delete("Content-Length");
   return new Response(body,{status:asset.status,headers});
 }
@@ -71,7 +71,7 @@ async function downloadRelease(request,url,env){
 export default{async fetch(r,e,c){
   const u=new URL(r.url);
   if(u.pathname==="/player-card.html"||u.pathname==="/player-card.html/"||u.pathname==="/player-card-v2.html"||u.pathname==="/player-card-v2.html/"||u.pathname==="/player-card-live.html"||u.pathname==="/player-card-live.html/")return servePlayerCard(r,e,u.pathname);
-  if(u.pathname==="/get-melo.html"||u.pathname==="/get-melo.html/")return serveGetMelo(r,e);
+  if(u.pathname==="/get-melo"||u.pathname==="/get-melo/"||u.pathname==="/get-melo.html"||u.pathname==="/get-melo.html/")return serveGetMelo(r,e);
   if(u.pathname==="/api/releases")return releaseApi(r,u,e);
   if(u.pathname==="/download/latest"||u.pathname.startsWith("/download/release/"))return downloadRelease(r,u,e);
   if(u.pathname.startsWith("/api/auth/"))return e.AUTH.fetch(r);
