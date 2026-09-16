@@ -1,0 +1,8 @@
+(()=>{
+const grid=document.getElementById('galleryGrid'),lightbox=document.getElementById('lightbox'),image=document.getElementById('lightboxImage'),title=document.getElementById('lightboxTitle'),description=document.getElementById('lightboxDescription'),tag=document.getElementById('lightboxTag'),close=document.getElementById('closeLightbox'),total=document.getElementById('totalCount');
+const pieces=[...grid.querySelectorAll('.piece')];total.textContent=`${String(pieces.length).padStart(2,'0')} PIECES`;
+document.querySelectorAll('[data-filter]').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'));btn.classList.add('active');const f=btn.dataset.filter;pieces.forEach(p=>p.classList.toggle('hidden',f!=='all'&&p.dataset.category!==f));}));
+function openPiece(p){image.src=p.dataset.image;image.alt=p.dataset.title;title.textContent=p.dataset.title;description.textContent=p.dataset.description;tag.textContent=`${p.dataset.category.toUpperCase()} / MELO ARCHIVE`;lightbox.classList.add('open');lightbox.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
+function closeBox(){lightbox.classList.remove('open');lightbox.setAttribute('aria-hidden','true');document.body.style.overflow='';image.src=''}
+grid.addEventListener('click',e=>{const p=e.target.closest('.piece');if(p&&e.target.closest('.view'))openPiece(p)});close.onclick=closeBox;lightbox.addEventListener('click',e=>{if(e.target===lightbox)closeBox()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&lightbox.classList.contains('open'))closeBox()});
+})();
