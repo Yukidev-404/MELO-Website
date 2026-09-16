@@ -3,14 +3,14 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>MELO / MUSIC PLAYER</title><link rel="icon" href="assets/MELO.ico">
 <link rel="stylesheet" href="player.css?v=20260917-3">
-<link rel="stylesheet" href="player-reference-ui.css?v=20260917-3">
+<link rel="stylesheet" href="player-reference-ui.css?v=20260917-4">
 </head><body>
 <div id="app" class="melo-window">
 <header class="titlebar"><div class="brand"><b>MELO</b><span>/ MUSIC PLAYER</span></div><div class="window-controls"><button data-window="min">—</button><button data-window="max">□</button><button data-window="close">×</button></div></header>
 <main class="workspace">
 <section class="player-pane">
 <div class="pane-head"><span>[ NOW PLAYING ]</span><span>RETRO-MOD</span></div>
-<div class="record-wrap"><img class="record" id="record" src="assets/disc_texture_centered.png" alt="MELO record"><img class="tonearm" src="assets/arm_overlay_centered.png" alt=""></div>
+<div class="record-wrap"><img class="record" id="record" src="assets/disc_texture_centered.png" alt="MELO record"><img class="tonearm" id="tonearm" src="assets/arm_overlay_centered.png" alt=""></div>
 <div class="track-info"><div id="trackTitle">NO TRACK PLAYING</div><small id="trackArtist">SELECT MUSIC TO BEGIN</small></div>
 <div class="time-row"><button id="lyrics" class="icon-button" title="Lyrics"><img src="assets/lyrics_icon.png" alt="lyrics"></button><span id="elapsed">0:00</span><span class="time-total" id="duration">0:00</span><button id="favorite" class="icon-button favorite"><img src="assets/favorite_wave.png" alt="favorite"></button></div>
 <div class="progress" id="progress"><i id="progressFill"></i></div>
