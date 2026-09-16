@@ -1,33 +1,31 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>MELO WEB / Player</title>
-<link rel="icon" href="assets/melo-logo.svg" type="image/svg+xml">
-<link rel="stylesheet" href="melo-world.css?v=20260915-7">
-<link rel="stylesheet" href="melo-web.css?v=20260915-1">
-</head>
-<body class="melo-web">
-<a class="melo-back" href="index.html">← MELO WORLD</a>
-<div class="melo-app">
-<aside class="melo-sidebar">
-<div class="melo-brand">MELO<span>♡</span></div>
-<div class="melo-nav-label">PLAYER</div>
-<nav class="melo-nav" aria-label="MELO navigation">
-<button class="active">HOME</button><button>LIBRARY</button><button>PLAYLISTS</button><button>FAVORITES</button><button>RECENT</button><button onclick="location.href='radio.html'">RADIO ↗</button>
-</nav>
-<div class="melo-side-note">MELO WEB<br>music for a better you.<br><br>browser edition / 01</div>
-</aside>
-<main class="melo-main">
-<div class="melo-topline"><div><div class="melo-kicker">GOOD TO SEE YOU</div><h1>YOUR MUSIC.</h1></div><input class="melo-search" type="search" placeholder="search your music..." aria-label="Search music"></div>
-<div class="melo-section-head"><strong>RECENTLY PLAYED</strong><span>04 RECORDS</span></div>
-<div class="melo-track"><span class="num">01</span><div><strong>Pleasure</strong><small>Dylan Sinclair</small></div><span class="duration">03:55</span><button>PLAY</button></div>
-<div class="melo-track"><span class="num">02</span><div><strong>Enough</strong><small>Deukota</small></div><span class="duration">03:42</span><button>PLAY</button></div>
-<div class="melo-track"><span class="num">03</span><div><strong>Get It Together</strong><small>Télépomusik Lofi Flip</small></div><span class="duration">03:18</span><button>PLAY</button></div>
-<div class="melo-track"><span class="num">04</span><div><strong>Smokin Out The Window</strong><small>Bruno Mars, Anderson .Paak</small></div><span class="duration">03:17</span><button>PLAY</button></div>
-<div class="melo-hero-note"><b>MELO WEB</b><br>This is the browser player. Your full MELO Desktop-style listening space will live here — library, playlists, favorites, queue and playback — while the MELO World remains the place you enter from.<br><br><a href="radio.html" style="color:#ff3b98">OPEN MELO RADIO →</a></div>
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MELO / MUSIC PLAYER</title><link rel="icon" href="assets/MELO.ico">
+<link rel="stylesheet" href="player.css?v=20260917-1">
+</head><body>
+<div id="app" class="melo-window">
+<header class="titlebar"><div class="brand"><b>MELO</b><span>/ MUSIC PLAYER</span></div><div class="window-controls"><button data-window="min">—</button><button data-window="max">□</button><button data-window="close">×</button></div></header>
+<main class="workspace">
+<section class="player-pane">
+<div class="pane-head"><span>[ NOW PLAYING ]</span><span>RETRO-MOD</span></div>
+<div class="record-wrap"><img class="record" id="record" src="assets/disc_texture_centered.png" alt="MELO record"><img class="tonearm" src="assets/arm_overlay_centered.png" alt=""></div>
+<div class="track-info"><div id="trackTitle">NO TRACK PLAYING</div><small id="trackArtist">SELECT MUSIC TO BEGIN</small></div>
+<div class="time-row"><button id="lyrics" class="icon-button" title="Lyrics"><img src="assets/lyrics_icon.png" alt="lyrics"></button><span id="elapsed">0:00</span><span class="time-total" id="duration">0:00</span><button id="favorite" class="icon-button favorite"><img src="assets/favorite_wave.png" alt="favorite"></button></div>
+<div class="progress" id="progress"><i id="progressFill"></i></div>
+<div class="transport"><button id="shuffle" title="Shuffle">⌘</button><button id="previous" title="Previous">|◀</button><button id="play" class="play"><img id="playIcon" src="assets/custom_play.png" alt="play"></button><button id="next" title="Next">▶|</button><button id="repeat" title="Repeat">↻</button></div>
+<div class="visual-label">LOW | HIGH</div><div class="visualizer" id="visualizer"></div>
+<div class="volume-row"><span>VOL.</span><input id="volume" type="range" min="0" max="100" value="75"><span id="volumeValue">75%</span></div>
+<button class="device" id="device"><img src="assets/output_device_icon.png" alt=""><span id="deviceName">DEVICE: SYSTEM DEFAULT</span></button>
+<div class="settings-link" id="settings">TOOLS &amp; SETTINGS</div>
+</section>
+<section class="library-pane">
+<div class="search-row"><input id="search" placeholder="Search music..." autocomplete="off"><button id="searchButton">⌕</button><button id="overflow">⋯</button></div>
+<div class="library-title"><span>Your Music</span><span id="sourceStatus"></span></div>
+<nav class="tabs"><button class="active" data-tab="LIBRARY">LIST</button><button data-tab="QUEUE">QUEUE</button><button data-tab="PLAYLISTS">PLAYLISTS</button><button data-tab="RECENT">RECENT</button><button data-tab="FAVORITES">FAVORITES</button><button id="source">SPOTIFY</button></nav>
+<section class="content" id="content"><div class="empty">NO MUSIC AVAILABLE</div></section>
+</section>
 </main>
-<aside class="melo-now"><div class="melo-kicker">NOW PLAYING</div><div class="cover" aria-label="MELO record artwork"></div><h2>Pleasure</h2><p>Dylan Sinclair</p><div class="melo-queue"><div><span>NEXT</span> Enough</div><div><span>AFTER</span> Get It Together</div><div><span>QUEUE</span> 02 tracks</div></div></aside>
-<footer class="melo-playerbar"><div class="melo-current"><strong>Pleasure</strong><span>Dylan Sinclair</span></div><div class="melo-controls"><button aria-label="Previous">◀◀</button><button class="main" aria-label="Play">▶</button><button aria-label="Next">▶▶</button></div><div class="melo-volume">VOL <input type="range" min="0" max="100" value="80" aria-label="Volume"></div><div class="melo-progress" aria-hidden="true"><i></i></div></footer>
-</div>
-</body></html>
+<div class="lyrics-panel" id="lyricsPanel"><button id="closeLyrics">×</button><div>MELO / LYRICS</div><h2 id="lyricsTitle">Lyrics</h2><p id="lyricsArtist"></p><div class="lyrics-body">NO LYRICS</div></div>
+<input id="folder" type="file" accept="audio/*" multiple hidden><audio id="audio" preload="metadata"></audio>
+</div><script src="player.js?v=20260917-1"></script></body></html>
