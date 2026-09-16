@@ -25,8 +25,9 @@ async function serveGetMelo(request,env){
   const asset=await env.ASSETS.fetch(new Request(assetUrl.toString(),request));
   if(!asset.ok)return asset;
   let body=await asset.text();
-  if(!body.includes("get-melo-releases.js"))body=body.replace(/<\/body>/i,'<script src="/get-melo-releases.js?v=20260916-3"></script></body>');
-  const headers=new Headers(asset.headers);headers.set("Content-Type","text/html; charset=UTF-8");headers.set("Cache-Control","no-store");headers.delete("Content-Length");
+  body=body.replace(/\/get-melo-releases\.js\?v=[^"']+/g,'/get-melo-releases.js?v=20260916-4');
+  if(!body.includes("get-melo-releases.js"))body=body.replace(/<\/body>/i,'<script src="/get-melo-releases.js?v=20260916-4"></script></body>');
+  const headers=new Headers(asset.headers);headers.set("Content-Type","text/html; charset=UTF-8");headers.set("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");headers.set("Pragma","no-cache");headers.set("Expires","0");headers.delete("Content-Length");
   return new Response(body,{status:asset.status,headers});
 }
 
@@ -45,7 +46,7 @@ function releasePayload(releases){
 
 async function releaseApi(request,url,env){
   if(request.method!=='GET')return j({error:'Method not allowed.'},405);
-  try{const releases=await githubReleases(env);const limit=Math.min(Math.max(Number(url.searchParams.get('limit')||10),1),20);return j({ok:true,repository:RELEASE_REPO,releases:releasePayload(releases).slice(0,limit)},{'Cache-Control':'public, max-age=60, s-maxage=60'});}catch(e){return j({ok:false,error:'Release service unavailable.'},502)}
+  try{const releases=await githubReleases(env);const limit=Math.min(Math.max(Number(url.searchParams.get('limit')||10),1),20);return j({ok:true,repository:RELEASE_REPO,releases:releasePayload(releases).slice(0,limit)},{'Cache-Control':'no-store, max-age=0'});}catch(e){return j({ok:false,error:'Release service unavailable.'},502)}
 }
 
 async function downloadRelease(request,url,env){
