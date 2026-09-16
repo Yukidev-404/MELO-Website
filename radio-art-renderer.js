@@ -7,8 +7,9 @@
   const add=(out,u)=>{
     if(!u)return;
     const s=String(u);
+    const p=proxy(s);
+    if(p)out.push(p);
     if(/^https:\/\//i.test(s))out.push(s);
-    const p=proxy(s);if(p)out.push(p);
   };
   const sourcesFor=(raw,hostHint)=>{
     const out=[];
