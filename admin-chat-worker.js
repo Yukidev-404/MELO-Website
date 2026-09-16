@@ -1,1 +1,75 @@
-const C="melo_admin_session";const H=200;const ONLINE_WINDOW=30;export default{async fetch(r,e,c){const u=new URL(r.url);if(u.pathname==="/player-card.html"||u.pathname==="/player-card.html/"){const assetUrl=new URL(r.url);assetUrl.pathname="/player-card-v2.html";const asset=await e.ASSETS.fetch(new Request(assetUrl.toString(),r));const headers=new Headers(asset.headers);headers.set("Content-Type","text/html; charset=UTF-8");headers.set("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");headers.set("Pragma","no-cache");headers.set("Expires","0");return new Response(asset.body,{status:asset.status,headers})}if(u.pathname.startsWith("/api/auth/"))return e.AUTH.fetch(r);if(u.pathname.startsWith("/api/admin/chat")||u.pathname==="/api/admin/notifications"||u.pathname==="/api/admin/presence"||u.pathname==="/api/admin/audit-log"||u.pathname==="/api/admin/flag"||u.pathname==="/api/admin/crash/status"||u.pathname==="/api/admin/release-status")return h(r,e,u,c);return(await import("./worker.js")).default.fetch(r,e,c)}};async function h(r,e,u,c){const s=await g(r,e);if(!s)return j({authenticated:false},401);if(["/api/admin/audit-log","/api/admin/flag","/api/admin/crash/status","/api/admin/release-status"].includes(u.pathname)){const ops=(await import("./admin-ops-worker.js")).default;const response=await ops.fetch(r,e,c);if(response)return response}await z(e);if(u.pathname==="/api/admin/presence"&&(r.method==="POST"||r.method==="GET")){const now=Math.floor(Date.now()/1000);await e.DB.prepare("INSERT INTO admin_presence (admin_id,last_seen_at) VALUES (?,?) ON CONFLICT(admin_id) DO UPDATE SET last_seen_at=excluded.last_seen_at").bind(s.admin_id,now).run();const q=await e.DB.prepare("SELECT a.admin_id,a.username,a.role,a.enabled,COALESCE(p.last_seen_at,0) last_seen_at FROM admin_accounts a LEFT JOIN admin_presence p ON p.admin_id=a.admin_id WHERE a.enabled=1 ORDER BY CASE WHEN COALESCE(p.last_seen_at,0)>=? THEN 0 ELSE 1 END,a.created_at ASC").bind(now-ONLINE_WINDOW).all();return j({ok:true,admins:(q.results||[]).map(a=>({admin_id:a.admin_id,username:a.username,role:a.role,enabled:a.enabled,online:Number(a.last_seen_at||0)>=now-ONLINE_WINDOW,last_seen_at:Number(a.last_seen_at||0)}))})}if(u.pathname==="/api/admin/chat"&&r.method==="GET"){await e.DB.prepare("INSERT INTO admin_presence (admin_id,last_seen_at) VALUES (?,?) ON CONFLICT(admin_id) DO UPDATE SET last_seen_at=excluded.last_seen_at").bind(s.admin_id,Math.floor(Date.now()/1000)).run();const q=await e.DB.prepare("SELECT message_id,admin_id,username,role,message,created_at FROM admin_chat_messages ORDER BY created_at DESC LIMIT ?").bind(H).all();return j({ok:true,messages:(q.results||[]).reverse(),currentAdmin:{admin_id:s.admin_id,username:s.username,role:s.role}})}if(u.pathname==="/api/admin/chat"&&r.method==="POST"){let b;try{b=await r.json()}catch{return j({error:"Invalid JSON payload."},400)}const m=String(b?.message||"").trim();if(!m)return j({error:"Message cannot be empty."},400);if(m.length>2000)return j({error:"Message is too long."},400);const t=Math.floor(Date.now()/1000),id="chat_"+x(16);await e.DB.prepare("INSERT INTO admin_chat_messages VALUES(?,?,?,?,?,?)").bind(id,s.admin_id,s.username,s.role,m,t).run();return j({ok:true,message:{message_id:id,admin_id:s.admin_id,username:s.username,role:s.role,message:m,created_at:t}})}if(u.pathname==="/api/admin/chat/read"&&r.method==="POST"){let b={};try{b=await r.json()}catch{}const id=String(b?.messageId||"");const m=await e.DB.prepare("SELECT created_at FROM admin_chat_messages WHERE message_id=?").bind(id).first();if(!m)return j({error:"Message not found."},404);await e.DB.prepare("INSERT INTO admin_chat_reads VALUES(?,?,?) ON CONFLICT(admin_id) DO UPDATE SET last_read_at=excluded.last_read_at,last_read_message_id=excluded.last_read_message_id").bind(s.admin_id,m.created_at,id).run();return j({ok:true})}if(u.pathname==="/api/admin/notifications"&&r.method==="GET"){const b=await(await import("./worker.js")).default.fetch(r,e);if(!b.ok)return b;const d=await b.json(),q=await e.DB.prepare("SELECT last_read_at FROM admin_chat_reads WHERE admin_id=?").bind(s.admin_id).first(),n=await e.DB.prepare("SELECT COUNT(*) count FROM admin_chat_messages WHERE created_at>?").bind(Number(q?.last_read_at||0)).first();return j({...d,unread:{...(d.unread||{}),chat:Number(n?.count||0)}})}return j({error:"Method not allowed."},405)}async function z(e){await e.DB.batch([e.DB.prepare("CREATE TABLE IF NOT EXISTS admin_chat_messages (message_id TEXT PRIMARY KEY,admin_id TEXT NOT NULL,username TEXT NOT NULL,role TEXT NOT NULL, message TEXT NOT NULL,created_at INTEGER NOT NULL)"),e.DB.prepare("CREATE INDEX IF NOT EXISTS idx_admin_chat_messages_created ON admin_chat_messages(created_at)"),e.DB.prepare("CREATE TABLE IF NOT EXISTS admin_chat_reads (admin_id TEXT PRIMARY KEY,last_read_at INTEGER NOT NULL DEFAULT 0,last_read_message_id TEXT)"),e.DB.prepare("CREATE TABLE IF NOT EXISTS admin_presence (admin_id TEXT PRIMARY KEY,last_seen_at INTEGER NOT NULL DEFAULT 0)")])}async function g(r,e){const m=(r.headers.get("Cookie")||"").match(new RegExp(`(?:^|;\\s*)${C}=([^;]+)`));if(!m)return null;const hsh=await q(m[1]),s=await e.DB.prepare("SELECT s.token_hash,s.expires_at,a.admin_id,a.username,a.email,a.role FROM admin_identity_sessions s JOIN admin_accounts a ON a.admin_id=s.admin_id WHERE s.token_hash=? AND a.enabled=1").bind(hsh).first();return s&&Number(s.expires_at)>Math.floor(Date.now()/1000)?s:null}async function q(v){const d=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v)));return[...d].map(b=>b.toString(16).padStart(2,"0")).join("")}function x(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return[...a].map(b=>b.toString(16).padStart(2,"0")).join("")}function j(d,s=200){return new Response(JSON.stringify(d),{status:s,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}})}
+const C="melo_admin_session";
+const H=200;
+const ONLINE_WINDOW=30;
+
+async function servePlayerCard(request,env,pathname){
+  const assetUrl=new URL(request.url);
+  assetUrl.pathname=(pathname==="/player-card.html"||pathname==="/player-card.html/")?"/player-card-v2.html":pathname;
+  const asset=await env.ASSETS.fetch(new Request(assetUrl.toString(),request));
+  if(!asset.ok)return asset;
+  let body=await asset.text();
+  if(!body.includes("melo-player-cursor.js"))body=body.replace(/<\\/body>/i,'<script src="/melo-player-cursor.js?v=20260916-1"></script></body>');
+  const headers=new Headers(asset.headers);
+  headers.set("Content-Type","text/html; charset=UTF-8");
+  headers.set("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  headers.set("Pragma","no-cache");
+  headers.set("Expires","0");
+  headers.delete("Content-Length");
+  return new Response(body,{status:asset.status,headers});
+}
+
+export default{async fetch(r,e,c){
+  const u=new URL(r.url);
+  if(u.pathname==="/player-card.html"||u.pathname==="/player-card.html/"||u.pathname==="/player-card-v2.html"||u.pathname==="/player-card-v2.html/")return servePlayerCard(r,e,u.pathname);
+  if(u.pathname.startsWith("/api/auth/"))return e.AUTH.fetch(r);
+  if(u.pathname.startsWith("/api/admin/chat")||u.pathname==="/api/admin/notifications"||u.pathname==="/api/admin/presence"||u.pathname==="/api/admin/audit-log"||u.pathname==="/api/admin/flag"||u.pathname==="/api/admin/crash/status"||u.pathname==="/api/admin/release-status")return h(r,e,u,c);
+  return(await import("./worker.js")).default.fetch(r,e,c);
+}};
+
+async function h(r,e,u,c){
+  const s=await g(r,e);if(!s)return j({authenticated:false},401);
+  if(["/api/admin/audit-log","/api/admin/flag","/api/admin/crash/status","/api/admin/release-status"].includes(u.pathname)){
+    const ops=(await import("./admin-ops-worker.js")).default;const response=await ops.fetch(r,e,c);if(response)return response;
+  }
+  await z(e);
+  if(u.pathname==="/api/admin/presence"&&(r.method==="POST"||r.method==="GET")){
+    const now=Math.floor(Date.now()/1000);
+    await e.DB.prepare("INSERT INTO admin_presence (admin_id,last_seen_at) VALUES (?,?) ON CONFLICT(admin_id) DO UPDATE SET last_seen_at=excluded.last_seen_at").bind(s.admin_id,now).run();
+    const q=await e.DB.prepare("SELECT a.admin_id,a.username,a.role,a.enabled,COALESCE(p.last_seen_at,0) last_seen_at FROM admin_accounts a LEFT JOIN admin_presence p ON p.admin_id=a.admin_id WHERE a.enabled=1 ORDER BY CASE WHEN COALESCE(p.last_seen_at,0)>=? THEN 0 ELSE 1 END,a.created_at ASC").bind(now-ONLINE_WINDOW).all();
+    return j({ok:true,admins:(q.results||[]).map(a=>({admin_id:a.admin_id,username:a.username,role:a.role,enabled:a.enabled,online:Number(a.last_seen_at||0)>=now-ONLINE_WINDOW,last_seen_at:Number(a.last_seen_at||0)}))});
+  }
+  if(u.pathname==="/api/admin/chat"&&r.method==="GET"){
+    await e.DB.prepare("INSERT INTO admin_presence (admin_id,last_seen_at) VALUES (?,?) ON CONFLICT(admin_id) DO UPDATE SET last_seen_at=excluded.last_seen_at").bind(s.admin_id,Math.floor(Date.now()/1000)).run();
+    const q=await e.DB.prepare("SELECT message_id,admin_id,username,role,message,created_at FROM admin_chat_messages ORDER BY created_at DESC LIMIT ?").bind(H).all();
+    return j({ok:true,messages:(q.results||[]).reverse(),currentAdmin:{admin_id:s.admin_id,username:s.username,role:s.role}});
+  }
+  if(u.pathname==="/api/admin/chat"&&r.method==="POST"){
+    let b;try{b=await r.json()}catch{return j({error:"Invalid JSON payload."},400)}
+    const m=String(b?.message||"").trim();if(!m)return j({error:"Message cannot be empty."},400);if(m.length>2000)return j({error:"Message is too long."},400);
+    const t=Math.floor(Date.now()/1000),id="chat_"+x(16);
+    await e.DB.prepare("INSERT INTO admin_chat_messages VALUES(?,?,?,?,?,?)").bind(id,s.admin_id,s.username,s.role,m,t).run();
+    return j({ok:true,message:{message_id:id,admin_id:s.admin_id,username:s.username,role:s.role,message:m,created_at:t}});
+  }
+  if(u.pathname==="/api/admin/chat/read"&&r.method==="POST"){
+    let b={};try{b=await r.json()}catch{}const id=String(b?.messageId||"");
+    const m=await e.DB.prepare("SELECT created_at FROM admin_chat_messages WHERE message_id=?").bind(id).first();if(!m)return j({error:"Message not found."},404);
+    await e.DB.prepare("INSERT INTO admin_chat_reads VALUES(?,?,?) ON CONFLICT(admin_id) DO UPDATE SET last_read_at=excluded.last_read_at,last_read_message_id=excluded.last_read_message_id").bind(s.admin_id,m.created_at,id).run();
+    return j({ok:true});
+  }
+  if(u.pathname==="/api/admin/notifications"&&r.method==="GET"){
+    const b=await(await import("./worker.js")).default.fetch(r,e);if(!b.ok)return b;const d=await b.json(),q=await e.DB.prepare("SELECT last_read_at FROM admin_chat_reads WHERE admin_id=?").bind(s.admin_id).first(),n=await e.DB.prepare("SELECT COUNT(*) count FROM admin_chat_messages WHERE created_at>?").bind(Number(q?.last_read_at||0)).first();
+    return j({...d,unread:{...(d.unread||{}),chat:Number(n?.count||0)}});
+  }
+  return j({error:"Method not allowed."},405);
+}
+
+async function z(e){await e.DB.batch([
+  e.DB.prepare("CREATE TABLE IF NOT EXISTS admin_chat_messages (message_id TEXT PRIMARY KEY,admin_id TEXT NOT NULL,username TEXT NOT NULL,role TEXT NOT NULL, message TEXT NOT NULL,created_at INTEGER NOT NULL)"),
+  e.DB.prepare("CREATE INDEX IF NOT EXISTS idx_admin_chat_messages_created ON admin_chat_messages(created_at)"),
+  e.DB.prepare("CREATE TABLE IF NOT EXISTS admin_chat_reads (admin_id TEXT PRIMARY KEY,last_read_at INTEGER NOT NULL DEFAULT 0,last_read_message_id TEXT)"),
+  e.DB.prepare("CREATE TABLE IF NOT EXISTS admin_presence (admin_id TEXT PRIMARY KEY,last_seen_at INTEGER NOT NULL DEFAULT 0)")
+])}
+async function g(r,e){const m=(r.headers.get("Cookie")||"").match(new RegExp(`(?:^|;\\s*)${C}=([^;]+)`));if(!m)return null;const hsh=await q(m[1]),s=await e.DB.prepare("SELECT s.token_hash,s.expires_at,a.admin_id,a.username,a.email,a.role FROM admin_identity_sessions s JOIN admin_accounts a ON a.admin_id=s.admin_id WHERE s.token_hash=? AND a.enabled=1").bind(hsh).first();return s&&Number(s.expires_at)>Math.floor(Date.now()/1000)?s:null}
+async function q(v){const d=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v)));return[...d].map(b=>b.toString(16).padStart(2,"0")).join("")}
+function x(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return[...a].map(b=>b.toString(16).padStart(2,"0")).join("")}
+function j(d,s=200){return new Response(JSON.stringify(d),{status:s,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}})}
