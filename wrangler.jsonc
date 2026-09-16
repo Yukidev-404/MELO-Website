@@ -15,7 +15,10 @@
     "binding": "ASSETS",
     "run_worker_first": [
       "/api/*",
-      "/admin/*"
+      "/admin/*",
+      "/get-melo",
+      "/get-melo/*",
+      "/download/*"
     ]
   },
   "d1_databases": [
