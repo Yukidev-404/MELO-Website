@@ -1,51 +1,70 @@
 (()=>{
-const audio=document.getElementById('audio');
-const panel=document.getElementById('playerPanel');
-const nowName=document.getElementById('nowName');
-const nowMeta=document.getElementById('nowMeta');
-const playBtn=document.getElementById('playBtn');
+const audio=document.getElementById('audio'),panel=document.getElementById('playerPanel'),nowName=document.getElementById('nowName'),nowMeta=document.getElementById('nowMeta'),playBtn=document.getElementById('playBtn');
 if(!audio||!panel)return;
+const MIRRORS=['https://de1.api.radio-browser.info','https://nl1.api.radio-browser.info','https://at1.api.radio-browser.info'];
+const favKey='melo-radio-favorites-v1',histKey='melo-radio-history-v1',lastKey='melo-radio-last-v2',queueKey='melo-radio-queue-v1';
+let active=null,startedAt=0,metaAbort=null,metaTimer=null,sleepEnd=0,sleepTimer=null,queue=[];
+const store=(k,d)=>{try{localStorage.setItem(k,JSON.stringify(d))}catch{}};const read=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+async function api(path){for(const b of MIRRORS){try{const r=await fetch(b+path,{headers:{Accept:'application/json'}});if(r.ok)return await r.json()}catch{}}throw Error('offline')}
 
-/* MELO Radio dock */
-const dock=document.createElement('aside');
-dock.className='radio-dock';
-dock.innerHTML=`<div class="radio-dock-art" id="dockArt">MELO</div><div class="radio-dock-copy"><small id="dockStatus">READY</small><b id="dockName">Nothing tuned in.</b><span id="dockMeta">Choose a station to start listening.</span></div><button id="dockPlay" aria-label="Play or pause radio">▶</button><button id="dockTimer" class="dock-timer" aria-label="Sleep timer">SLEEP</button>`;
-document.body.appendChild(dock);
-const dockName=document.getElementById('dockName');
-const dockMeta=document.getElementById('dockMeta');
-const dockStatus=document.getElementById('dockStatus');
-const dockArt=document.getElementById('dockArt');
-const dockPlay=document.getElementById('dockPlay');
-const dockTimer=document.getElementById('dockTimer');
+/* dock + player status */
+const dock=document.createElement('aside');dock.className='radio-dock';dock.innerHTML=`<div class="radio-dock-art" id="dockArt">MELO</div><div class="radio-dock-copy"><small id="dockStatus">READY</small><b id="dockName">Nothing tuned in.</b><span id="dockMeta">Choose a station to start listening.</span></div><button id="dockPlay">▶</button><button id="dockTimer" class="dock-timer">SLEEP</button>`;document.body.appendChild(dock);
+const dockName=dock.querySelector('#dockName'),dockMeta=dock.querySelector('#dockMeta'),dockStatus=dock.querySelector('#dockStatus'),dockArt=dock.querySelector('#dockArt'),dockPlay=dock.querySelector('#dockPlay'),dockTimer=dock.querySelector('#dockTimer');
+const status=s=>{dockStatus.textContent=s;dock.classList.toggle('playing',s==='LIVE');};
+function syncDock(){dockName.textContent=nowName.textContent;dockMeta.textContent=nowMeta.textContent;dockPlay.textContent=audio.paused?'▶':'❚❚';const img=document.querySelector('#nowArt img');dockArt.innerHTML=img?`<img src="${esc(img.src)}" alt="">`:'MELO';if(audio.error)status('OFFLINE');else if(audio.readyState===0&&active)status('CONNECTING');else if(audio.waiting)status('BUFFERING');else if(!audio.paused)status('LIVE');else status(active?'PAUSED':'READY');}
+['loadstart','canplay','playing','pause','waiting','stalled','error','abort','emptied'].forEach(e=>audio.addEventListener(e,syncDock));dockPlay.onclick=()=>playBtn.click();
+new MutationObserver(syncDock).observe(nowName,{childList:true,characterData:true,subtree:true});new MutationObserver(syncDock).observe(nowMeta,{childList:true,characterData:true,subtree:true});
+const io=new IntersectionObserver(es=>dock.classList.toggle('visible',!es[0].isIntersecting),{threshold:0});io.observe(panel);
 
-dockPlay.onclick=()=>playBtn.click();
-const syncDock=()=>{
-  const active=nowName.textContent!=='Nothing tuned in.'&&nowName.textContent!=='Live radio';
-  dockName.textContent=nowName.textContent;
-  dockMeta.textContent=nowMeta.textContent;
-  dockStatus.textContent=audio.error?'OFFLINE':audio.paused?(active?'PAUSED':'READY'):'LIVE';
-  dockPlay.textContent=audio.paused?'▶':'❚❚';
-  dock.classList.toggle('playing',!audio.paused);
-  const img=document.querySelector('#nowArt img');
-  dockArt.innerHTML=img?`<img src="${img.src}" alt="">`:'MELO';
-};
-['play','pause','error','loadstart','waiting','playing'].forEach(e=>audio.addEventListener(e,syncDock));
-const observer=new MutationObserver(syncDock);
-observer.observe(nowName,{childList:true,characterData:true,subtree:true});
-observer.observe(nowMeta,{childList:true,characterData:true,subtree:true});
+/* status badge + visualizer */
+const badge=document.createElement('span');badge.className='radio-status-badge';badge.textContent='READY';panel.appendChild(badge);
+const canvas=document.createElement('canvas');canvas.className='radio-visualizer';panel.appendChild(canvas);const ctx=canvas.getContext('2d');let raf=0;function draw(){const w=canvas.clientWidth,h=canvas.clientHeight,d=devicePixelRatio||1;if(canvas.width!==w*d||canvas.height!==h*d){canvas.width=w*d;canvas.height=h*d;ctx.scale(d,d)}ctx.clearRect(0,0,w,h);const t=performance.now()/650;for(let i=0;i<24;i++){const x=(i+.5)*w/24;const amp=audio.paused?.12:.28+.18*Math.sin(t+i*.8);const bar=Math.max(2,h*amp);ctx.fillStyle='rgba(255,59,152,.65)';ctx.fillRect(x-1,h-bar,2,bar)}raf=requestAnimationFrame(draw)}draw();
+function updateBadge(){let s='READY';if(audio.error)s='OFFLINE';else if(audio.readyState===0&&active&&!audio.paused)s='CONNECTING';else if(audio.waiting||audio.readyState<3)s=active&&!audio.paused?'BUFFERING':'READY';else if(!audio.paused)s='LIVE';else if(active)s='PAUSED';badge.textContent=s;badge.dataset.state=s;syncDock()}
+['loadstart','canplay','playing','pause','waiting','stalled','error','progress','timeupdate'].forEach(e=>audio.addEventListener(e,updateBadge));
 
-/* Sleep timer */
-const timerMenu=document.createElement('div');
-timerMenu.className='sleep-menu';
-timerMenu.innerHTML=`<div class="sleep-title">SLEEP TIMER</div><button data-min="0">OFF</button><button data-min="15">15 MIN</button><button data-min="30">30 MIN</button><button data-min="45">45 MIN</button><button data-min="60">60 MIN</button><div class="sleep-count" id="sleepCount"></div>`;
-dock.appendChild(timerMenu);
-const sleepCount=document.getElementById('sleepCount');
-let sleepEnd=0,sleepInterval=null;
-function stopTimer(){sleepEnd=0;if(sleepInterval)clearInterval(sleepInterval);sleepInterval=null;sleepCount.textContent='';dockTimer.textContent='SLEEP';}
-function startTimer(minutes){if(!minutes){stopTimer();return}sleepEnd=Date.now()+minutes*60000;dockTimer.textContent=`${minutes}M`;if(sleepInterval)clearInterval(sleepInterval);sleepInterval=setInterval(()=>{const left=Math.max(0,sleepEnd-Date.now());if(!left){clearInterval(sleepInterval);sleepInterval=null;audio.pause();sleepEnd=0;dockTimer.textContent='SLEEP';sleepCount.textContent='Playback stopped.';setTimeout(()=>sleepCount.textContent='',3500);syncDock();return}const sec=Math.ceil(left/1000);sleepCount.textContent=`Stops in ${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;},500);}
-dockTimer.onclick=()=>timerMenu.classList.toggle('open');timerMenu.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>{startTimer(Number(b.dataset.min));timerMenu.classList.remove('open')});document.addEventListener('click',e=>{if(!dock.contains(e.target))timerMenu.classList.remove('open')});
+/* sleep timer */
+const menu=document.createElement('div');menu.className='sleep-menu';menu.innerHTML=`<b>SLEEP TIMER</b><button data-min="0">OFF</button><button data-min="15">15 MIN</button><button data-min="30">30 MIN</button><button data-min="45">45 MIN</button><button data-min="60">60 MIN</button><span id="sleepCount"></span>`;dock.appendChild(menu);const sleepCount=menu.querySelector('#sleepCount');
+function stopSleep(){if(sleepTimer)clearInterval(sleepTimer);sleepTimer=null;sleepEnd=0;sleepCount.textContent='';dockTimer.textContent='SLEEP'}function startSleep(min){if(!min){stopSleep();return}if(sleepTimer)clearInterval(sleepTimer);sleepEnd=Date.now()+min*60000;dockTimer.textContent=`${min}M`;sleepTimer=setInterval(()=>{const left=Math.max(0,sleepEnd-Date.now()),sec=Math.ceil(left/1000);sleepCount.textContent=left?`Stops in ${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`:'Stopped';if(!left){clearInterval(sleepTimer);sleepTimer=null;audio.pause();dockTimer.textContent='SLEEP';setTimeout(()=>sleepCount.textContent='',3000)}},500)}
+dockTimer.onclick=e=>{e.stopPropagation();menu.classList.toggle('open')};menu.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>{startSleep(+b.dataset.min);menu.classList.remove('open')});document.addEventListener('click',e=>{if(!dock.contains(e.target))menu.classList.remove('open')});
 
-/* Keep the player docked only after the main player leaves the viewport. */
-const io=new IntersectionObserver(entries=>dock.classList.toggle('visible',!entries[0].isIntersecting),{threshold:0});io.observe(panel);
-syncDock();
+/* station capture + metadata */
+async function loadStation(id){try{return await api('/json/stations/byuuid/'+encodeURIComponent(id))}catch{return null}}
+async function selectStation(id){const s=await loadStation(id);if(!s)return;active=s;startedAt=Date.now();store(lastKey,{station:s,at:startedAt});syncDetails();startMetadata();}
+function syncDetails(){if(!active)return;const img=document.querySelector('#nowArt img');const art=active.favicon||img?.src||'';if(art)dockArt.innerHTML=`<img src="${esc(art)}" alt="">`;const info=document.querySelector('#radioStreamInfo');if(info)info.textContent=`${active.country||'Worldwide'} · ${active.language||'Language unknown'} · ${active.codec||'LIVE'} · ${active.bitrate||'—'} kbps`;}
+function updateElapsed(){const el=document.querySelector('#radioElapsed');if(!el||!startedAt)return;const m=Math.floor((Date.now()-startedAt)/60000),s=Math.floor((Date.now()-startedAt)/1000)%60;el.textContent=`PLAYING FOR ${m}M ${String(s).padStart(2,'0')}S`}
+setInterval(updateElapsed,1000);
+
+/* best-effort ICY metadata reader: works only when the station permits CORS */
+async function readIcy(url){if(metaAbort)metaAbort.abort();metaAbort=new AbortController();try{const r=await fetch(url,{headers:{'Icy-MetaData':'1'},signal:metaAbort.signal,cache:'no-store'});if(!r.ok||!r.body)return null;const len=+(r.headers.get('icy-metaint')||0);if(!len)return null;const reader=r.body.getReader();let buf=new Uint8Array(0),audioBytes=0;while(audioBytes<len*3){const chunk=await reader.read();if(chunk.done)break;const x=new Uint8Array(buf.length+chunk.value.length);x.set(buf);x.set(chunk.value,buf.length);buf=x;while(buf.length>=len+1){buf=buf.slice(len);const n=buf[0]*16;if(buf.length<n+1)break;const md=new TextDecoder().decode(buf.slice(1,n+1)).replace(/\0/g,'');buf=buf.slice(n+1);const m=md.match(/StreamTitle='([^']*)'/i);if(m&&m[1])return m[1];}audioBytes+=chunk.value.length}return null}catch{return null}}
+async function startMetadata(){if(!active)return;const title=await readIcy(active.url_resolved);if(title){const match=title.split(' - ');const song=match.length>1?match.slice(1).join(' - '):title;const artist=match.length>1?match[0]:'';const el=document.querySelector('#radioNowTrack');if(el)el.innerHTML=`<b>${esc(song)}</b>${artist?`<span>${esc(artist)}</span>`:''}`;if('mediaSession'in navigator){try{navigator.mediaSession.metadata=new MediaMetadata({title:song,artist:artist||active.name||'Live Radio',album:active.name||'MELO Radio',artwork:active.favicon?[{src:active.favicon}]:[]})}catch{}}}if(audio&&!audio.paused){metaTimer=setTimeout(startMetadata,20000)}}
+
+/* capture card clicks before base handlers */
+document.addEventListener('click',e=>{const b=e.target.closest('[data-play]');if(b){selectStation(b.dataset.play)}},{capture:true});
+
+/* now-playing / stream information panel */
+const info=document.createElement('div');info.className='radio-now-extra';info.innerHTML=`<div id="radioNowTrack"><span>Waiting for station metadata…</span></div><div id="radioStreamInfo">LIVE STREAM</div><div id="radioElapsed">PLAYING FOR 0M 00S</div>`;document.querySelector('.now-copy')?.appendChild(info);
+
+/* discovery browser */
+const world=document.getElementById('worldSection');if(world){const sec=document.createElement('div');sec.className='radio-discovery';sec.innerHTML=`<div class="radio-discovery-head"><div><div class="kicker">DEEP DISCOVERY</div><h3>EXPLORE THE DIAL.</h3></div><div class="radio-filters"><select id="radioGenre"><option value="">ALL GENRES</option><option>rock</option><option>pop</option><option>jazz</option><option>classical</option><option>electronic</option><option>lofi</option><option>ambient</option><option>jpop</option><option>indie</option><option>hiphop</option><option>news</option><option>talk</option></select><select id="radioLanguage"><option value="">ALL LANGUAGES</option></select></div></div><div class="radio-discovery-tabs"><button data-discover="trending">TRENDING</button><button data-discover="recent">RECENTLY ADDED</button><button data-discover="country">COUNTRY BROWSER</button></div><div id="discoveryGrid" class="station-grid"></div>`;world.insertBefore(sec,world.firstChild);const dg=sec.querySelector('#discoveryGrid');
+async function discover(mode){dg.innerHTML='<div class="loading">SCANNING THE AIRWAVES…</div>';try{let p=new URLSearchParams({limit:'20',hidebroken:'true',is_https:'true',reverse:'true'});if(mode==='trending')p.set('order','clickcount');else if(mode==='recent')p.set('order','lastchecktime');else p.set('order','stationcount');const g=sec.querySelector('#radioGenre').value,l=sec.querySelector('#radioLanguage').value;if(g)p.set('tag',g);if(l)p.set('language',l);let list=await api('/json/stations/search?'+p);list=(Array.isArray(list)?list:[]).filter(s=>s.url_resolved&&s.lastcheckok!==0&&s.hls!==1&&/^https:\/\//i.test(s.url_resolved));dg.innerHTML=list.length?list.map(s=>`<article class="station"><div class="station-cover">${s.favicon?`<img src="${esc(s.favicon)}" alt="">`:''}</div><div class="station-title">${esc(s.name)}</div><div class="station-meta">${esc(s.country||'Worldwide')} · ${esc(s.language||'')} · ${s.bitrate||'—'} kbps</div><div class="station-bottom"><button class="station-play" data-play="${esc(s.stationuuid)}">LISTEN ↗</button><button class="station-info" data-info="${esc(s.stationuuid)}">INFO</button></div></article>`).join(''):'<div class="empty">NO SIGNALS FOUND.</div>';dg.querySelectorAll('[data-info]').forEach(b=>b.onclick=()=>showDetails(b.dataset.info))}catch{dg.innerHTML='<div class="empty">DISCOVERY OFFLINE.</div>'}}
+sec.querySelectorAll('[data-discover]').forEach(b=>b.onclick=()=>discover(b.dataset.discover));sec.querySelector('#radioGenre').onchange=()=>discover('trending');sec.querySelector('#radioLanguage').onchange=()=>discover('trending');
+api('/json/languages?order=stationcount&reverse=true&limit=80').then(list=>{sec.querySelector('#radioLanguage').innerHTML='<option value="">ALL LANGUAGES</option>'+list.map(x=>`<option value="${esc(x.name)}">${esc(x.name)} · ${x.stationcount}</option>`).join('')}).catch(()=>{});discover('trending');}
+
+/* station detail modal + sharing */
+const modal=document.createElement('div');modal.className='radio-modal';modal.innerHTML=`<div class="radio-modal-box"><button class="radio-modal-close">×</button><div class="kicker">STATION DETAILS</div><h2 id="detailName">Station</h2><div id="detailBody"></div><div class="radio-modal-actions"><button id="shareStation">SHARE</button><button id="copyStation">COPY LINK</button><a id="stationSite" target="_blank" rel="noopener">WEBSITE ↗</a></div></div>`;document.body.appendChild(modal);modal.querySelector('.radio-modal-close').onclick=()=>modal.classList.remove('open');modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};
+async function showDetails(id){const s=await loadStation(id);if(!s)return;active=active?.stationuuid===id?active:s;modal.dataset.id=id;modal.querySelector('#detailName').textContent=s.name||'Unknown station';modal.querySelector('#detailBody').innerHTML=`<div class="detail-grid"><span>COUNTRY<strong>${esc(s.country||'Worldwide')}</strong></span><span>LANGUAGE<strong>${esc(s.language||'Unknown')}</strong></span><span>GENRE<strong>${esc(s.tags||'Live radio')}</strong></span><span>BITRATE<strong>${esc(s.bitrate||'—')} kbps</strong></span><span>CODEC<strong>${esc(s.codec||'—')}</strong></span><span>LISTENERS / CLICKS<strong>${esc(s.clickcount||0)}</strong></span></div>`;modal.querySelector('#stationSite').href=s.homepage||'#';modal.classList.add('open')}
+window.showDetails=showDetails;document.addEventListener('click',e=>{const b=e.target.closest('[data-play]');if(b){setTimeout(()=>{const info=b.parentElement?.querySelector('[data-info]');},0)}});
+modal.querySelector('#shareStation').onclick=async()=>{const id=modal.dataset.id,s=await loadStation(id);if(!s)return;const data={title:`${s.name} — MELO Radio`,text:`Listen to ${s.name} on MELO Radio`,url:`${location.origin}${location.pathname}?station=${encodeURIComponent(id)}`};try{if(navigator.share)await navigator.share(data);else await navigator.clipboard.writeText(data.url)}catch{}};modal.querySelector('#copyStation').onclick=async()=>{const id=modal.dataset.id,url=`${location.origin}${location.pathname}?station=${encodeURIComponent(id)}`;try{await navigator.clipboard.writeText(url);modal.querySelector('#copyStation').textContent='COPIED';setTimeout(()=>modal.querySelector('#copyStation').textContent='COPY LINK',1600)}catch{}};
+
+/* queue / persistent last station / keyboard */
+queue=read(queueKey,[]);const queueBox=document.createElement('div');queueBox.className='radio-queue';queueBox.innerHTML='<div class="kicker">UP NEXT</div><div id="queueList"></div><button id="addCurrent">+ ADD CURRENT STATION</button>';document.querySelector('.history-section')?.before(queueBox);const queueList=queueBox.querySelector('#queueList');
+function renderQueue(){queueList.innerHTML=queue.length?queue.map((s,i)=>`<div><span>${String(i+1).padStart(2,'0')} · ${esc(s.name)}</span><button data-q="${esc(s.stationuuid)}">PLAY</button></div>`).join(''):'<small>Queue stations to build your little broadcast run.</small>';queueList.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const s=queue.find(x=>x.stationuuid===b.dataset.q);if(s){audio.src=s.url_resolved;audio.load();audio.play().catch(()=>{});active=s;startedAt=Date.now();syncDetails()}})}renderQueue();queueBox.querySelector('#addCurrent').onclick=()=>{if(!active)return;if(!queue.some(s=>s.stationuuid===active.stationuuid)){queue.push(active);store(queueKey,queue);renderQueue()}};
+const last=read(lastKey,null);if(last?.station?.stationuuid){const resume=document.createElement('div');resume.className='radio-resume';resume.innerHTML=`<span>LAST SIGNAL: <b>${esc(last.station.name)}</b></span><button>RESUME</button>`;panel.before(resume);resume.querySelector('button').onclick=async()=>{const s=await loadStation(last.station.stationuuid);if(s){active=s;startedAt=Date.now();audio.src=s.url_resolved;audio.load();audio.play().catch(()=>{});resume.remove();updateBadge();syncDetails();startMetadata()}}}
+window.addEventListener('beforeunload',()=>{if(active)store(lastKey,{station:active,at:startedAt})});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select'))return;if(e.code==='Space'){e.preventDefault();playBtn.click()}if(e.code==='ArrowUp'){audio.volume=Math.min(1,audio.volume+.05);const v=document.getElementById('volume');if(v)v.value=Math.round(audio.volume*100)}if(e.code==='ArrowDown'){audio.volume=Math.max(0,audio.volume-.05);const v=document.getElementById('volume');if(v)v.value=Math.round(audio.volume*100)}if(e.key.toLowerCase()==='m'){audio.muted=!audio.muted}if(e.key.toLowerCase()==='s')dockTimer.click()});
+
+/* query-string deep link */
+const qs=new URLSearchParams(location.search),sid=qs.get('station');if(sid){loadStation(sid).then(s=>{if(!s)return;active=s;startedAt=Date.now();audio.src=s.url_resolved;audio.load();audio.play().catch(()=>{});syncDetails();startMetadata()})}
+syncDock();updateBadge();
 })();
