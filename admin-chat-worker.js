@@ -34,7 +34,7 @@ async function githubReleases(){
   const r=await fetch(`https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=20`,{headers:{Accept:'application/vnd.github+json','User-Agent':'MELO-Website-Release-Desk','X-GitHub-Api-Version':'2022-11-28'}});
   if(!r.ok)throw new Error(`GitHub releases: ${r.status}`);
   const releases=await r.json();
-  return releases.filter(x=>!x.draft);
+  return releases.filter(x=>!x.draft&&!x.prerelease);
 }
 
 function releasePayload(releases){
