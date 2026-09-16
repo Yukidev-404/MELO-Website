@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GET MELO. / MELO</title>
+<meta name="description" content="Bring MELO home. Download the MELO desktop music player for Windows.">
+<link rel="icon" href="assets/melo-logo.svg" type="image/svg+xml">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+:root{--paper:#fffaf2;--paper2:#f4e8df;--ink:#171514;--muted:#777067;--pink:#ff3b98;--line:rgba(23,21,20,.16)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.page{min-height:100vh;position:relative;overflow:hidden}
+.page:before{content:'';position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 72% 40%,rgba(255,59,152,.12),transparent 26%),radial-gradient(circle at 15% 82%,rgba(23,21,20,.045),transparent 24%)}
+.grid{position:fixed;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(23,21,20,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(23,21,20,.055) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,transparent,black 18%,black 82%,transparent)}
+header{height:72px;padding:0 42px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);position:relative;z-index:5;background:rgba(255,250,242,.78);backdrop-filter:blur(10px)}
+.brand{display:flex;align-items:center;gap:11px;font-family:'Space Grotesk';font-weight:700;letter-spacing:-.05em;font-size:19px}.brand img{width:30px;height:30px;object-fit:contain}.brand span{color:var(--pink)}
+.nav{display:flex;align-items:center;gap:24px;font-size:8px;letter-spacing:.06em}.nav a{transition:color .2s}.nav a:hover{color:var(--pink)}.back{border:1px solid var(--ink);padding:9px 12px;background:var(--paper);transition:.2s}.back:hover{background:var(--ink);color:var(--paper)}
+main{position:relative;z-index:2;max-width:1240px;margin:auto;padding:70px 42px 80px}
+.kicker{font-size:8px;color:var(--pink);letter-spacing:.09em;margin-bottom:14px}.kicker i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pink);margin-right:7px}
+.hero{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);gap:70px;align-items:center;min-height:650px}
+h1{font-family:'Space Grotesk';font-size:clamp(68px,9.5vw,145px);line-height:.78;letter-spacing:-.09em;margin:0 0 30px;max-width:760px}h1 em{font-style:normal;color:var(--pink)}
+.lead{font-family:'Space Grotesk';font-size:17px;line-height:1.45;letter-spacing:-.025em;max-width:530px;margin:0 0 28px}.sub{font-size:9px;line-height:1.8;color:var(--muted);max-width:510px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:34px}.download{display:inline-flex;align-items:center;gap:15px;background:var(--ink);color:var(--paper);border:1px solid var(--ink);padding:17px 19px;font-family:'DM Mono';font-size:9px;letter-spacing:.04em;box-shadow:5px 5px 0 rgba(255,59,152,.7);transition:transform .2s,box-shadow .2s,background .2s}.download:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 rgba(255,59,152,.7);background:#292625}.secondary{padding:17px 15px;font-size:8px;border:1px solid var(--line);transition:.2s}.secondary:hover{border-color:var(--pink);color:var(--pink)}
+.note{font-size:7px;color:var(--muted);margin-top:15px}.note strong{color:var(--ink)}
+.visual{position:relative;min-height:560px;display:grid;place-items:center}.orbit{position:absolute;width:min(42vw,510px);height:min(42vw,510px);border:1px dashed rgba(255,59,152,.3);border-radius:50%;animation:spin 32s linear infinite}.orbit:before,.orbit:after{content:'';position:absolute;border:1px solid rgba(23,21,20,.1);border-radius:50%;inset:9%}.orbit:after{inset:19%;border-style:dotted}.spark{position:absolute;color:var(--pink);font-size:24px;animation:float 3.6s ease-in-out infinite alternate}.s1{left:5%;top:15%}.s2{right:7%;top:26%;animation-delay:-1s}.s3{left:17%;bottom:17%;animation-delay:-2s}.s4{right:15%;bottom:11%;animation-delay:-.5s}
+.device{position:relative;width:min(72%,380px);aspect-ratio:1/1;border-radius:50%;background:url('assets/melo_disc_texture_hr.png') center/contain no-repeat;filter:drop-shadow(14px 18px 0 rgba(23,21,20,.08));animation:floatDisc 5s ease-in-out infinite alternate}.device:after{content:'';position:absolute;inset:20%;border-radius:50%;background:var(--paper2);border:2px solid var(--ink);box-shadow:inset 0 0 0 9px rgba(255,255,255,.3)}.device-label{position:absolute;z-index:2;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;width:38%}.device-label b{font-family:Georgia,serif;font-size:clamp(22px,3vw,34px);font-weight:400;display:block;line-height:.9}.device-label small{display:block;font-family:Georgia,serif;font-style:italic;font-size:9px;margin-top:8px}.device-label span{display:block;font-size:5px;margin-top:8px;letter-spacing:.08em}.badge{position:absolute;z-index:4;right:3%;bottom:15%;background:var(--paper);border:1px solid var(--ink);padding:11px 13px;box-shadow:4px 4px 0 rgba(23,21,20,.13);font-size:7px;transform:rotate(3deg)}.badge b{font-family:'Space Grotesk';font-size:12px;display:block;margin-top:3px}
+.section{border-top:1px solid var(--line);padding:65px 0}.section-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:28px}.section h2{font-family:'Space Grotesk';font-size:clamp(34px,5vw,62px);letter-spacing:-.07em;line-height:.9;margin:0}.section-head p{font-size:8px;color:var(--muted);line-height:1.7;max-width:320px;margin:0}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.feature{border:1px solid var(--ink);padding:23px 20px;min-height:180px;background:rgba(255,250,242,.7);position:relative}.feature:nth-child(2){transform:translateY(15px)}.feature:nth-child(3){transform:translateY(30px)}.num{font-size:7px;color:var(--pink);margin-bottom:38px}.feature h3{font-family:'Space Grotesk';font-size:19px;letter-spacing:-.04em;margin:0 0 8px}.feature p{font-size:7px;line-height:1.7;color:var(--muted);margin:0}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:12px}.install{border:1px solid var(--ink);padding:25px;background:var(--ink);color:var(--paper);min-height:180px}.install .kicker{margin-bottom:25px}.install h3{font-family:'Space Grotesk';font-size:25px;letter-spacing:-.05em;margin:0 0 12px}.install p{font-size:7px;line-height:1.7;color:#c8c0b8;margin:0}.compat{border:1px solid var(--ink);padding:25px;min-height:180px}.compat h3{font-family:'Space Grotesk';font-size:25px;letter-spacing:-.05em;margin:0 0 18px}.compat ul{padding:0;margin:0;list-style:none;font-size:8px;line-height:2.1}.compat li:before{content:'♡';color:var(--pink);margin-right:8px}
+footer{border-top:1px solid var(--line);padding:22px 42px;display:flex;justify-content:space-between;gap:20px;font-size:7px;color:var(--muted);position:relative;z-index:2}footer strong{color:var(--ink);font-family:'Space Grotesk'}
+.cursor{position:fixed;left:0;top:0;width:9px;height:9px;border-radius:50%;background:var(--pink);pointer-events:none;z-index:100;transform:translate(-50%,-50%);transition:width .15s,height .15s;box-shadow:0 0 0 4px rgba(255,59,152,.1)}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes float{to{transform:translateY(-9px) rotate(4deg)}}@keyframes floatDisc{to{transform:translateY(-10px) rotate(3deg)}}
+@media(max-width:850px){header{padding:0 20px}.nav a:not(.back){display:none}main{padding:45px 20px 60px}.hero{grid-template-columns:1fr;gap:30px;min-height:auto}.hero-copy{padding-top:25px}h1{font-size:clamp(58px,18vw,100px)}.lead{font-size:15px}.visual{min-height:430px}.orbit{width:330px;height:330px}.device{width:300px}.features{grid-template-columns:1fr}.feature:nth-child(2),.feature:nth-child(3){transform:none}.bottom{grid-template-columns:1fr}.section-head{display:block}.section-head p{margin-top:15px}footer{padding:20px;display:block}footer span{display:block;margin-top:8px}}
+@media(max-width:480px){header{height:62px}.brand{font-size:16px}.brand img{width:25px;height:25px}main{padding-left:16px;padding-right:16px}.actions{display:block}.download,.secondary{width:100%;justify-content:center;display:flex}.secondary{margin-top:9px}.visual{min-height:350px}.device{width:245px}.badge{right:0;bottom:8%}.section{padding:48px 0}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.orbit,.device,.spark{animation:none}}
+@media(pointer:coarse){.cursor{display:none}}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="grid"></div>
+<div class="cursor" id="cursor"></div>
+<header>
+<a class="brand" href="index.html"><img src="assets/melo-logo.svg" alt="MELO"><span>MELO.</span></a>
+<nav class="nav"><a href="melo-web.html">MELO WEB</a><a href="index.html#map">THE WORLD</a><a class="back" href="index.html">← BACK HOME</a></nav>
+</header>
+<main>
+<section class="hero">
+<div class="hero-copy">
+<div class="kicker"><i></i>ROOM 04 / BRING IT HOME</div>
+<h1>GET<br>MELO<em>.</em></h1>
+<p class="lead">Your music deserves a little room of its own.</p>
+<p class="sub">MELO Desktop is a personal music player built around your library, your listening space and the way you want music to feel. Start with the Windows build and make it yours.</p>
+<div class="actions"><a class="download" href="https://github.com/Yukidev-404/MELO-Website/releases" target="_blank" rel="noopener">DOWNLOAD FOR WINDOWS ↗</a><a class="secondary" href="melo-web.html">TRY MELO WEB →</a></div>
+<div class="note"><strong>WINDOWS DESKTOP</strong> &nbsp;•&nbsp; downloads are served through the MELO GitHub releases.</div>
+</div>
+<div class="visual" aria-hidden="true">
+<div class="orbit"></div><span class="spark s1">✦</span><span class="spark s2">♡</span><span class="spark s3">✧</span><span class="spark s4">≋</span>
+<div class="device"><div class="device-label"><b>MELO</b><small>Music for<br>a better you.</small><span>メロディー ♡</span></div></div>
+<div class="badge">CURRENTLY<br><b>WINDOWS</b></div>
+</div>
+</section>
+<section class="section">
+<div class="section-head"><h2>ONE PLAYER.<br>YOUR WORLD.</h2><p>Less like another app. More like a little listening room that happens to live on your desktop.</p></div>
+<div class="features">
+<article class="feature"><div class="num">01 / YOUR LIBRARY</div><h3>LOCAL MUSIC</h3><p>Keep your own music close. MELO gives your local collection a place to live alongside the rest of your listening world.</p></article>
+<article class="feature"><div class="num">02 / CONNECTED</div><h3>SPOTIFY</h3><p>Connect your own Spotify account and bring your existing listening into the MELO experience.</p></article>
+<article class="feature"><div class="num">03 / MADE TO FEEL</div><h3>THE ATMOSPHERE</h3><p>A custom interface, visual details and tiny interactions designed to make opening your music player feel good.</p></article>
+</div>
+</section>
+<section class="section">
+<div class="bottom">
+<div class="install"><div class="kicker"><i></i>START HERE</div><h3>DOWNLOAD.<br>INSTALL.<br>PRESS PLAY.</h3><p>Grab the latest Windows release, install it, then open MELO. The rest of the room is yours.</p></div>
+<div class="compat"><div class="kicker"><i></i>GOOD TO KNOW</div><h3>BEFORE YOU ENTER.</h3><ul><li>Windows desktop build</li><li>Local music playback</li><li>Spotify connection uses your own account</li><li>Internet connection required for connected features</li></ul></div>
+</div>
+</section>
+</main>
+<footer><strong>MELO. / MUSIC FOR A BETTER YOU.</strong><span>ROOM 04 / GET MELO &nbsp;•&nbsp; good music, brighter days ♡</span></footer>
+</div>
+<script>
+const cursor=document.getElementById('cursor');
+if(cursor&&!matchMedia('(pointer:coarse)').matches){
+ addEventListener('pointermove',e=>{cursor.style.left=e.clientX+'px';cursor.style.top=e.clientY+'px'});
+ document.querySelectorAll('a,.download,.secondary').forEach(el=>{el.addEventListener('mouseenter',()=>{cursor.style.width='18px';cursor.style.height='18px'});el.addEventListener('mouseleave',()=>{cursor.style.width='9px';cursor.style.height='9px'})});
+}
+</script>
+</body>
+</html>
