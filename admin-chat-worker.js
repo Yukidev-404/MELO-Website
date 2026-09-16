@@ -2,7 +2,7 @@ import statsWorker from './stats-worker.js';
 const C="melo_admin_session";
 const H=200;
 const ONLINE_WINDOW=30;
-const RELEASE_REPO="Yukidev-404/MELO-Website";
+const RELEASE_REPO="Yukidev-404/MELO-Desktop";
 
 async function servePlayerCard(request,env,pathname){
   const assetUrl=new URL(request.url);
@@ -30,8 +30,10 @@ async function serveGetMelo(request,env){
   return new Response(body,{status:asset.status,headers});
 }
 
-async function githubReleases(){
-  const r=await fetch(`https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=20`,{headers:{Accept:'application/vnd.github+json','User-Agent':'MELO-Website-Release-Desk','X-GitHub-Api-Version':'2022-11-28'} });
+async function githubReleases(env){
+  const headers={Accept:'application/vnd.github+json','User-Agent':'MELO-Website-Release-Desk','X-GitHub-Api-Version':'2022-11-28'};
+  if(env?.GITHUB_TOKEN)headers.Authorization=`Bearer ${env.GITHUB_TOKEN}`;
+  const r=await fetch(`https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=20`,{headers});
   if(!r.ok)throw new Error(`GitHub releases: ${r.status}`);
   const releases=await r.json();
   return releases.filter(x=>!x.draft&&!x.prerelease);
@@ -41,15 +43,15 @@ function releasePayload(releases){
   return releases.map(r=>({id:r.id,name:r.name,tag_name:r.tag_name,body:r.body||'',created_at:r.created_at,published_at:r.published_at,prerelease:!!r.prerelease,assets:(r.assets||[]).map(a=>({id:a.id,name:a.name,size:a.size,content_type:a.content_type,download_count:a.download_count}))}));
 }
 
-async function releaseApi(request,url){
+async function releaseApi(request,url,env){
   if(request.method!=='GET')return j({error:'Method not allowed.'},405);
-  try{const releases=await githubReleases();const limit=Math.min(Math.max(Number(url.searchParams.get('limit')||10),1),20);return j({ok:true,repository:RELEASE_REPO,releases:releasePayload(releases).slice(0,limit)},{'Cache-Control':'public, max-age=60, s-maxage=60'});}catch(e){return j({ok:false,error:'Release service unavailable.'},502)}
+  try{const releases=await githubReleases(env);const limit=Math.min(Math.max(Number(url.searchParams.get('limit')||10),1),20);return j({ok:true,repository:RELEASE_REPO,releases:releasePayload(releases).slice(0,limit)},{'Cache-Control':'public, max-age=60, s-maxage=60'});}catch(e){return j({ok:false,error:'Release service unavailable.'},502)}
 }
 
-async function downloadRelease(request,url){
+async function downloadRelease(request,url,env){
   if(request.method!=='GET'&&request.method!=='HEAD')return j({error:'Method not allowed.'},405);
   try{
-    const releases=await githubReleases();let release=null;
+    const releases=await githubReleases(env);let release=null;
     if(url.pathname==='/download/latest')release=releases[0]||null;
     else {const id=url.pathname.split('/').pop();release=releases.find(r=>String(r.id)===String(decodeURIComponent(id)))||null;}
     if(!release)return j({error:'No published MELO release found.'},404);
@@ -57,7 +59,9 @@ async function downloadRelease(request,url){
     const assets=release.assets||[];
     const asset=(requested&&assets.find(a=>a.name===requested))||assets.find(a=>/\.(exe|msi|zip)$/i.test(a.name));
     if(!asset)return j({error:'No downloadable Windows asset found in this release.'},404);
-    const upstream=await fetch(asset.browser_download_url,{redirect:'follow'});
+    const upstreamHeaders={Accept:'application/octet-stream','User-Agent':'MELO-Website-Release-Desk'};
+    if(env?.GITHUB_TOKEN)upstreamHeaders.Authorization=`Bearer ${env.GITHUB_TOKEN}`;
+    const upstream=await fetch(asset.browser_download_url,{headers:upstreamHeaders,redirect:'follow'});
     if(!upstream.ok)return new Response('Release asset unavailable.',{status:upstream.status});
     const headers=new Headers(upstream.headers);headers.set('Content-Disposition',`attachment; filename="${asset.name.replace(/"/g,'')}"`);headers.set('Cache-Control','public, max-age=300');headers.delete('set-cookie');
     return new Response(upstream.body,{status:upstream.status,headers});
@@ -68,8 +72,8 @@ export default{async fetch(r,e,c){
   const u=new URL(r.url);
   if(u.pathname==="/player-card.html"||u.pathname==="/player-card.html/"||u.pathname==="/player-card-v2.html"||u.pathname==="/player-card-v2.html/"||u.pathname==="/player-card-live.html"||u.pathname==="/player-card-live.html/")return servePlayerCard(r,e,u.pathname);
   if(u.pathname==="/get-melo.html"||u.pathname==="/get-melo.html/")return serveGetMelo(r,e);
-  if(u.pathname==="/api/releases")return releaseApi(r,u);
-  if(u.pathname==="/download/latest"||u.pathname.startsWith("/download/release/"))return downloadRelease(r,u);
+  if(u.pathname==="/api/releases")return releaseApi(r,u,e);
+  if(u.pathname==="/download/latest"||u.pathname.startsWith("/download/release/"))return downloadRelease(r,u,e);
   if(u.pathname.startsWith("/api/auth/"))return e.AUTH.fetch(r);
   if(u.pathname==="/api/stats"||u.pathname==="/api/stats/event")return statsWorker.fetch(r,e,c);
   if(u.pathname.startsWith("/api/admin/chat")||u.pathname==="/api/admin/notifications"||u.pathname==="/api/admin/presence"||u.pathname==="/api/admin/audit-log"||u.pathname==="/api/admin/flag"||u.pathname==="/api/admin/crash/status"||u.pathname==="/api/admin/release-status")return h(r,e,u,c);
