@@ -7,8 +7,7 @@
   const add=(out,u)=>{
     if(!u)return;
     const s=String(u);
-    const p=proxy(s);
-    if(p)out.push(p);
+    const p=proxy(s);if(p)out.push(p);
     if(/^https:\/\//i.test(s))out.push(s);
   };
   const sourcesFor=(raw,hostHint)=>{
@@ -57,10 +56,7 @@
     img.dataset.artRendererRaw='1';
     const src=img.currentSrc||img.src;
     const title=holder.closest('.station')?.querySelector('.station-title')?.textContent||img.alt||'MELO';
-    const fallback=document.createElement('span');
-    fallback.className='station-fallback';
-    fallback.textContent=initials(title);
-    img.replaceWith(fallback);
+    img.replaceWith(document.createElement('span'));
     load(holder,src?[proxy(src),src]:[],title);
   };
   const scan=root=>{
@@ -72,7 +68,7 @@
     root.querySelectorAll('.station-cover img').forEach(protectRaw);
   };
   const style=document.createElement('style');
-  style.textContent='.station-cover{position:relative;overflow:hidden}.station-cover .station-fallback{position:relative;z-index:1;display:flex;width:100%;height:100%;align-items:center;justify-content:center;font:700 28px "Space Grotesk",sans-serif;letter-spacing:-.05em;color:var(--ink,#171414)}.station-cover.has-art .station-fallback{display:none}.station-cover .station-art.has-art img,.station-cover>img{width:100%;height:100%;object-fit:cover;display:block;image-rendering:auto;-webkit-backface-visibility:hidden;backface-visibility:hidden}.station-cover.has-art .station-fallback{display:none}';
+  style.textContent='.station-cover{position:relative;overflow:hidden}.station-cover .station-fallback{position:relative;z-index:1;display:flex;width:100%;height:100%;align-items:center;justify-content:center;font:700 28px "Space Grotesk",sans-serif;letter-spacing:-.05em;color:var(--ink,#171414)}.station-cover.has-art .station-fallback{display:none}.station-cover .station-art.has-art img,.station-cover>img{position:absolute;inset:0;width:100%;height:100%;min-width:100%;min-height:100%;max-width:none;max-height:none;object-fit:cover;object-position:center;display:block;image-rendering:auto;-webkit-backface-visibility:hidden;backface-visibility:hidden}.station-cover.has-art .station-fallback{display:none}';
   document.head.appendChild(style);
   const start=()=>{
     scan(document);
