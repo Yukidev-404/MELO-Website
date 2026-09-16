@@ -25,13 +25,13 @@ async function serveGetMelo(request,env){
   const asset=await env.ASSETS.fetch(new Request(assetUrl.toString(),request));
   if(!asset.ok)return asset;
   let body=await asset.text();
-  if(!body.includes("get-melo-releases.js"))body=body.replace(/<\/body>/i,'<script src="/get-melo-releases.js?v=20260916-1"></script></body>');
+  if(!body.includes("get-melo-releases.js"))body=body.replace(/<\/body>/i,'<script src="/get-melo-releases.js?v=20260916-2"></script></body>');
   const headers=new Headers(asset.headers);headers.set("Content-Type","text/html; charset=UTF-8");headers.set("Cache-Control","no-store");headers.delete("Content-Length");
   return new Response(body,{status:asset.status,headers});
 }
 
 async function githubReleases(){
-  const r=await fetch(`https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=20`,{headers:{Accept:'application/vnd.github+json','User-Agent':'MELO-Website-Release-Desk','X-GitHub-Api-Version':'2022-11-28'}});
+  const r=await fetch(`https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=20`,{headers:{Accept:'application/vnd.github+json','User-Agent':'MELO-Website-Release-Desk','X-GitHub-Api-Version':'2022-11-28'} });
   if(!r.ok)throw new Error(`GitHub releases: ${r.status}`);
   const releases=await r.json();
   return releases.filter(x=>!x.draft&&!x.prerelease);
