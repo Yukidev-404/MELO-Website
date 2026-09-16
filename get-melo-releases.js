@@ -1,6 +1,6 @@
 (()=>{
 const WORKER='https://melo-website.tajtaranga.workers.dev';
-const RELEASES_PAGE='/previous-releases.html';
+const RELEASES_PAGE='/previous-releases.html?v=20260916-2';
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=d=>{try{return new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric'}).format(new Date(d))}catch{return d||'—'}};
 const size=n=>{n=Number(n||0);if(!n)return '';const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<3){n/=1024;i++}return `${n.toFixed(i?1:0)} ${u[i]}`};
