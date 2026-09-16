@@ -42,26 +42,26 @@ function releasePayload(releases){
 }
 
 async function releaseApi(request,url){
-  if(request.method!=='GET')return json({error:'Method not allowed.'},405);
-  try{const releases=await githubReleases();const limit=Math.min(Math.max(Number(url.searchParams.get('limit')||10),1),20);return json({ok:true,repository:RELEASE_REPO,releases:releasePayload(releases).slice(0,limit)},{'Cache-Control':'public, max-age=60, s-maxage=60'});}catch(e){return json({ok:false,error:'Release service unavailable.'},502)}
+  if(request.method!=='GET')return j({error:'Method not allowed.'},405);
+  try{const releases=await githubReleases();const limit=Math.min(Math.max(Number(url.searchParams.get('limit')||10),1),20);return j({ok:true,repository:RELEASE_REPO,releases:releasePayload(releases).slice(0,limit)},{'Cache-Control':'public, max-age=60, s-maxage=60'});}catch(e){return j({ok:false,error:'Release service unavailable.'},502)}
 }
 
 async function downloadRelease(request,url){
-  if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'Method not allowed.'},405);
+  if(request.method!=='GET'&&request.method!=='HEAD')return j({error:'Method not allowed.'},405);
   try{
     const releases=await githubReleases();let release=null;
     if(url.pathname==='/download/latest')release=releases[0]||null;
     else {const id=url.pathname.split('/').pop();release=releases.find(r=>String(r.id)===String(decodeURIComponent(id)))||null;}
-    if(!release)return json({error:'No published MELO release found.'},404);
+    if(!release)return j({error:'No published MELO release found.'},404);
     const requested=url.searchParams.get('asset');
     const assets=release.assets||[];
     const asset=(requested&&assets.find(a=>a.name===requested))||assets.find(a=>/\.(exe|msi|zip)$/i.test(a.name));
-    if(!asset)return json({error:'No downloadable Windows asset found in this release.'},404);
+    if(!asset)return j({error:'No downloadable Windows asset found in this release.'},404);
     const upstream=await fetch(asset.browser_download_url,{redirect:'follow'});
     if(!upstream.ok)return new Response('Release asset unavailable.',{status:upstream.status});
     const headers=new Headers(upstream.headers);headers.set('Content-Disposition',`attachment; filename="${asset.name.replace(/"/g,'')}"`);headers.set('Cache-Control','public, max-age=300');headers.delete('set-cookie');
     return new Response(upstream.body,{status:upstream.status,headers});
-  }catch(e){return json({error:'Download service unavailable.'},502)}
+  }catch(e){return j({error:'Download service unavailable.'},502)}
 }
 
 export default{async fetch(r,e,c){
