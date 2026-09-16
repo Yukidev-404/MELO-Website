@@ -1,0 +1,63 @@
+/* MELO Web — reference layout pass
+   Geometry intentionally follows the supplied desktop reference. */
+:root{--melo-pink:#ff47a3;--melo-paper:#f9f8f5;--melo-panel:#eeece6;--melo-grid:#e1dfd8;--melo-line:#c8c7c4;--melo-ink:#17171a}
+
+.melo-window{min-width:0;min-height:0;background:#f7f6f2}
+.titlebar{height:72px;padding:0 32px;background:#faf9f6}
+.brand b{font-size:23px;letter-spacing:.02em}.brand span{font-size:22px;margin-left:25px}
+.window-controls{gap:3px}.window-controls button{width:31px;height:31px;font-size:22px}
+
+.workspace{height:calc(100vh - 72px);grid-template-columns:minmax(420px,29.8vw) minmax(0,1fr);background-size:46px 46px}
+.player-pane{background:#f9f8f5}
+.pane-head{left:15px;right:14px;height:48px;font-size:11px}
+.record-wrap{top:52px;width:min(308px,calc(100% - 76px))}
+.record,.tonearm{width:100%;height:100%}
+.track-info{top:410px;left:24px;right:24px}
+.track-info div{font-size:18px}.track-info small{margin-top:8px;font-size:12px}
+.time-row{top:462px;left:20px;right:20px;height:34px;font-size:10px}
+.time-row>#lyrics{top:-7px}.time-row>#elapsed{margin-left:7px}.time-row .time-total{margin-right:5px}
+.icon-button{width:43px;height:43px;padding:5px}.icon-button img{max-width:30px;max-height:30px}.favorite img{width:28px;height:28px}
+.progress{top:478px;left:21px;right:20px;height:3px}.progress i{height:3px}
+.transport{top:493px;left:23px;right:23px;height:58px}.transport button{font-size:19px}.transport .play{width:59px;height:59px}.transport .play img{width:54px;height:54px}
+.visual-label{top:545px;left:29px;font-size:10px}
+.visualizer{top:590px;left:28px;right:28px;height:25px;border-bottom:1px solid rgba(255,91,167,.22)}
+.volume-row{top:638px;left:28px;right:28px;grid-template-columns:48px 1fr 46px;font-size:10px}
+.device{top:676px;left:27px;right:27px;height:42px;gap:11px;font-size:10px}.device img{width:35px;height:35px}
+.settings-link{left:25px;right:25px;bottom:19px;padding-top:27px;font-size:11px}
+
+.library-pane{padding:22px 0 0 43px}
+.search-row{height:57px;padding-right:0}.search-row input{width:calc(100% - 88px);height:57px;border-radius:30px;padding:0 49px;font-size:13px;background:#f8f7f4}
+.search-row #searchButton{left:20px;font-size:23px}.search-row #overflow{right:28px;font-size:23px}
+.library-title{margin-top:14px;height:48px;padding-right:42px;align-items:center}.library-title span:first-child{font-family:Pixel,'Courier New',monospace;font-size:29px;line-height:1}.library-title #sourceStatus{font-size:9px;letter-spacing:.04em}
+.library-title #sourceStatus::first-letter{color:var(--melo-pink)}
+.tabs{gap:9px;padding-right:42px}.tabs button{height:55px;border-radius:18px;padding:0 27px;font-size:13px}.tabs #source{height:47px;padding:0 28px}
+.content{position:relative;margin-top:14px;height:calc(100% - 181px);background:#eeece6;overflow:hidden;padding:0 30px}
+.content:has(.track-row)::before{content:'✦\A  ♣  ★';white-space:pre;position:absolute;left:34px;top:56px;font-family:Georgia,serif;font-size:18px;line-height:2.1;color:#111;z-index:1}
+.content:has(.track-row)::after{content:'';position:absolute;right:54px;top:28px;width:min(470px,38vw);aspect-ratio:1;background:url('assets/disc_texture_centered.png') center/contain no-repeat;z-index:0;pointer-events:none}
+.content:has(.track-row) .track-row{position:relative;z-index:2;width:62%;height:55px;border:0;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:transparent;margin:0;padding:0 0 0 0}
+.content:has(.track-row) .track-row .num{display:none}
+.content:has(.track-row) .track-row>div{min-width:0}
+.content:has(.track-row) .track-row b{font-size:13px;font-weight:400;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.content:has(.track-row) .track-row small{display:none}
+.content:has(.track-row) .track-row button{font-size:0;color:transparent;width:22px;height:55px;position:relative}
+.content:has(.track-row) .track-row button::after{content:'↗';font-size:17px;color:var(--melo-pink);font-family:Arial,sans-serif}
+.content:has(.track-row) .track-row:nth-child(1){margin-top:45px;margin-left:4px}
+.content:has(.track-row) .track-row:nth-child(2){margin-top:21px;margin-left:0}
+.content:has(.track-row) .track-row:nth-child(3){margin-top:23px;margin-left:191px}
+.content:has(.track-row) .track-row:nth-child(4){margin-top:21px;margin-left:191px}
+.content:has(.track-row) .track-row:nth-child(5){margin-top:21px;margin-left:339px}
+.content:has(.track-row) .track-row:nth-child(6){margin-top:21px;margin-left:507px}
+.content:has(.track-row) .track-row:hover{background:transparent}
+.content:has(.track-row) .track-row.selected{color:var(--melo-pink);font-weight:700}
+.content:has(.track-row) .track-row.selected::before{content:'';position:absolute;right:-1px;top:5px;height:55px;width:3px;background:var(--melo-pink)}
+.content:has(.track-row) .track-row.selected::after{content:'SELECT';position:absolute;right:-59px;top:19px;font-size:11px;color:var(--melo-pink);font-weight:400}
+.content:has(.track-row) .track-row:nth-child(5) b,.content:has(.track-row) .track-row:nth-child(6) b{color:#bdbdc1}
+.content:has(.track-row) .track-row:nth-child(n+7){margin-left:0;margin-top:10px}
+.content:has(.track-row)::marker{display:none}
+.empty{font-size:14px;padding-top:34%;color:#77777c}
+
+/* Keep the reference composition usable on shorter desktop windows. */
+@media(max-height:760px){
+ .record-wrap{top:45px;width:min(250px,calc(100% - 70px))}.track-info{top:340px}.time-row{top:390px}.progress{top:432px}.transport{top:447px}.visual-label{top:500px}.visualizer{top:535px}.volume-row{top:575px}.device{top:610px}.content{height:calc(100% - 181px)}
+}
+@media(max-width:1100px){.workspace{grid-template-columns:420px minmax(0,1fr)}.library-pane{padding-left:28px}.tabs button{padding:0 18px}.content:has(.track-row)::after{right:15px;width:380px}.content:has(.track-row) .track-row{width:65%}.content:has(.track-row) .track-row:nth-child(3){margin-left:100px}.content:has(.track-row) .track-row:nth-child(4){margin-left:100px}.content:has(.track-row) .track-row:nth-child(5){margin-left:180px}.content:has(.track-row) .track-row:nth-child(6){margin-left:260px}}
