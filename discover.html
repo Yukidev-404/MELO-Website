@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MELO DISCOVER / Find your next sound.</title>
+<meta name="description" content="MELO Discover — search artists, songs and albums, explore moods and find your next sound.">
+<link rel="icon" href="assets/melo-logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="discover.css?v=20260916-1">
+</head>
+<body>
+<div class="grid"></div>
+<div class="cursor" id="cursor"></div>
+<header>
+  <a class="brand" href="index.html"><img src="assets/melo-logo.svg" alt="MELO"><span>MELO.</span></a>
+  <nav><a href="index.html">MELO WORLD</a><a href="melo-web.html">MELO WEB</a><a href="radio.html">MELO RADIO</a><a class="back" href="index.html">← BACK</a></nav>
+</header>
+<main>
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="kicker"><i></i>ROOM 01 / FIND YOUR NEXT SOUND</div>
+      <h1>DISCOVER<em>.</em></h1>
+      <p class="lead">Don't know what you want to hear? That's the point. Wander through moods, artists, albums and little rabbit holes until something clicks.</p>
+      <div class="search-shell"><span>⌕</span><input id="searchInput" type="search" autocomplete="off" placeholder="search an artist, song or album…"><button id="searchButton">FIND ↗</button></div>
+      <div class="quick"><span>TRY:</span><button data-query="Japanese city pop">JAPANESE CITY POP</button><button data-query="dream pop">DREAM POP</button><button data-query="indie rock">INDIE ROCK</button><button data-query="j-pop">J-POP</button></div>
+    </div>
+    <div class="hero-art" aria-hidden="true"><div class="orbit"></div><div class="orbit orbit-2"></div><div class="record"><div class="record-label"><b>MELO</b><span>DISCOVER</span><small>メロ ♡</small></div><div class="hole"></div></div><span class="float f1">✦</span><span class="float f2">♡</span><span class="float f3">✧</span><span class="float f4">≋</span></div>
+  </section>
+
+  <section class="section mood-section">
+    <div class="section-head"><div><div class="kicker">PICK A DOOR</div><h2>WHAT'S THE<br>MOOD?</h2></div><p>Start with a feeling. MELO will pull together records around it.</p></div>
+    <div class="moods">
+      <button data-mood="dream pop"><b>3AM</b><span>hazy · nocturnal · soft</span><i>☾</i></button>
+      <button data-mood="lofi"><b>SOFT FOCUS</b><span>quiet · warm · steady</span><i>⌁</i></button>
+      <button data-mood="j-pop"><b>TOKYO</b><span>bright · restless · neon</span><i>✦</i></button>
+      <button data-mood="indie"><b>LEFT TURN</b><span>guitars · strange · new</span><i>✧</i></button>
+      <button data-mood="pop"><b>POP ROOM</b><span>hooks · energy · familiar</span><i>♡</i></button>
+      <button data-mood="jazz"><b>LATE BAR</b><span>smoke · brass · midnight</span><i>◒</i></button>
+    </div>
+  </section>
+
+  <section class="section discovery-section">
+    <div class="section-head"><div><div class="kicker" id="resultsKicker">MELO FINDS</div><h2 id="resultsTitle">START HERE.</h2></div><div class="result-tools"><span id="resultCount">CURATED</span><select id="mediaType"><option value="music">SONGS</option><option value="album">ALBUMS</option></select></div></div>
+    <div id="results" class="results"><div class="loading"><span></span><span></span><span></span> TUNING INTO THE LIBRARY…</div></div>
+  </section>
+
+  <section class="section rabbit-section">
+    <div class="section-head"><div><div class="kicker">KEEP WANDERING</div><h2>RABBIT<br>HOLES.</h2></div><p>One search becomes another. Follow an artist, jump to an album, then see where the night takes you.</p></div>
+    <div class="rabbit-grid">
+      <button data-query="Japanese city pop" class="rabbit"><span>01</span><b>JAPAN / 80s</b><small>city pop · synths · summer nights</small><i>↗</i></button>
+      <button data-query="shoegaze" class="rabbit"><span>02</span><b>GUITARS / DREAM</b><small>shoegaze · noise · floating</small><i>↗</i></button>
+      <button data-query="alternative R&B" class="rabbit"><span>03</span><b>AFTER DARK</b><small>alt r&b · velvet · low lights</small><i>↗</i></button>
+      <button data-query="hyperpop" class="rabbit"><span>04</span><b>ONLINE / LOUD</b><small>hyperpop · digital · chaotic</small><i>↗</i></button>
+    </div>
+  </section>
+
+  <section class="section about-section">
+    <div class="about-card"><div class="kicker">HOW MELO DISCOVER WORKS</div><h2>NO ALGORITHM<br>LECTURE.</h2><p>Search and explore music through a lightweight public catalogue. MELO turns the results into a visual little listening room — the discovery layer, not another feed fighting for your attention.</p><div class="about-line"><span>01 / SEARCH</span><span>02 / WANDER</span><span>03 / LISTEN</span></div></div>
+    <div class="about-note"><span>MELO NOTE</span><b>Save the things<br>that surprise you.</b><small>Open a result to search again, or use MELO Web / Radio for listening.</small></div>
+  </section>
+</main>
+<footer><span><strong>MELO DISCOVER</strong> / ROOM 01</span><span>CATALOGUE SEARCH · 2026</span></footer>
+<script src="discover.js?v=20260916-1" defer></script>
+</body>
+</html>
