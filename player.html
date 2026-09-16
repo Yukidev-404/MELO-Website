@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>MELO</title><link rel="icon" href="assets/MELO.ico"><link rel="stylesheet" href="player.css?v=20260917-1">
+<title>MELO</title><link rel="icon" href="assets/MELO.ico"><link rel="stylesheet" href="player.css?v=20260917-2">
 </head><body>
 <div id="app" class="melo-window">
 <header class="titlebar"><div class="brand"><b>MELO</b><span>/ MUSIC PLAYER</span></div><div class="window-controls"><button data-window="min">—</button><button data-window="max">□</button><button data-window="close">×</button></div></header>
@@ -25,7 +25,10 @@
 <section class="content" id="content"><div class="empty">NO MUSIC AVAILABLE</div></section>
 </section>
 </main>
-<div class="lyrics-panel" id="lyricsPanel"><button id="closeLyrics">×</button><div>MELO / LYRICS</div><h2 id="lyricsTitle">Lyrics</h2><p id="lyricsArtist"></p><div class="lyrics-body">NO LYRICS</div></div>
+<div class="lyrics-panel" id="lyricsPanel"><button id="closeLyrics">×</button><div>MELO / LYRICS</div><h2 id="lyricsTitle">Lyrics</h2><p id="lyricsArtist"></p><div class="lyrics-body" id="lyricsBody">NO LYRICS</div></div>
+<div class="modal-backdrop" id="spotifyModal"><div class="modal"><button class="modal-close" data-close="spotifyModal">×</button><div class="modal-kicker">MELO / SPOTIFY</div><h2>Connect Spotify</h2><p>Use your own Spotify Developer Client ID. MELO never asks for your Client Secret.</p><label>CLIENT ID<input id="spotifyClientId" autocomplete="off" spellcheck="false" placeholder="Spotify Client ID"></label><div class="redirect-box"><small>REDIRECT URI</small><code id="spotifyRedirect"></code><button id="copyRedirect">COPY</button></div><div class="modal-actions"><button id="spotifyConnect" class="primary">CONNECT SPOTIFY</button><button id="spotifyDisconnect">DISCONNECT</button></div><div id="spotifyMessage" class="modal-message"></div></div></div>
+<div class="context-menu" id="contextMenu"></div>
 <input id="folder" type="file" accept="audio/*" multiple hidden>
 <audio id="audio" preload="metadata"></audio>
-</div><script src="player.js?v=20260917-1"></script></body></html>
+</div>
+<script src="https://sdk.scdn.co/spotify-player.js"></script><script src="player.js?v=20260917-2"></script></body></html>
