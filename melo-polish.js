@@ -51,33 +51,27 @@
 
   function installCursor(){
     if(window.matchMedia('(max-width:760px)').matches)return;
-    const existing=document.querySelector('.melo-cursor');
-    if(existing)existing.remove();
-
-    const style=document.getElementById('melo-player-card-cursor-style')||document.createElement('style');
-    style.id='melo-player-card-cursor-style';
-    style.textContent=`html,html *{cursor:none!important}.melo-cursor{position:fixed!important;left:0!important;top:0!important;width:14px!important;height:14px!important;border:2px solid #171514!important;border-radius:50%!important;pointer-events:none!important;z-index:2147483647!important;background:#ff3b98!important;box-shadow:0 0 0 3px rgba(255,255,255,.9),0 2px 12px rgba(23,21,20,.28)!important;opacity:0;transition:width .16s,height .16s,background .16s,border-color .16s,opacity .12s!important;transform:translate(-50%,-50%);will-change:transform}.melo-cursor:after{content:'';position:absolute;width:4px;height:4px;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:50%}.melo-cursor.hover{width:30px!important;height:30px!important;background:rgba(255,59,152,.18)!important;border-color:#ff3b98!important}.melo-cursor.click{width:9px!important;height:9px!important}`;
-    document.head.appendChild(style);
-
-    const cursor=document.createElement('div');
-    cursor.className='melo-cursor';
-    cursor.setAttribute('aria-hidden','true');
-    document.body.appendChild(cursor);
-
+    if(document.querySelector('.melo-cursor'))return;
+    let style=document.getElementById('melo-player-card-cursor-style');
+    if(!style){
+      style=document.createElement('style');style.id='melo-player-card-cursor-style';
+      style.textContent=`html,html *{cursor:none!important}.melo-cursor{position:fixed!important;left:0!important;top:0!important;width:14px!important;height:14px!important;border:2px solid #171514!important;border-radius:50%!important;pointer-events:none!important;z-index:2147483647!important;background:#ff3b98!important;box-shadow:0 0 0 3px rgba(255,255,255,.9),0 2px 12px rgba(23,21,20,.28)!important;opacity:0;transition:width .16s,height .16s,background .16s,border-color .16s,opacity .12s!important;transform:translate(-50%,-50%);will-change:transform}.melo-cursor:after{content:'';position:absolute;width:4px;height:4px;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:50%}.melo-cursor.hover{width:30px!important;height:30px!important;background:rgba(255,59,152,.18)!important;border-color:#ff3b98!important}.melo-cursor.click{width:9px!important;height:9px!important}`;
+      document.head.appendChild(style);
+    }
+    const cursor=document.createElement('div');cursor.className='melo-cursor';cursor.setAttribute('aria-hidden','true');document.body.appendChild(cursor);
     let x=-100,y=-100,tx=-100,ty=-100,visible=false;
     const move=e=>{tx=e.clientX;ty=e.clientY;visible=true;cursor.style.opacity='1'};
     window.addEventListener('mousemove',move,{passive:true});
     window.addEventListener('mouseleave',()=>{visible=false;cursor.style.opacity='0'});
-    document.addEventListener('mouseover',e=>{if(e.target.closest('a,button,[role="button"],input,select,textarea'))cursor.classList.add('hover')});
-    document.addEventListener('mouseout',e=>{if(e.target.closest('a,button,[role="button"],input,select,textarea'))cursor.classList.remove('hover')});
+    document.addEventListener('mouseover',e=>{if(e.target instanceof Element&&e.target.closest('a,button,[role="button"],input,select,textarea'))cursor.classList.add('hover')});
+    document.addEventListener('mouseout',e=>{if(e.target instanceof Element&&e.target.closest('a,button,[role="button"],input,select,textarea'))cursor.classList.remove('hover')});
     document.addEventListener('mousedown',()=>cursor.classList.add('click'));
     document.addEventListener('mouseup',()=>cursor.classList.remove('click'));
     const render=()=>{x+=(tx-x)*.3;y+=(ty-y)*.3;cursor.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;if(visible)cursor.style.opacity='1';requestAnimationFrame(render)};
     render();
   }
 
-  async function hydrate(){
-    const room=document.querySelector('.room[data-room="profile"]');
+  function renderPlayerCard(room){
     if(!room)return false;
     room.id='melo-player-card-room';
     room.innerHTML=`
@@ -112,13 +106,15 @@
           <div class="pc2-footer"><div><b>Your MELO identity.</b><br><span>Listening stats will appear here as your account grows.</span></div><button class="pc2-sign" type="button">SIGNED IN</button></div>
         </article>
       </div>`;
-
     room.querySelector('.pc2-close')?.addEventListener('click',()=>room.classList.remove('open'));
+    return true;
+  }
 
+  async function hydrateAccount(room){
     try{
       const response=await fetch(`${API_BASE}/api/auth/me`,{credentials:'include',cache:'no-store'});
       const data=await response.json().catch(()=>({}));
-      if(response.ok&&data.authenticated&&data.user){
+      if(response.ok&&data.authenticated&&data.user&&room.isConnected){
         const user=data.user;
         const name=(user.display_name||user.email?.split('@')[0]||'MELO PLAYER').trim();
         const shortId=user.id?String(user.id).replace(/-/g,'').slice(0,8).toLowerCase():'';
@@ -130,12 +126,26 @@
         if(avatar&&user.avatar_url)avatar.src=user.avatar_url;
       }
     }catch(error){console.debug('MELO Player Card session lookup failed',error)}
+  }
+
+  function tryRender(){
+    const room=document.querySelector('.room[data-room="profile"]');
+    if(!room)return false;
+    if(room.dataset.meloCardRendered==='1')return true;
+    room.dataset.meloCardRendered='1';
+    renderPlayerCard(room);
+    hydrateAccount(room);
     return true;
   }
 
   install();
   installCursor();
   window.addEventListener('load',installCursor,{once:true});
-  const boot=()=>{if(document.querySelector('.room[data-room="profile"]'))hydrate()};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+
+  tryRender();
+  const observer=new MutationObserver(()=>{
+    if(!document.querySelector('#melo-player-card-room'))tryRender();
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+  setTimeout(()=>observer.disconnect(),15000);
 })();
