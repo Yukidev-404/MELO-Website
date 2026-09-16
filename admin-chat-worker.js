@@ -8,7 +8,7 @@ async function servePlayerCard(request,env,pathname){
   const asset=await env.ASSETS.fetch(new Request(assetUrl.toString(),request));
   if(!asset.ok)return asset;
   let body=await asset.text();
-  if(!body.includes("melo-player-cursor.js"))body=body.replace(/<\\/body>/i,'<script src="/melo-player-cursor.js?v=20260916-1"></script></body>');
+  if(!body.includes("melo-player-cursor.js"))body=body.replace(/<\/body>/i,'<script src="/melo-player-cursor.js?v=20260916-1"></script></body>');
   const headers=new Headers(asset.headers);
   headers.set("Content-Type","text/html; charset=UTF-8");
   headers.set("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
