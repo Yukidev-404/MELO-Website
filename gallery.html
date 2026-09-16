@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MELO GALLERY / The visual archive.</title>
+<meta name="description" content="MELO Gallery — artwork, interface studies, records and visual experiments from the MELO world.">
+<link rel="icon" href="assets/melo-logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="gallery.css?v=20260916-1">
+</head>
+<body>
+<div class="grid"></div>
+<header>
+  <a class="brand" href="index.html"><img src="assets/melo-logo.svg" alt="MELO"><span>MELO.</span></a>
+  <nav><a href="index.html">MELO WORLD</a><a href="discover.html">DISCOVER</a><a href="melo-web.html">MELO WEB</a><a href="radio.html">RADIO</a><a class="back" href="index.html">← BACK</a></nav>
+</header>
+<main>
+<section class="hero">
+  <div class="hero-copy"><div class="kicker"><i></i>ROOM 03 / VISUAL ARCHIVE</div><h1>THE<br><em>WALL.</em></h1><p>Every little thing that makes MELO feel like MELO — records, interfaces, experiments, textures and the strange bits between them.</p><div class="hero-meta"><span>ARCHIVE / 2026</span><span id="totalCount">00 PIECES</span></div></div>
+  <div class="hero-art"><div class="orbit o1"></div><div class="orbit o2"></div><div class="gallery-disc"><div class="disc-label"><b>MELO</b><span>THE WALL</span><small>ARCHIVE / 01</small></div><div class="disc-hole"></div></div><span class="spark s1">✦</span><span class="spark s2">♡</span><span class="spark s3">✧</span><span class="spark s4">≋</span></div>
+</section>
+
+<section class="section archive">
+  <div class="toolbar"><div><div class="kicker">THE ARCHIVE</div><h2>LOOK<br>AROUND.</h2></div><div class="filters"><button class="active" data-filter="all">ALL</button><button data-filter="player">PLAYER</button><button data-filter="world">WORLD</button><button data-filter="records">RECORDS</button><button data-filter="details">DETAILS</button></div></div>
+  <div class="gallery-grid" id="galleryGrid">
+    <article class="piece wide" data-category="player" data-title="MELO Desktop" data-description="The main listening room — a desktop player designed to feel like a place, not a dashboard." data-image="assets/melo-banner.png"><div class="piece-image"><img src="assets/melo-banner.png" alt="MELO Desktop artwork" loading="lazy"></div><div class="piece-copy"><span>01 / PLAYER</span><h3>MELO DESKTOP</h3><p>The player as a little piece of your room.</p><button class="view">VIEW ↗</button></div></article>
+    <article class="piece tall" data-category="records" data-title="MELO Record" data-description="The record is the heart of the MELO world — tactile, simple and always ready to spin." data-image="assets/melo_disc_texture_hr.png"><div class="piece-image dark"><img src="assets/melo_disc_texture_hr.png" alt="MELO record texture" loading="lazy"></div><div class="piece-copy"><span>02 / RECORDS</span><h3>ROTARY</h3><p>Some things are better left spinning.</p><button class="view">VIEW ↗</button></div></article>
+    <article class="piece" data-category="world" data-title="MELO World" data-description="The home room — seven doors around one record." data-image="assets/melo-banner.png"><div class="piece-image crop-left"><img src="assets/melo-banner.png" alt="MELO World artwork" loading="lazy"></div><div class="piece-copy"><span>03 / WORLD</span><h3>THE WORLD</h3><p>Seven rooms. One little universe.</p><button class="view">VIEW ↗</button></div></article>
+    <article class="piece" data-category="details" data-title="MELO Texture" data-description="Paper, ink, pink and tiny marks — the visual language behind the interface." data-image="assets/melo_disc_texture_hr.png"><div class="piece-image paper"><div class="texture-note"><b>MELO</b><span>GOOD MUSIC,<br>BRIGHTER DAYS ♡</span><small>texture study / 04</small></div></div><div class="piece-copy"><span>04 / DETAILS</span><h3>PAPER STUDY</h3><p>Small details make the room feel lived in.</p><button class="view">VIEW ↗</button></div></article>
+    <article class="piece wide" data-category="world" data-title="The Listening Room" data-description="A visual study of the MELO listening environment and its soft, editorial geometry." data-image="assets/melo-banner.png"><div class="piece-image crop-bottom"><img src="assets/melo-banner.png" alt="MELO listening room" loading="lazy"></div><div class="piece-copy"><span>05 / WORLD</span><h3>THE LISTENING ROOM</h3><p>A room built around the music.</p><button class="view">VIEW ↗</button></div></article>
+    <article class="piece tall" data-category="player" data-title="Tonearm Study" data-description="The tonearm is a tiny physical gesture that turns the interface into an object." data-image="assets/melo_tonearm_hr.png"><div class="piece-image tone"><img src="assets/melo_tonearm_hr.png" alt="MELO tonearm" loading="lazy"></div><div class="piece-copy"><span>06 / PLAYER</span><h3>TONEARM</h3><p>A tiny nod to physical listening.</p><button class="view">VIEW ↗</button></div></article>
+    <article class="piece" data-category="details" data-title="MELO Mark" data-description="The MELO mark in its simplest form." data-image="assets/melo-logo.svg"><div class="piece-image logo-piece"><img src="assets/melo-logo.svg" alt="MELO logo" loading="lazy"></div><div class="piece-copy"><span>07 / DETAILS</span><h3>THE MARK</h3><p>Simple enough to remember.</p><button class="view">VIEW ↗</button></div></article>
+    <article class="piece" data-category="records" data-title="Record Label" data-description="A label treatment for the centre of the MELO record." data-image="assets/melo_disc_texture_hr.png"><div class="piece-image label-piece"><div><b>MELO</b><span>Music for<br>a better you.</span><small>メロディー ♡</small></div></div><div class="piece-copy"><span>08 / RECORDS</span><h3>LABEL / 01</h3><p>Music printed like a little secret.</p><button class="view">VIEW ↗</button></div></article>
+  </div>
+</section>
+
+<section class="section notes"><div class="notes-card"><div class="kicker">FROM THE WALL</div><h2>NOT EVERYTHING<br>NEEDS TO MOVE.</h2><p>MELO is built from little physical references — records, paper, labels, desks and the feeling of finding something you didn't know you were looking for.</p></div><div class="notes-side"><span>ARCHIVE NOTE</span><b>Take your time.<br>Look closer.</b><small>The gallery will grow as the MELO world grows.</small></div></section>
+</main>
+<footer><span><strong>MELO GALLERY</strong> / ROOM 03</span><span>VISUAL ARCHIVE · 2026</span></footer>
+<div class="lightbox" id="lightbox" aria-hidden="true"><button class="close" id="closeLightbox" aria-label="Close">×</button><div class="lightbox-inner"><img id="lightboxImage" alt=""><div class="lightbox-copy"><span id="lightboxTag"></span><h2 id="lightboxTitle"></h2><p id="lightboxDescription"></p></div></div></div>
+<script src="gallery.js?v=20260916-1" defer></script>
+</body>
+</html>
