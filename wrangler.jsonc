@@ -17,7 +17,6 @@
       "/api/*",
       "/admin/*",
       "/get-melo",
-      "/get-melo/*",
       "/download/*"
     ]
   },
