@@ -2,7 +2,8 @@ const SESSION_COOKIE='melo_session';
 const FRONTEND_ORIGIN='https://yukidev-404.github.io';
 const now=()=>Math.floor(Date.now()/1000);
 const id=()=>crypto.randomUUID();
-async function digest(value){const bytes=typeof value==='string'?new TextEncoder().encode(value):value;return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('')}
+function bytesToBase64(bytes){let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);return btoa(binary).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}
+async function digest(value){const bytes=typeof value==='string'?new TextEncoder().encode(value):value;return bytesToBase64(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)))}
 function cors(request){const origin=request.headers.get('Origin');return origin===FRONTEND_ORIGIN?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Credentials':'true','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Vary':'Origin'}:{}}
 function json(data,status=200,request=null){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...(request?cors(request):{})}})}
 async function session(request,env){const cookieHeader=request.headers.get('Cookie')||'';const cookieMatch=cookieHeader.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));const auth=request.headers.get('Authorization')||'';const bearer=auth.match(/^Bearer\\s+(.+)$/i);const token=cookieMatch?.[1]||bearer?.[1]?.trim();if(!token)return null;return env.DB.prepare('SELECT s.*,u.email,u.display_name,u.avatar_url FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(token),now()).first()}
