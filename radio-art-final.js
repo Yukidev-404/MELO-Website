@@ -29,18 +29,18 @@ const style=()=>{if(document.getElementById('melo-art-final-style'))return;const
 .station-cover>img{position:absolute!important;inset:0;width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;z-index:3}
 `;document.head.appendChild(s)};
 const load=(box,sources)=>{
- if(!box||box.dataset.artFinal==='1')return Promise.resolve(false);
- box.dataset.artFinal='1';let i=0;
- return new Promise(resolve=>{const next=()=>{if(i>=sources.length){resolve(false);return}const src=sources[i++],img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.onload=()=>{box.replaceChildren(img);box.classList.add('loaded');resolve(true)};img.onerror=next;img.src=src};next()});
+ if(!box||box.dataset.artState)return Promise.resolve(false);
+ box.dataset.artState='loading';let i=0;
+ return new Promise(resolve=>{const next=()=>{if(i>=sources.length){delete box.dataset.artState;resolve(false);return}const src=sources[i++],img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.onload=()=>{box.replaceChildren(img);box.classList.add('loaded');box.dataset.artState='loaded';const fallback=box.closest('.station-cover')?.querySelector('.station-fallback');if(fallback)fallback.style.visibility='hidden';resolve(true)};img.onerror=next;img.src=src};next()});
 };
 const api=async path=>{for(const base of API_MIRRORS){try{const r=await fetch(base+path,{headers:{Accept:'application/json'}});if(r.ok)return await r.json()}catch{}}return null};
 const stationForCard=async card=>{const id=card?.querySelector('[data-play]')?.dataset.play;if(!id)return null;const data=await api('/json/stations/byuuid/'+encodeURIComponent(id));return Array.isArray(data)?data[0]:data};
 const process=async()=>{
  style();
  document.querySelectorAll('.station-cover').forEach(async box=>{
-  if(box.dataset.artFinal==='1')return;
+  if(box.dataset.artState)return;
   const card=box.closest('.station'),holder=box.querySelector('.station-art[data-art-sources]');
-  if(holder){let src=[];try{src=JSON.parse(holder.dataset.artSources||'[]')}catch{}if(await load(holder,unique(src)))return}
+  if(holder){let src=[];try{src=JSON.parse(holder.dataset.artSources||'[]')}catch{}if(await load(holder,unique(src)))return;const s=await stationForCard(card);if(s&&await load(holder,candidates(s)))return}
   const raw=box.querySelector(':scope>img');
   if(raw){
    const src=raw.currentSrc||raw.src,name=card?.querySelector('.station-title')?.textContent||'MELO';raw.remove();
