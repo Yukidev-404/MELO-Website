@@ -1,3 +1,4 @@
+import statsWorker from './stats-worker.js';
 const C="melo_admin_session";
 const H=200;
 const ONLINE_WINDOW=30;
@@ -22,6 +23,7 @@ export default{async fetch(r,e,c){
   const u=new URL(r.url);
   if(u.pathname==="/player-card.html"||u.pathname==="/player-card.html/"||u.pathname==="/player-card-v2.html"||u.pathname==="/player-card-v2.html/")return servePlayerCard(r,e,u.pathname);
   if(u.pathname.startsWith("/api/auth/"))return e.AUTH.fetch(r);
+  if(u.pathname==="/api/stats"||u.pathname==="/api/stats/event")return statsWorker.fetch(r,e,c);
   if(u.pathname.startsWith("/api/admin/chat")||u.pathname==="/api/admin/notifications"||u.pathname==="/api/admin/presence"||u.pathname==="/api/admin/audit-log"||u.pathname==="/api/admin/flag"||u.pathname==="/api/admin/crash/status"||u.pathname==="/api/admin/release-status")return h(r,e,u,c);
   return(await import("./worker.js")).default.fetch(r,e,c);
 }};
@@ -32,7 +34,7 @@ async function h(r,e,u,c){
     const ops=(await import("./admin-ops-worker.js")).default;const response=await ops.fetch(r,e,c);if(response)return response;
   }
   await z(e);
-  if(u.pathname==="/api/admin/presence"&&(r.method==="POST"||r.method==="GET")){
+  if(u.pathname==="/api/admin/presence"&&(r.method==="POST"||r.method==="GET") ){
     const now=Math.floor(Date.now()/1000);
     await e.DB.prepare("INSERT INTO admin_presence (admin_id,last_seen_at) VALUES (?,?) ON CONFLICT(admin_id) DO UPDATE SET last_seen_at=excluded.last_seen_at").bind(s.admin_id,now).run();
     const q=await e.DB.prepare("SELECT a.admin_id,a.username,a.role,a.enabled,COALESCE(p.last_seen_at,0) last_seen_at FROM admin_accounts a LEFT JOIN admin_presence p ON p.admin_id=a.admin_id WHERE a.enabled=1 ORDER BY CASE WHEN COALESCE(p.last_seen_at,0)>=? THEN 0 ELSE 1 END,a.created_at ASC").bind(now-ONLINE_WINDOW).all();
