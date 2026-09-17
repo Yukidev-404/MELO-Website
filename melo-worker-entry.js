@@ -14,9 +14,11 @@ function htmlResponse(body, asset) {
 }
 
 async function serveGetMelo(request, env) {
-  const assetUrl = new URL(request.url);
-  assetUrl.pathname = '/get-melo.html';
-  const asset = await env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+  // /get-melo is the canonical extensionless asset URL. With Cloudflare's
+  // default HTML handling, ASSETS.fetch(/get-melo) resolves directly to
+  // get-melo.html. Fetching /get-melo.html here would redirect back to
+  // /get-melo, which loops because this route intentionally runs Worker-first.
+  const asset = await env.ASSETS.fetch(new Request(request.url, request));
   if (!asset.ok) return asset;
   let body = await asset.text();
   body = body.replace(/\/get-melo-releases\.js\?v=[^"']+/g, '/get-melo-releases.js?v=20260916-4');
