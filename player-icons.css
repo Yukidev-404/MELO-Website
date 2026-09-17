@@ -1,8 +1,27 @@
-/* MELO Web — asset-backed transport icons */
+/* MELO Web — use the real transport artwork from /assets */
 .transport button.asset-control{display:flex;align-items:center;justify-content:center;padding:0;border:0;background:transparent}
-.transport button.asset-control img{display:block;width:34px;height:34px;object-fit:contain;pointer-events:none}
-.transport button.asset-control:hover img{opacity:.72}
-.transport .play img{width:54px;height:54px}
-.transport #shuffle img{width:31px;height:31px}
-.transport #repeat img{width:34px;height:34px}
-@media(max-width:760px){.transport button.asset-control img{width:31px;height:31px}.transport #shuffle img{width:28px;height:28px}.transport #repeat img{width:31px;height:31px}.transport .play img{width:54px;height:54px}}
+.transport button.asset-control img{display:block;object-fit:contain;pointer-events:none}
+
+/* Shuffle */
+.transport #shuffle img{width:31px;height:31px;content:url('assets/shuffle_icon.png')}
+.transport #shuffle:hover img{content:url('assets/shuffle_icon_hover.png')}
+
+/* Repeat */
+.transport #repeat img{width:34px;height:34px;content:url('assets/repeat_bunny.png')}
+.transport #repeat:hover img{content:url('assets/repeat_bunny_hover.png')}
+
+/* MELO cat play / pause artwork. player.js still controls the state by
+   changing the source between custom_play.png and custom_pause.png. */
+.transport .play{display:flex;align-items:center;justify-content:center;padding:0;background:transparent;border:2px solid #ff47a3;border-radius:50%}
+.transport .play img{width:48px;height:48px;object-fit:contain;display:block;content:url('assets/cat_play.png')}
+.transport .play:hover img{content:url('assets/cat_play_hover.png')}
+.transport .play img[src*="custom_pause"]{content:url('assets/cat_pause_active.png')}
+.transport .play:hover img[src*="custom_pause"]{content:url('assets/cat_pause_hover_active.png')}
+
+@media(max-width:760px){
+  .transport button.asset-control img{width:29px;height:29px}
+  .transport #shuffle img{width:27px;height:27px}
+  .transport #repeat img{width:30px;height:30px}
+  .transport .play{width:59px;height:59px}
+  .transport .play img{width:47px;height:47px}
+}
