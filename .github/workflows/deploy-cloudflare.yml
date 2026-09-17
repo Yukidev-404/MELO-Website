@@ -17,6 +17,9 @@ jobs:
 
       - name: Validate Worker syntax
         run: |
+          node --check melo-worker-entry.js
+          node --check player-stats-adapter.js
+          node --check stats-worker.js
           node --check worker.js
           node --check admin-chat-worker.js
           node --check admin-ops-worker.js
