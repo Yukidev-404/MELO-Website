@@ -9,6 +9,8 @@ const rememberLabel=document.getElementById('rememberLabel');
 const forgotLink=document.getElementById('forgotLink');
 const socialSection=document.getElementById('socialSection');
 const accountFooter=document.getElementById('accountFooter');
+const requestedReturn=new URLSearchParams(location.search).get('return')||'';
+const returnTarget=/^[A-Za-z0-9_./-]+$/.test(requestedReturn)&&requestedReturn.endsWith('.html')?requestedReturn:'index.html';
 let mode='user';
 
 function setMode(nextMode){
@@ -43,7 +45,7 @@ form.addEventListener('submit',async e=>{
     const data=await response.json().catch(()=>({}));
     if(!response.ok) throw new Error(data.error||'Login failed.');
     message.textContent=`Welcome back, ${data.user.display_name}. Redirecting…`;
-    setTimeout(()=>window.location.href='index.html',500);
+    setTimeout(()=>window.location.href=returnTarget,500);
   }catch(error){
     message.textContent=error.message;
   }finally{submit.disabled=false;}
