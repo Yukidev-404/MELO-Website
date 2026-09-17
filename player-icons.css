@@ -1,0 +1,8 @@
+/* MELO Web — asset-backed transport icons */
+.transport button.asset-control{display:flex;align-items:center;justify-content:center;padding:0;border:0;background:transparent}
+.transport button.asset-control img{display:block;width:34px;height:34px;object-fit:contain;pointer-events:none}
+.transport button.asset-control:hover img{opacity:.72}
+.transport .play img{width:54px;height:54px}
+.transport #shuffle img{width:31px;height:31px}
+.transport #repeat img{width:34px;height:34px}
+@media(max-width:760px){.transport button.asset-control img{width:31px;height:31px}.transport #shuffle img{width:28px;height:28px}.transport #repeat img{width:31px;height:31px}.transport .play img{width:54px;height:54px}}
