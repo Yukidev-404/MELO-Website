@@ -32,7 +32,7 @@ async function load(){
   $('liked').textContent=fmt(s.songs_liked??s.liked??s.favorites);
   $('streak').textContent=fmt(s.day_streak??s.streak??0);
   const artists=s.top_artists||s.artists||[];
-  if(artists.length)$('artists').innerHTML=artists.slice(0,5).map(a=>`<div class="artist">${a.image||a.cover||a.avatar?`<img src="${esc(a.image||a.cover||a.avatar)}" alt="">`:''}<div><b>${esc(a.name||a.artist||'Unknown')}</b><small>${fmt(a.plays||a.count||0)} plays</small></div></div>`).join('');
+  if(artists.length)$('artists').innerHTML=artists.slice(0,5).map(a=>`<div class="artist">${a.image||a.cover||a.avatar?`<img src="${esc(a.image||a.cover||a.avatar)}" alt="">`:''}<div><b>${esc(a.name||a.artist||'Unknown')}</b><small>${fmt(a.plays??a.value??a.count??0)} plays</small></div></div>`).join('');
   const r=s.recent||s.recently_played||s.recent_tracks||[];
   if(r.length){const x=r[0];$('recent').className='recent';$('recent').innerHTML=`${x.cover||x.image?`<img class="cover" src="${esc(x.cover||x.image)}" alt="">`:''}<div><b>${esc(x.name||x.title||'Unknown track')}</b><small>${esc(x.artist||x.artist_name||'Unknown artist')}</small></div>`}
  }catch(e){setError('Could not connect to the MELO account service.')}
