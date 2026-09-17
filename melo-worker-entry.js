@@ -14,14 +14,12 @@ function htmlResponse(body, asset) {
 }
 
 async function serveGetMelo(request, env) {
-  // /get-melo is the canonical extensionless asset URL. With Cloudflare's
-  // default HTML handling, ASSETS.fetch(/get-melo) resolves directly to
-  // get-melo.html. Fetching /get-melo.html here would redirect back to
-  // /get-melo, which loops because this route intentionally runs Worker-first.
   const asset = await env.ASSETS.fetch(new Request(request.url, request));
   if (!asset.ok) return asset;
   let body = await asset.text();
   body = body.replace(/\/get-melo-releases\.js\?v=[^"']+/g, '/get-melo-releases.js?v=20260916-4');
+  body = body.replace(/https:\/\/github\.com\/Yukidev-404\/MELO-Desktop\/releases\/download\/v1\.0\.0\/MELO\.exe/g, '/download.html?latest=1');
+  body = body.replace(/https:\/\/github\.com\/Yukidev-404\/MELO-Desktop\/releases\/tag\/v1\.0\.0/g, 'previous-releases.html');
   if (!body.includes('get-melo-releases.js')) {
     body = body.replace(/<\/body>/i, '<script src="/get-melo-releases.js?v=20260916-4"></script></body>');
   }
