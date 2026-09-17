@@ -21,6 +21,7 @@ function json(data, status = 200, request = null) {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
       ...(request ? cors(request) : {})
     }
   });
@@ -61,6 +62,8 @@ function normalizeSource(value) {
   return 'unknown';
 }
 
+const text = (value, max) => String(value ?? '').trim().slice(0, max);
+
 async function stats(request, env) {
   const user = await account(request, env);
   if (!user) return json({ authenticated: false, error: 'MELO session could not be verified.' }, 401, request);
@@ -74,7 +77,6 @@ async function stats(request, env) {
   const album = await env.DB.prepare("SELECT album_name name,artist_name artist,cover_url cover,COUNT(*) plays FROM melo_listening_events WHERE user_id=? AND album_name IS NOT NULL AND album_name<>'' GROUP BY album_name,artist_name,cover_url ORDER BY plays DESC,MAX(played_at) DESC LIMIT 1").bind(uid).first();
   const recent = await env.DB.prepare('SELECT track_name name,artist_name artist,played_at time,source FROM melo_listening_events WHERE user_id=? ORDER BY played_at DESC LIMIT 4').bind(uid).all();
   const latest = await env.DB.prepare('SELECT track_name name,artist_name artist,played_at,duration_ms,source FROM melo_listening_events WHERE user_id=? ORDER BY played_at DESC LIMIT 1').bind(uid).first();
-
   const latestPlayed = Number(latest?.played_at || 0);
   const durationSeconds = Math.max(90, Math.floor(Number(latest?.duration_ms || 0) / 1000) + 30);
   const active = latestPlayed > 0 && now() <= latestPlayed + durationSeconds;
@@ -94,52 +96,23 @@ async function stats(request, env) {
 
   return json({
     authenticated: true,
-    profile: {
-      id: user.id,
-      email: user.email,
-      name: user.display_name,
-      displayName: user.display_name,
-      avatarUrl: user.avatar_url
-    },
-    listening: {
-      active,
-      source: active && source !== 'unknown' ? source : null,
-      playedAt: latestPlayed || null,
-      trackName: active ? latest?.name || null : null,
-      artist: active ? latest?.artist || null : null
-    },
+    profile: { id: user.id, email: user.email, name: user.display_name, displayName: user.display_name, avatarUrl: user.avatar_url },
+    listening: { active, source: active && source !== 'unknown' ? source : null, playedAt: latestPlayed || null, trackName: active ? latest?.name || null : null, artist: active ? latest?.artist || null : null },
     stats: {
-      minutes: Math.floor(Number(totals?.duration_ms || 0) / 60000),
-      tracks: Number(totals?.tracks || 0),
-      liked: Number(totals?.liked || 0),
-      streak,
+      minutes: Math.floor(Number(totals?.duration_ms || 0) / 60000), tracks: Number(totals?.tracks || 0), liked: Number(totals?.liked || 0), streak,
       topArtists: artists.results || [],
-      recent: (recent.results || []).map(r => ({
-        name: r.name,
-        artist: r.artist,
-        time: r.time,
-        source: normalizeSource(r.source),
-        text: `Played ${r.name || 'Unknown track'}${r.artist ? ` — ${r.artist}` : ''}`
-      }))
+      recent: (recent.results || []).map(r => ({ name: r.name, artist: r.artist, time: r.time, source: normalizeSource(r.source), text: `Played ${r.name || 'Unknown track'}${r.artist ? ` — ${r.artist}` : ''}` }))
     },
-    topArtists: artists.results || [],
-    topGenres: [],
-    mostPlayedSong: song || {},
-    mostPlayedAlbum: album || {},
-    recentActivity: (recent.results || []).map(r => ({
-      text: `Played ${r.name || 'Unknown track'}${r.artist ? ` — ${r.artist}` : ''}`,
-      name: r.name,
-      artist: r.artist,
-      time: new Date(Number(r.time || 0) * 1000).toLocaleString(),
-      source: normalizeSource(r.source),
-      icon: '♫'
-    }))
+    topArtists: artists.results || [], topGenres: [], mostPlayedSong: song || {}, mostPlayedAlbum: album || {},
+    recentActivity: (recent.results || []).map(r => ({ text: `Played ${r.name || 'Unknown track'}${r.artist ? ` — ${r.artist}` : ''}`, name: r.name, artist: r.artist, time: new Date(Number(r.time || 0) * 1000).toLocaleString(), source: normalizeSource(r.source), icon: '♫' }))
   }, 200, request);
 }
 
 async function event(request, env) {
   const user = await account(request, env);
   if (!user) return json({ authenticated: false, error: 'MELO session could not be verified.' }, 401, request);
+  const length = Number(request.headers.get('Content-Length') || 0);
+  if (length > 32768) return json({ error: 'Event payload is too large.' }, 413, request);
 
   let b;
   try {
@@ -147,37 +120,32 @@ async function event(request, env) {
   } catch {
     return json({ error: 'Invalid JSON payload.' }, 400, request);
   }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ error: 'Invalid event payload.' }, 400, request);
 
-  const type = String(b?.event_type || b?.eventType || 'play').toLowerCase();
-  const track = b?.track || b;
-  const trackId = String(track?.id || track?.uri || track?.path || '');
-  const name = String(track?.name || track?.title || '').trim();
+  const type = text(b?.event_type || b?.eventType || 'play', 32).toLowerCase();
+  const track = b?.track && typeof b.track === 'object' && !Array.isArray(b.track) ? b.track : b;
+  const trackId = text(track?.id || track?.uri || track?.path || '', 512);
+  const name = text(track?.name || track?.title || '', 300);
   if (!name) return json({ error: 'Track name is required.' }, 400, request);
 
   await schema(env);
   const uid = String(user.id);
-
   if (type === 'favorite' || type === 'unfavorite') {
     await env.DB.prepare('UPDATE melo_listening_events SET liked=? WHERE user_id=? AND track_id=?').bind(type === 'favorite' ? 1 : 0, uid, trackId).run();
     return json({ ok: true, updated: true }, 200, request);
   }
 
-  const duration = Math.max(0, Math.min(86400000, Number(b?.duration_ms || b?.durationMs || track?.duration_ms || track?.durationMs || track?.duration * 1000 || 0)));
-  const source = normalizeSource(b?.source || b?.platform || track?.source || track?.platform) || 'unknown';
-  await env.DB.prepare('INSERT OR IGNORE INTO melo_listening_events (event_id,user_id,track_id,track_name,artist_name,album_name,cover_url,duration_ms,played_at,source,liked) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(
-    String(b?.event_id || b?.eventId || id()),
-    uid,
-    trackId,
-    name,
-    String(track?.artist || track?.artistName || ''),
-    String(track?.album || track?.albumName || ''),
-    String(track?.cover || track?.coverUrl || track?.imageUrl || ''),
-    duration,
-    Math.max(0, Number(b?.played_at || b?.playedAt || now())),
-    source,
-    b?.liked ? 1 : 0
-  ).run();
+  const durationRaw = Number(b?.duration_ms || b?.durationMs || track?.duration_ms || track?.durationMs || track?.duration * 1000 || 0);
+  const duration = Number.isFinite(durationRaw) ? Math.max(0, Math.min(86400000, durationRaw)) : 0;
+  const source = normalizeSource(b?.source || b?.platform || track?.source || track?.platform);
+  const playedRaw = Number(b?.played_at || b?.playedAt || now());
+  const playedAt = Number.isFinite(playedRaw) ? Math.max(0, Math.min(now() + 86400, Math.floor(playedRaw))) : now();
+  const eventId = text(b?.event_id || b?.eventId || id(), 128);
+  const artist = text(track?.artist || track?.artistName || '', 300);
+  const album = text(track?.album || track?.albumName || '', 300);
+  const cover = text(track?.cover || track?.coverUrl || track?.imageUrl || '', 2048);
 
+  await env.DB.prepare('INSERT OR IGNORE INTO melo_listening_events (event_id,user_id,track_id,track_name,artist_name,album_name,cover_url,duration_ms,played_at,source,liked) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(eventId, uid, trackId, name, artist, album, cover, Math.floor(duration), playedAt, source, b?.liked ? 1 : 0).run();
   return json({ ok: true }, 201, request);
 }
 
