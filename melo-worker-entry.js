@@ -5,6 +5,7 @@ import playerStatsWorker from './player-stats-adapter.js';
 export default {
   async fetch(request, env, ctx) {
     const path = new URL(request.url).pathname;
+    if (path.startsWith('/api/auth/')) return env.AUTH.fetch(request);
     if (path === '/api/profile') return profileWorker.fetch(request, env, ctx);
     if (path === '/api/stats' || path === '/api/stats/event') return playerStatsWorker.fetch(request, env, ctx);
     return adminWorker.fetch(request, env, ctx);
