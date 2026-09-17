@@ -71,6 +71,17 @@ jobs:
             --data '{"branch_includes":["main"],"branch_excludes":[],"path_includes":["*"],"path_excludes":[]}' \
             | jq '{success, errors, result: {trigger_uuid: .result.trigger_uuid, branch_includes: .result.branch_includes, path_includes: .result.path_includes, path_excludes: .result.path_excludes}}'
 
+      # Sync the GitHub Actions secret into the Cloudflare Worker secret store.
+      # The token value never enters the repository or build logs.
+      - name: Sync GitHub release token to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MELO_GITHUB_TOKEN: ${{ secrets.MELO_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$MELO_GITHUB_TOKEN" | npx wrangler secret put MELO_GITHUB_TOKEN --config wrangler.jsonc
+
       # Always perform a real Wrangler deployment from the current main tree.
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
