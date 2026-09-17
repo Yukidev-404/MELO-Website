@@ -1,0 +1,49 @@
+name: One-time Player Card stats fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix Player Card stats routing') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch stats routing and Player Card mapping
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('worker.js')
+          s=p.read_text()
+          if "import statsWorker from \"./stats-worker.js\";" not in s:
+              s=s.replace('import legacyWorker from "./legacy-worker.js";\n', 'import statsWorker from "./stats-worker.js";\nimport legacyWorker from "./legacy-worker.js";\n', 1)
+          route='    if(url.pathname==="/api/stats"||url.pathname==="/api/stats/event")return statsWorker.fetch(request,env,ctx);\n'
+          marker='    if(url.pathname==="/api/admin/website-updates"&&request.method==="GET")return handleWebsiteUpdates(request,env,url);\n'
+          if route.strip() not in s:
+              s=s.replace(marker, route+marker, 1)
+          p.write_text(s)
+
+          p=Path('melo-card.html')
+          s=p.read_text()
+          old="""  const artists=s.top_artists||s.artists||[];
+  if(artists.length)$(\'artists\').innerHTML=artists.slice(0,5).map(a=>`<div class=\"artist\">${a.image||a.cover||a.avatar?`<img src=\"${esc(a.image||a.cover||a.avatar)}\" alt=\"\">`:''}<div><b>${esc(a.name||a.artist||'Unknown')}</b><small>${fmt(a.plays||a.count||0)} plays</small></div></div>`).join('');
+  const r=s.recent||s.recently_played||s.recent_tracks||[];
+"""
+          new="""  const artists=st.topArtists||s.top_artists||s.artists||[];
+  if(artists.length)$(\'artists\').innerHTML=artists.slice(0,5).map(a=>`<div class=\"artist\">${a.image||a.cover||a.avatar?`<img src=\"${esc(a.image||a.cover||a.avatar)}\" alt=\"\">`:''}<div><b>${esc(a.name||a.artist||'Unknown')}</b><small>${fmt(a.plays||a.value||a.count||0)} plays</small></div></div>`).join('');
+  const r=st.recentActivity||s.recent||s.recently_played||s.recent_tracks||[];
+"""
+          if old not in s:
+              raise SystemExit('Expected Player Card mapping block not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Commit fix and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-player-card-stats.yml
+          git add worker.js melo-card.html
+          git commit -m "Fix Player Card stats routing"
+          git push
