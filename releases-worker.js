@@ -1,28 +1,25 @@
 const RELEASE_REPO = "Yukidev-404/MELO-Desktop";
 const GITHUB_API = `https://api.github.com/repos/${RELEASE_REPO}`;
 
-function githubHeaders(env, accept = "application/vnd.github+json") {
-  const headers = {
+function githubHeaders(accept = "application/vnd.github+json") {
+  return {
     Accept: accept,
     "User-Agent": "MELO-Website-Release-Archive",
     "X-GitHub-Api-Version": "2022-11-28"
   };
-  const token = String(env?.GITHUB_TOKEN || "").trim();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
 }
 
-async function github(env, path, accept = "application/vnd.github+json") {
+async function github(path, accept = "application/vnd.github+json") {
   const response = await fetch(`${GITHUB_API}${path}`, {
-    headers: githubHeaders(env, accept),
+    headers: githubHeaders(accept),
     redirect: "follow"
   });
   if (!response.ok) throw new Error(`GitHub API ${response.status}`);
   return response;
 }
 
-async function getReleases(env) {
-  const response = await github(env, "/releases?per_page=20");
+async function getReleases() {
+  const response = await github("/releases?per_page=20");
   const releases = await response.json();
   return Array.isArray(releases)
     ? releases.filter(r => !r.draft && !r.prerelease)
@@ -61,7 +58,7 @@ function json(data, status = 200, extra = {}) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/releases") {
@@ -69,7 +66,7 @@ export default {
       try {
         const rawLimit = Number(url.searchParams.get("limit") || 20);
         const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 20, 1), 20);
-        const releases = await getReleases(env);
+        const releases = await getReleases();
         return json({
           ok: true,
           repository: RELEASE_REPO,
@@ -87,7 +84,7 @@ export default {
       }
 
       try {
-        const releases = await getReleases(env);
+        const releases = await getReleases();
         let release;
 
         if (url.pathname === "/download/latest") {
@@ -113,7 +110,7 @@ export default {
         if (!asset) return json({ error: "No downloadable Windows asset found in this release." }, 404);
         if (!/\.(exe|msi|zip)$/i.test(asset.name)) return json({ error: "Asset type is not allowed." }, 400);
 
-        const upstream = await github(env, `/releases/assets/${asset.id}`, "application/octet-stream");
+        const upstream = await github(`/releases/assets/${asset.id}`, "application/octet-stream");
         const headers = new Headers(upstream.headers);
         headers.set("Content-Disposition", `attachment; filename="${asset.name.replace(/"/g, "")}"`);
         headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
