@@ -12,11 +12,18 @@ function githubHeaders(env, accept = "application/vnd.github+json") {
 }
 
 async function github(env, path, accept = "application/vnd.github+json") {
-  const response = await fetch(`${GITHUB_API}${path}`, { headers: githubHeaders(env, accept), redirect: "follow" });
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`GitHub API ${response.status}: ${body.slice(0, 500)}`);
+  const response = await fetch(`${GITHUB_API}${path}`, {
+    headers: githubHeaders(env, accept),
+    redirect: "manual"
+  });
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("Location");
+    if (!location) throw new Error("GitHub API redirect missing location");
+    // GitHub release asset endpoints redirect to a signed download URL. Never
+    // forward the private repository token to that CDN URL.
+    return fetch(location, { redirect: "follow", headers: { Accept: accept, "User-Agent": "MELO-Website-Release-Archive" } });
   }
+  if (!response.ok) throw new Error(`GitHub API ${response.status}`);
   return response;
 }
 
@@ -39,6 +46,14 @@ function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", ...extra } });
 }
 
+function validAssetName(name) {
+  return typeof name === "string" && name.length <= 256 && !name.includes("/") && !name.includes("\\") && !name.includes("\0");
+}
+
+function allowedAsset(name) {
+  return typeof name === "string" && /\.(exe|msi|zip)$/i.test(name);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -52,7 +67,7 @@ export default {
         return json({ ok: true, repository: RELEASE_REPO, releases: releasePayload(releases, limit) }, 200, { "Cache-Control": "public, max-age=300, s-maxage=300" });
       } catch (error) {
         console.error("MELO release archive API failed", error);
-        return json({ ok: false, error: "Release service unavailable.", detail: String(error?.message || error) }, 502);
+        return json({ ok: false, error: "Release service unavailable." }, 502);
       }
     }
 
@@ -68,23 +83,28 @@ export default {
           release = releases.find(r => String(r.id) === id);
         }
         if (!release) return json({ error: "No published MELO release found." }, 404);
+
         const requested = url.searchParams.get("asset");
-        if (requested && (requested.length > 256 || requested.includes("/") || requested.includes("\\"))) return json({ error: "Invalid asset name." }, 400);
+        if (requested && !validAssetName(requested)) return json({ error: "Invalid asset name." }, 400);
+        if (requested && !allowedAsset(requested)) return json({ error: "Asset type is not allowed." }, 400);
+
         const assets = Array.isArray(release.assets) ? release.assets : [];
-        const asset = (requested && assets.find(a => a.name === requested)) || assets.find(a => /\.exe$/i.test(a.name)) || assets.find(a => /\.(msi|zip)$/i.test(a.name));
+        const asset = (requested && assets.find(a => a.name === requested && allowedAsset(a.name))) || assets.find(a => /\.exe$/i.test(a.name)) || assets.find(a => /\.(msi|zip)$/i.test(a.name));
         if (!asset) return json({ error: "No downloadable Windows asset found in this release." }, 404);
-        if (!/\.(exe|msi|zip)$/i.test(asset.name)) return json({ error: "Asset type is not allowed." }, 400);
+
         const upstream = await github(env, `/releases/assets/${asset.id}`, "application/octet-stream");
+        if (!upstream.ok) return json({ error: "Download source unavailable." }, 502);
         const headers = new Headers(upstream.headers);
-        headers.set("Content-Disposition", `attachment; filename="${asset.name.replace(/"/g, "")}"`);
+        headers.set("Content-Disposition", `attachment; filename="${asset.name.replace(/[^a-zA-Z0-9._-]/g, "_")}"`);
         headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
         headers.set("X-Content-Type-Options", "nosniff");
         headers.delete("set-cookie");
+        headers.delete("authorization");
         if (request.method === "HEAD") return new Response(null, { status: upstream.status, headers });
         return new Response(upstream.body, { status: upstream.status, headers });
       } catch (error) {
         console.error("MELO release download failed", error);
-        return json({ error: "Download service unavailable.", detail: String(error?.message || error) }, 502);
+        return json({ error: "Download service unavailable." }, 502);
       }
     }
     return json({ error: "Not found." }, 404);
