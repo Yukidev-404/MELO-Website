@@ -15,6 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Worker dependencies
+        run: npm install --no-audit --no-fund
+
       - name: Validate Worker syntax
         run: |
           node --check melo-worker-entry.js
@@ -71,8 +74,6 @@ jobs:
             --data '{"branch_includes":["main"],"branch_excludes":[],"path_includes":["*"],"path_excludes":[]}' \
             | jq '{success, errors, result: {trigger_uuid: .result.trigger_uuid, branch_includes: .result.branch_includes, path_includes: .result.path_includes, path_excludes: .result.path_excludes}}'
 
-      # Sync the GitHub Actions secret into the Cloudflare Worker secret store.
-      # The token value never enters the repository or build logs.
       - name: Sync GitHub release token to Cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
