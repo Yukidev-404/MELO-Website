@@ -9,7 +9,6 @@ const FRONTEND_ORIGIN = 'https://yukidev-404.github.io';
 const PROVIDERS = {
   google: { authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', scope: 'openid email profile' },
   github: { authorize: 'https://github.com/login/oauth/authorize', token: 'https://github.com/login/oauth/access_token', scope: 'read:user user:email' },
-  microsoft: { authorize: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize', token: 'https://login.microsoftonline.com/common/oauth2/v2.0/token', scope: 'openid profile email' },
   spotify: { authorize: 'https://accounts.spotify.com/authorize', token: 'https://accounts.spotify.com/api/token', scope: 'user-read-email user-read-private' }
 };
 
@@ -308,7 +307,6 @@ async function oauthStart(request, env, provider) {
   const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: config.scope, state });
   if (provider === 'spotify') { params.set('code_challenge_method', 'S256'); params.set('code_challenge', await pkceChallenge(verifier)); }
   if (provider === 'google') params.set('access_type', 'online');
-  if (provider === 'microsoft') params.set('response_mode', 'query');
   if (provider === 'spotify') { params.set('show_dialog', 'true'); params.set('code_challenge_method', 'S256'); params.set('code_challenge', await pkceChallenge(verifier)); }
   return redirect(`${config.authorize}?${params}`);
 }
@@ -378,11 +376,6 @@ async function fetchOAuthProfile(provider, accessToken) {
     const p = await response.json();
     return { id: p.sub, email: p.email, name: p.name, avatarUrl: p.picture, emailVerified: p.email_verified !== false };
   }
-  if (provider === 'microsoft') {
-    const response = await fetch('https://graph.microsoft.com/oidc/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } });
-    const p = await response.json();
-    return { id: p.sub, email: p.email || p.preferred_username, name: p.name, avatarUrl: null, emailVerified: true };
-  }
   if (provider === 'spotify') {
     const response = await fetch('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!response.ok) return null;
@@ -446,7 +439,7 @@ async function handle(request, env) {
     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
-    const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft|spotify)(\/callback)?$/);
+    const match = path.match(/^\/api\/auth\/oauth\/(google|github|spotify)(\/callback)?$/);
     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
     return json({ error: 'Not found.' }, 404, {}, request);
   } catch (error) {
