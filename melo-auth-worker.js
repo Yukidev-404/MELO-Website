@@ -175,6 +175,113 @@ async function sendVerificationEmail(env, email, name, code) {
   }
 }
 
+async function ensurePasswordResetSchema(env) {
+  if (!env.__passwordResetSchemaPromise) {
+    env.__passwordResetSchemaPromise = env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_sent_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `).run().catch(error => {
+      env.__passwordResetSchemaPromise = null;
+      throw error;
+    });
+  }
+  await env.__passwordResetSchemaPromise;
+}
+
+async function sendPasswordResetEmail(env, email, name, code) {
+  if (!env.RESEND_API_KEY) throw new Error('Email delivery is not configured.');
+  const from = env.RESEND_FROM_EMAIL || 'MELO <onboarding@resend.dev>';
+  const safeName = String(name || 'there').replace(/[<>]/g, '');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
+    body: JSON.stringify({
+      from,
+      to: [email],
+      subject: 'Reset your MELO password',
+      html: `<!doctype html><html><body style="margin:0;background:#f5efe4;color:#171513;font-family:Arial,sans-serif;padding:32px"><div style="max-width:560px;margin:auto;background:#fffaf2;border:1px solid #171513;padding:36px"><div style="font-size:24px;font-weight:800;letter-spacing:.12em">MELO</div><p style="margin-top:28px">Hi ${safeName},</p><p>Use this code to reset your MELO password:</p><div style="font-size:36px;font-weight:800;letter-spacing:.25em;text-align:center;padding:24px 12px;margin:24px 0;border:2px solid #171513;background:#f0d6df">${code}</div><p style="font-size:14px">This code expires in 10 minutes. If you did not request a password reset, you can ignore this email.</p></div></body></html>`
+    })
+  });
+  if (!response.ok) {
+    let details = '';
+    try { details = (await response.json())?.message || ''; } catch {}
+    console.error('Resend password reset error', response.status, details);
+    throw new Error('Could not send the password reset email.');
+  }
+}
+
+async function requestPasswordReset(request, env) {
+  await ensurePasswordResetSchema(env);
+  const body = await readBody(request);
+  const email = cleanEmail(body?.email);
+  if (!validEmail(email)) return json({ error: 'Please enter a valid email address.' }, 400, {}, request);
+
+  const generic = { ok: true, message: 'If an account exists for that email, a password reset code has been sent.' };
+  const user = await env.DB.prepare('SELECT id,email,display_name FROM users WHERE email=?').bind(email).first();
+  if (!user) return json(generic, 200, {}, request);
+
+  const existing = await env.DB.prepare('SELECT id,last_sent_at FROM password_reset_tokens WHERE user_id=?').bind(user.id).first();
+  const t = now();
+  if (existing && t - Number(existing.last_sent_at || 0) < RESEND_COOLDOWN) return json(generic, 200, {}, request);
+
+  const code = verificationCode();
+  const codeHash = await hmacDigest(`reset:${email}:${code}`, env.RESEND_API_KEY || 'MELO-password-reset');
+  await env.DB.prepare(`
+    INSERT INTO password_reset_tokens (id,user_id,email,code_hash,expires_at,attempts,last_sent_at,created_at)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO NOTHING
+  `).bind(id(), user.id, email, codeHash, t + VERIFICATION_TTL, 0, t, t).run();
+
+  if (existing) {
+    await env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=? AND id!=?').bind(user.id, existing.id).run();
+  }
+
+  try {
+    await sendPasswordResetEmail(env, email, user.display_name, code);
+  } catch (error) {
+    await env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(user.id).run();
+    return json({ error: error?.message || 'Could not send the password reset email.' }, 502, {}, request);
+  }
+  return json(generic, 200, {}, request);
+}
+
+async function resetPassword(request, env) {
+  await ensurePasswordResetSchema(env);
+  const body = await readBody(request);
+  const email = cleanEmail(body?.email);
+  const code = String(body?.code || '').trim();
+  const password = String(body?.password || '');
+  if (!validEmail(email) || !/^\\d{6}$/.test(code)) return json({ error: 'Enter the 6-digit reset code.' }, 400, {}, request);
+  if (password.length < 8) return json({ error: 'Password must be at least 8 characters.' }, 400, {}, request);
+
+  const row = await env.DB.prepare('SELECT * FROM password_reset_tokens WHERE email=? AND expires_at>? ORDER BY created_at DESC LIMIT 1').bind(email, now()).first();
+  if (!row) return json({ error: 'That reset code is invalid or expired. Please request a new one.' }, 400, {}, request);
+  if (Number(row.attempts || 0) >= VERIFICATION_MAX_ATTEMPTS) return json({ error: 'Too many incorrect attempts. Please request a new code.' }, 429, {}, request);
+
+  const expected = await hmacDigest(`reset:${email}:${code}`, env.RESEND_API_KEY || 'MELO-password-reset');
+  if (expected !== row.code_hash) {
+    await env.DB.prepare('UPDATE password_reset_tokens SET attempts=attempts+1 WHERE id=?').bind(row.id).run();
+    return json({ error: 'Incorrect reset code. Please try again.' }, 400, {}, request);
+  }
+
+  const salt = bytesToBase64(crypto.getRandomValues(new Uint8Array(16)));
+  const passwordHash = await hashPassword(password, salt);
+  const t = now();
+  await env.DB.prepare('UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,updated_at=? WHERE id=?')
+    .bind(passwordHash, salt, PBKDF2_ITERATIONS, t, row.user_id).run();
+  await env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(row.user_id).run();
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(row.user_id).run();
+  return json({ ok: true, message: 'Password reset successfully.' }, 200, {}, request);
+}
+
 async function signup(request, env) {
   await ensurePendingSchema(env);
   const body = await readBody(request);
@@ -432,6 +539,8 @@ async function handle(request, env) {
   if (path === '/api/stats/event' && request.method === 'POST') return await meloStatsEvent(request, env);
   if (path === '/api/stats' && request.method === 'GET') return await meloStatsGet(request, env);
   try {
+    if (path === '/api/auth/forgot-password' && request.method === 'POST') return await requestPasswordReset(request, env);
+    if (path === '/api/auth/reset-password' && request.method === 'POST') return await resetPassword(request, env);
     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
