@@ -2,6 +2,9 @@
 const API='https://melo-website.tajtaranga.workers.dev';
 const $=id=>document.getElementById(id);
 const fields=['displayName','handle','bio','pronouns','country'];let original={};
+const pageParams=new URLSearchParams(location.search);
+if(pageParams.get('moved')==='1')setTimeout(()=>notice('Spotify was moved to this MELO account. Your previous MELO account data was not deleted.'),120);
+else if(pageParams.get('connected'))setTimeout(()=>notice(pageParams.get('connected').toUpperCase()+' connected to this MELO account.'),120);
 function notice(text,error=false){const n=$('notice');n.textContent=text;n.className='notice'+(error?' error':'');n.style.display='block';clearTimeout(notice.t);notice.t=setTimeout(()=>n.style.display='none',4500)}
 function providerName(u){const raw=u?.provider||u?.oauth_provider||u?.auth_provider||u?.identity_provider||u?.login_provider||u?.connection?.provider;const list=u?.providers||u?.identities||u?.connections;const vals=raw?[raw]:(Array.isArray(list)?list.map(x=>x?.provider||x?.name||x).filter(Boolean):[]);return [...new Set(vals.map(x=>String(x).replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase())))].join(' · ')||'MELO ACCOUNT'}
 function avatar(u){const src=u?.avatar_url||u?.avatar||u?.picture||'assets/melo-cat.png?v=20260915-2';$('avatarPreview').src=src;$('avatarPreview').onerror=()=>{$('avatarPreview').src='assets/melo-cat.png?v=20260915-2'}}
