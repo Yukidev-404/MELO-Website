@@ -513,8 +513,14 @@ async function oauthCallback(request, env, provider) {
     const current = await getSession(request, env);
     if (!current || current.user_id !== stateRow.connect_user_id) return new Response('Your MELO session expired. Please try again.', { status: 401 });
     const existing = await env.DB.prepare('SELECT user_id FROM auth_identities WHERE provider=? AND provider_user_id=?').bind(provider, profile.id).first();
-    if (existing && existing.user_id !== current.user_id) return new Response('That account is already connected to another MELO account.', { status: 409 });
-    if (!existing) await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), current.user_id, provider, profile.id, email, now()).run();
+    if (existing && existing.user_id !== current.user_id) {
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM auth_identities WHERE provider=? AND provider_user_id=?').bind(provider, profile.id),
+        env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), current.user_id, provider, profile.id, email, now())
+      ]);
+      return redirect(`${origin(request, env)}/account-settings.html?connected=${encodeURIComponent(provider)}&moved=1`);
+    }
+    if (!existing) await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), current.user_id, provider, profile.id, email, now());
     return redirect(`${origin(request, env)}/account-settings.html?connected=${encodeURIComponent(provider)}`);
   }
 
