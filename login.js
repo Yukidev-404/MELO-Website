@@ -53,7 +53,7 @@ form.addEventListener('submit',async e=>{
 
 forgotLink.addEventListener('click',e=>{
   e.preventDefault();
-  message.textContent='Password reset will be added after MELO email delivery is configured.';
+  window.location.href='forgot-password.html';
 });
 
 document.querySelectorAll('.social-login').forEach(button=>button.addEventListener('click',()=>{
