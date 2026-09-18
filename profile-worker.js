@@ -9,22 +9,14 @@ function cleanBio(v){return String(v??'').trim().slice(0,160)}
 function avatarOk(v){if(!v)return true;const m=String(v).match(/^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$/i);if(!m)return false;return Math.floor(m[2].length*3/4)<=600000}
 async function getProfile(request,env,user){const p=await env.DB.prepare('SELECT * FROM melo_profiles WHERE user_id=?').bind(user.id).first();return p||{user_id:user.id,handle:'',bio:'',pronouns:'',country:'',avatar_data:null,public_card:1,show_recent:1,show_artists:1}}
 async function handle(request,env){const user=await sessionUser(request,env);if(!user)return json({authenticated:false,error:'Please sign in to manage your MELO account.'},401);await ensure(env);if(request.method==='GET'){const p=await getProfile(request,env,user);return json({authenticated:true,user,profile:p})}if(request.method==='POST'){let b;try{b=await request.json()}catch{b={}}if(b.action!=='logout'&&b.action!=='logout-all')return json({error:'Unsupported account action.'},400);if(b.action==='logout-all'){try{await env.DB.prepare('DELETE FROM user_sessions WHERE user_id=?').bind(user.id).run()}catch(error){console.error('MELO logout-all session cleanup failed',error)}}const r=await env.AUTH.fetch(new Request(new URL('/api/auth/logout',request.url),request));const h={'Set-Cookie':r.headers.get('Set-Cookie')||'melo_user_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'};return json({ok:true},200,h)}if(request.method==='DELETE'){
-  let b;try{b=await request.json()}catch{b={}}
-  if(b.confirm!=='DELETE')return json({error:'Type DELETE to confirm account deletion.'},400);
-  const statements=[
-    env.DB.prepare('DELETE FROM melo_listening_events WHERE user_id=?').bind(user.id),
-    env.DB.prepare('DELETE FROM melo_favorites WHERE user_id=?').bind(user.id),
-    env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(user.id),
-    env.DB.prepare('DELETE FROM pending_signups WHERE email=?').bind(user.email),
-  ];
-  for(const statement of statements){try{await statement.run()}catch(error){console.error('MELO account cleanup step failed',error)}}
-  try{await env.DB.prepare('DELETE FROM desktop_oauth_codes WHERE user_id=?').bind(user.id).run()}catch(error){console.error('MELO desktop OAuth cleanup failed',error)}
-  try{await env.DB.prepare('DELETE FROM auth_identities WHERE user_id=?').bind(user.id).run()}catch(error){console.error('MELO identity cleanup failed',error)}
-  await env.DB.prepare('DELETE FROM melo_profiles WHERE user_id=?').bind(user.id).run();
-  try{await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(user.id).run()}catch(error){console.error('MELO session cleanup failed',error)}
-  const authResponse=await env.AUTH.fetch(new Request(new URL('/api/auth/delete-account',request.url),{method:'POST',headers:{Cookie:request.headers.get('Cookie')||'',Authorization:request.headers.get('Authorization')||''}}));
-  if(!authResponse.ok)return json({error:'Could not delete the MELO sign-in account.'},502);
-  const h={'Set-Cookie':authResponse.headers.get('Set-Cookie')||'melo_session=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0'};
-  return json({ok:true,deleted:true},200,h)
+  const body=await request.json().catch(()=>({}));
+  if(body.confirm!=='DELETE')return json({error:'Type DELETE to confirm account deletion.'},400);
+  const authResponse=await env.AUTH.fetch(new Request(new URL('/api/auth/delete-account',request.url),{
+    method:'POST',
+    headers:{Cookie:request.headers.get('Cookie')||'',Authorization:request.headers.get('Authorization')||''}
+  }));
+  const data=await authResponse.json().catch(()=>({}));
+  const h={'Set-Cookie':authResponse.headers.get('Set-Cookie')||'melo_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'};
+  return json(data,authResponse.status,h);
 }if(request.method==='PATCH'){let b;try{b=await request.json()}catch{return json({error:'Invalid JSON payload.'},400)}const display=cleanText(b.display_name,60),handle=cleanHandle(b.handle),bio=cleanBio(b.bio),pronouns=cleanText(b.pronouns,30),country=cleanText(b.country,60),avatar=b.avatar_data===undefined?null:String(b.avatar_data||'');if(display.length<2)return json({error:'Display name must be at least 2 characters.'},400);if(handle&&!/^[A-Za-z0-9_-]{3,30}$/.test(handle))return json({error:'Handle must be 3–30 letters, numbers, _ or -.'},400);if(!avatarOk(avatar))return json({error:'Avatar must be a PNG, JPEG, WebP or GIF under 600 KB.'},400);if(handle){const taken=await env.DB.prepare('SELECT user_id FROM melo_profiles WHERE lower(handle)=lower(?) AND user_id<>?').bind(handle,user.id).first();if(taken)return json({error:'That MELO handle is already taken.'},409)}const old=await getProfile(request,env,user),t=now();await env.DB.prepare(`INSERT INTO melo_profiles (user_id,handle,bio,pronouns,country,avatar_data,public_card,show_recent,show_artists,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET handle=excluded.handle,bio=excluded.bio,pronouns=excluded.pronouns,country=excluded.country,avatar_data=excluded.avatar_data,public_card=excluded.public_card,show_recent=excluded.show_recent,show_artists=excluded.show_artists,updated_at=excluded.updated_at`).bind(user.id,handle,bio,pronouns,country,avatar||old.avatar_data,b.public_card===undefined?Number(old.public_card):b.public_card?1:0,b.show_recent===undefined?Number(old.show_recent):b.show_recent?1:0,b.show_artists===undefined?Number(old.show_artists):b.show_artists?1:0,Number(old.created_at||t),t).run();const p=await getProfile(request,env,user);return json({ok:true,user:{...user,display_name:display,avatar_url:p.avatar_data||user.avatar_url||null},profile:p})}return json({error:'Method not allowed.'},405)}
 export default{fetch:handle};
