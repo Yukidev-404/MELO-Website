@@ -5,6 +5,7 @@ const VERIFICATION_TTL = 10 * 60;
 const VERIFICATION_MAX_ATTEMPTS = 5;
 const RESEND_COOLDOWN = 60;
 const PBKDF2_ITERATIONS = 100000;
+
 let passwordResetSchemaPromise = null;
 const FRONTEND_ORIGIN = 'https://yukidev-404.github.io';
 const PROVIDERS = {
@@ -75,22 +76,27 @@ function redirect(url, headers = {}) { return new Response(null, { status: 302, 
 
 async function ensurePendingSchema(env) {
   if (!pendingSchemaPromise) {
-    pendingSchemaPromise = env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS pending_signups (
-        id TEXT PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
-        display_name TEXT NOT NULL,
-        password_hash TEXT NOT NULL,
-        password_salt TEXT NOT NULL,
-        password_iterations INTEGER NOT NULL,
-        code_hash TEXT NOT NULL,
-        expires_at INTEGER NOT NULL,
-        attempts INTEGER NOT NULL DEFAULT 0,
-        last_sent_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run().catch(error => {
+    pendingSchemaPromise = (async () => {
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS pending_signups (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          display_name TEXT NOT NULL,
+          handle TEXT NOT NULL DEFAULT '',
+          password_hash TEXT NOT NULL,
+          password_salt TEXT NOT NULL,
+          password_iterations INTEGER NOT NULL,
+          code_hash TEXT NOT NULL,
+          expires_at INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          last_sent_at INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `).run();
+      try { await env.DB.prepare("ALTER TABLE pending_signups ADD COLUMN handle TEXT NOT NULL DEFAULT ''").run(); }
+      catch (error) { if (!/duplicate column|already exists/i.test(String(error?.message || error))) throw error; }
+    })().catch(error => {
       pendingSchemaPromise = null;
       throw error;
     });
@@ -219,6 +225,16 @@ async function sendPasswordResetEmail(env, email, name, code) {
   }
 }
 
+async function checkHandle(request, env) {
+  const url = new URL(request.url);
+  const handle = cleanHandle(url.searchParams.get('handle'));
+  if (!validHandle(handle)) return json({ available: false, valid: false, error: 'Use 3–30 letters, numbers, _ or -.' }, 200, {}, request);
+  await ensurePendingSchema(env);
+  const takenProfile = await env.DB.prepare('SELECT user_id FROM melo_profiles WHERE lower(handle)=lower(?) LIMIT 1').bind(handle).first().catch(() => null);
+  const takenPending = await env.DB.prepare('SELECT id FROM pending_signups WHERE lower(handle)=lower(?) LIMIT 1').bind(handle).first();
+  return json({ available: !takenProfile && !takenPending, valid: true, handle }, 200, {}, request);
+}
+
 async function requestPasswordReset(request, env) {
   await ensurePasswordResetSchema(env);
   const body = await readBody(request);
@@ -289,11 +305,14 @@ async function resetPassword(request, env) {
 async function signup(request, env) {
   await ensurePendingSchema(env);
   const body = await readBody(request);
-  const name = cleanName(body?.name), email = cleanEmail(body?.email), password = String(body?.password || '');
+  const name = cleanName(body?.name), handle = cleanHandle(body?.handle), email = cleanEmail(body?.email), password = String(body?.password || '');
   if (name.length < 2) return json({ error: 'Please enter your name.' }, 400, {}, request);
+  if (!validHandle(handle)) return json({ error: 'Choose a MELO handle with 3–30 letters, numbers, _ or -.' }, 400, {}, request);
   if (!validEmail(email)) return json({ error: 'Please enter a valid email address.' }, 400, {}, request);
   if (password.length < 8) return json({ error: 'Password must be at least 8 characters.' }, 400, {}, request);
   if (await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first()) return json({ error: 'An account with that email already exists.' }, 409, {}, request);
+  const handleTaken = await env.DB.prepare('SELECT user_id FROM melo_profiles WHERE lower(handle)=lower(?)').bind(handle).first().catch(() => null);
+  if (handleTaken) return json({ error: 'That MELO handle is already taken.' }, 409, {}, request);
 
   const salt = bytesToBase64(crypto.getRandomValues(new Uint8Array(16)));
   const t = now();
@@ -304,10 +323,10 @@ async function signup(request, env) {
   if (existing && t - existing.last_sent_at < RESEND_COOLDOWN) return json({ error: 'A verification code was just sent. Please wait a moment before requesting another.' }, 429, {}, request);
 
   await env.DB.prepare(`
-    INSERT INTO pending_signups (id,email,display_name,password_hash,password_salt,password_iterations,code_hash,expires_at,attempts,last_sent_at,created_at,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(email) DO UPDATE SET display_name=excluded.display_name,password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_iterations=excluded.password_iterations,code_hash=excluded.code_hash,expires_at=excluded.expires_at,attempts=0,last_sent_at=excluded.last_sent_at,updated_at=excluded.updated_at
-  `).bind(existing?.id || id(), email, name, passwordHash, salt, PBKDF2_ITERATIONS, codeHash, t + VERIFICATION_TTL, 0, t, existing ? existing.last_sent_at : t, t).run();
+    INSERT INTO pending_signups (id,email,display_name,handle,password_hash,password_salt,password_iterations,code_hash,expires_at,attempts,last_sent_at,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(email) DO UPDATE SET display_name=excluded.display_name,handle=excluded.handle,password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_iterations=excluded.password_iterations,code_hash=excluded.code_hash,expires_at=excluded.expires_at,attempts=0,last_sent_at=excluded.last_sent_at,updated_at=excluded.updated_at
+  `).bind(existing?.id || id(), email, name, handle, passwordHash, salt, PBKDF2_ITERATIONS, codeHash, t + VERIFICATION_TTL, 0, t, existing ? existing.last_sent_at : t, t).run();
 
   try {
     await sendVerificationEmail(env, email, name, code);
@@ -343,7 +362,10 @@ async function verifyEmail(request, env) {
 
   const userId = id();
   const t = now();
+  const handleTaken = await env.DB.prepare('SELECT user_id FROM melo_profiles WHERE lower(handle)=lower(?)').bind(pending.handle).first().catch(() => null);
+  if (handleTaken) return json({ error: 'That MELO handle was taken while you were verifying. Please start again with another handle.' }, 409, {}, request);
   await env.DB.prepare('INSERT INTO users (id,email,display_name,password_hash,password_salt,password_iterations,created_at,updated_at,last_login_at) VALUES (?,?,?,?,?,?,?,?,?)').bind(userId, pending.email, pending.display_name, pending.password_hash, pending.password_salt, pending.password_iterations, t, t, t).run();
+  await env.DB.prepare('INSERT INTO melo_profiles (user_id,handle,bio,pronouns,country,avatar_data,public_card,show_recent,show_artists,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(userId, pending.handle, '', '', '', null, 1, 1, 1, t, t).run();
   await env.DB.prepare('DELETE FROM pending_signups WHERE id=?').bind(pending.id).run();
   const token = await createSession(env, userId);
   return json({ user: { id: userId, email: pending.email, display_name: pending.display_name } }, 201, headersWithCookie(cookie(SESSION_COOKIE, token, SESSION_TTL)), request);
@@ -543,6 +565,7 @@ async function handle(request, env) {
   if (path === '/api/stats/event' && request.method === 'POST') return await meloStatsEvent(request, env);
   if (path === '/api/stats' && request.method === 'GET') return await meloStatsGet(request, env);
   try {
+    if (path === '/api/auth/check-handle' && request.method === 'GET') return await checkHandle(request, env);
     if (path === '/api/auth/forgot-password' && request.method === 'POST') return await requestPasswordReset(request, env);
     if (path === '/api/auth/reset-password' && request.method === 'POST') return await resetPassword(request, env);
     if (path === '/api/auth/signup' && request.method === 'POST') return await signup(request, env);
