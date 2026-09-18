@@ -347,7 +347,7 @@ async function oauthCallback(request, env, provider) {
     }
     await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), user.id, provider, profile.id, email, now()).run();
   }
-  await env.DB.prepare('UPDATE users SET last_login_at=?,updated_at=? WHERE id=?').bind(now(), now(), user.id).run();
+  await env.DB.prepare('UPDATE users SET display_name=COALESCE(NULLIF(?,\'\'),display_name), avatar_url=COALESCE(NULLIF(?,\'\'),avatar_url), last_login_at=?,updated_at=? WHERE id=?').bind(cleanName(profile.name), profile.avatarUrl || '', now(), now(), user.id).run();
   if (stateRow.desktop_redirect_uri) {
     await ensureDesktopOAuthSchema(env);
     const rawCode = randomToken(32);
