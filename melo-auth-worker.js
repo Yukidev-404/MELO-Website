@@ -420,7 +420,19 @@ async function deleteAccount(request, env) {
   const session = await getSession(request, env);
   if (!session) return json({ error: 'Please sign in to delete your account.' }, 401, {}, request);
   const userId = session.user_id;
-  await env.DB.prepare('DELETE FROM users WHERE id=?').bind(userId).run();
+  const user = await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(userId).first();
+  if (!user) return json({ error: 'Account not found.' }, 404, {}, request);
+  const statements = [
+    env.DB.prepare('DELETE FROM melo_listening_events WHERE user_id=?').bind(userId),
+    env.DB.prepare('DELETE FROM melo_favorites WHERE user_id=?').bind(userId),
+    env.DB.prepare('DELETE FROM melo_profiles WHERE user_id=?').bind(userId),
+    env.DB.prepare('DELETE FROM auth_identities WHERE user_id=?').bind(userId),
+    env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(userId),
+    env.DB.prepare('DELETE FROM desktop_oauth_codes WHERE user_id=?').bind(userId),
+    env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(userId),
+    env.DB.prepare('DELETE FROM users WHERE id=?').bind(userId)
+  ];
+  await env.DB.batch(statements);
   return json({ ok: true, deleted: true }, 200, headersWithCookie(clearCookie()), request);
 }
 
