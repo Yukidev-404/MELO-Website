@@ -96,6 +96,20 @@ async function ensurePendingSchema(env) {
       `).run();
       try { await env.DB.prepare("ALTER TABLE pending_signups ADD COLUMN handle TEXT NOT NULL DEFAULT ''").run(); }
       catch (error) { if (!/duplicate column|already exists/i.test(String(error?.message || error))) throw error; }
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS melo_profiles (
+        user_id TEXT PRIMARY KEY,
+        handle TEXT,
+        bio TEXT NOT NULL DEFAULT '',
+        pronouns TEXT NOT NULL DEFAULT '',
+        country TEXT NOT NULL DEFAULT '',
+        avatar_data TEXT,
+        public_card INTEGER NOT NULL DEFAULT 1,
+        show_recent INTEGER NOT NULL DEFAULT 1,
+        show_artists INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`).run();
+      await env.DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_melo_profiles_handle ON melo_profiles(handle) WHERE handle IS NOT NULL AND handle <> ''").run();
     })().catch(error => {
       pendingSchemaPromise = null;
       throw error;
