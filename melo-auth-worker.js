@@ -235,15 +235,18 @@ async function requestPasswordReset(request, env) {
 
   const code = verificationCode();
   const codeHash = await hmacDigest(`reset:${email}:${code}`, env.RESEND_API_KEY || 'MELO-password-reset');
+
+  // Replace the previous reset token before inserting the new one.
+  // The old implementation inserted the new token first and then deleted
+  // every token except the old row, which immediately deleted the new code.
+  if (existing) {
+    await env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(user.id).run();
+  }
+
   await env.DB.prepare(`
     INSERT INTO password_reset_tokens (id,user_id,email,code_hash,expires_at,attempts,last_sent_at,created_at)
     VALUES (?,?,?,?,?,?,?,?)
-    ON CONFLICT(id) DO NOTHING
   `).bind(id(), user.id, email, codeHash, t + VERIFICATION_TTL, 0, t, t).run();
-
-  if (existing) {
-    await env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=? AND id!=?').bind(user.id, existing.id).run();
-  }
 
   try {
     await sendPasswordResetEmail(env, email, user.display_name, code);
