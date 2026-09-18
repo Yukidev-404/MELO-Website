@@ -9,7 +9,8 @@ const FRONTEND_ORIGIN = 'https://yukidev-404.github.io';
 const PROVIDERS = {
   google: { authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', scope: 'openid email profile' },
   github: { authorize: 'https://github.com/login/oauth/authorize', token: 'https://github.com/login/oauth/access_token', scope: 'read:user user:email' },
-  microsoft: { authorize: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize', token: 'https://login.microsoftonline.com/common/oauth2/v2.0/token', scope: 'openid profile email' }
+  microsoft: { authorize: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize', token: 'https://login.microsoftonline.com/common/oauth2/v2.0/token', scope: 'openid profile email' },
+  spotify: { authorize: 'https://accounts.spotify.com/authorize', token: 'https://accounts.spotify.com/api/token', scope: 'user-read-email user-read-private' }
 };
 
 let pendingSchemaPromise = null;
@@ -308,6 +309,7 @@ async function oauthStart(request, env, provider) {
   if (provider === 'spotify') { params.set('code_challenge_method', 'S256'); params.set('code_challenge', await pkceChallenge(verifier)); }
   if (provider === 'google') params.set('access_type', 'online');
   if (provider === 'microsoft') params.set('response_mode', 'query');
+  if (provider === 'spotify') { params.set('show_dialog', 'true'); params.set('code_challenge_method', 'S256'); params.set('code_challenge', await pkceChallenge(verifier)); }
   return redirect(`${config.authorize}?${params}`);
 }
 
@@ -324,6 +326,7 @@ async function oauthCallback(request, env, provider) {
   if (!stateRow) return new Response('OAuth state expired. Please try again.', { status: 400 });
   const { clientId, clientSecret } = providerCredentials(provider, env);
   const tokenBody = new URLSearchParams({ client_id: clientId, code, redirect_uri: stateRow.redirect_uri, grant_type: 'authorization_code' });
+  if (provider === 'spotify') tokenBody.set('code_verifier', stateRow.code_verifier); else tokenBody.set('client_secret', clientSecret);
   if (provider === 'spotify') tokenBody.set('code_verifier', stateRow.code_verifier); else tokenBody.set('client_secret', clientSecret);
   const tokenResponse = await fetch(config.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: tokenBody });
   const token = await tokenResponse.json();
@@ -379,6 +382,12 @@ async function fetchOAuthProfile(provider, accessToken) {
     const response = await fetch('https://graph.microsoft.com/oidc/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } });
     const p = await response.json();
     return { id: p.sub, email: p.email || p.preferred_username, name: p.name, avatarUrl: null, emailVerified: true };
+  }
+  if (provider === 'spotify') {
+    const response = await fetch('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) return null;
+    const p = await response.json();
+    return { id: p.id, email: p.email, name: p.display_name || p.id, avatarUrl: p.images?.[0]?.url || null, emailVerified: true };
   }
   const response = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github+json', 'User-Agent': 'MELO' } });
   const p = await response.json();
@@ -437,7 +446,7 @@ async function handle(request, env) {
     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
-    const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft)(\/callback)?$/);
+    const match = path.match(/^\/api\/auth\/oauth\/(google|github|microsoft|spotify)(\/callback)?$/);
     if (match && request.method === 'GET') return match[2] ? await oauthCallback(request, env, match[1]) : await oauthStart(request, env, match[1]);
     return json({ error: 'Not found.' }, 404, {}, request);
   } catch (error) {
