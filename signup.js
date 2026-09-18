@@ -9,6 +9,36 @@ const verificationCode = document.getElementById('verificationCode');
 const resendButton = document.getElementById('resendCode');
 const changeEmail = document.getElementById('changeEmail');
 let pendingEmail = '';
+let handleAvailable = false;
+let handleTimer = null;
+const handleInput = document.getElementById('handle');
+const handleStatus = document.getElementById('handleStatus');
+const handleHint = document.getElementById('handleHint');
+
+async function checkHandleAvailability() {
+  const handle = handleInput.value.trim().replace(/^@/, '').toLowerCase();
+  handleInput.value = handle;
+  handleAvailable = false;
+  handleStatus.textContent = '';
+  handleStatus.className = 'handle-status';
+  if (!/^[A-Za-z0-9_-]{3,30}$/.test(handle)) {
+    handleHint.textContent = handle ? 'Use 3–30 letters, numbers, _ or -' : '3–30 letters, numbers, _ or -';
+    return;
+  }
+  handleStatus.textContent = '…';
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/check-handle?handle=${encodeURIComponent(handle)}`, { credentials: 'include', cache: 'no-store' });
+    const data = await r.json().catch(() => ({}));
+    handleAvailable = !!data.available;
+    handleStatus.textContent = handleAvailable ? '✓' : '✕';
+    handleStatus.className = `handle-status ${handleAvailable ? 'available' : 'taken'}`;
+    handleHint.textContent = handleAvailable ? `@${handle} is available.` : `@${handle} is already taken.`;
+  } catch {
+    handleHint.textContent = 'Could not check availability. Try again.';
+  }
+}
+handleInput.addEventListener('input', () => { clearTimeout(handleTimer); handleTimer = setTimeout(checkHandleAvailability, 300); });
+handleInput.addEventListener('blur', checkHandleAvailability);
 
 async function post(path, body) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -39,6 +69,8 @@ function showVerification(email, developmentCode = '') {
 form.addEventListener('submit', async e => {
   e.preventDefault();
   const password = document.getElementById('password').value;
+  await checkHandleAvailability();
+  if (!handleAvailable) { message.textContent = 'Please choose an available MELO username.'; handleInput.focus(); return; }
   const confirm = document.getElementById('confirm').value;
   if (password !== confirm) {
     message.textContent = 'Passwords do not match.';
@@ -51,6 +83,7 @@ form.addEventListener('submit', async e => {
   try {
     const data = await post('/api/auth/signup', {
       name: document.getElementById('name').value,
+      handle: handleInput.value.trim().replace(/^@/, ''),
       email,
       password
     });
