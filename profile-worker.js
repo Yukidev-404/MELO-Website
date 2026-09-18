@@ -16,7 +16,6 @@ async function handle(request,env){const user=await sessionUser(request,env);if(
     env.DB.prepare('DELETE FROM melo_favorites WHERE user_id=?').bind(user.id),
     env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(user.id),
     env.DB.prepare('DELETE FROM pending_signups WHERE email=?').bind(user.email),
-    env.DB.prepare('DELETE FROM oauth_states WHERE provider_email=?').bind(user.email)
   ];
   for(const statement of statements){try{await statement.run()}catch(error){console.error('MELO account cleanup step failed',error)}}
   try{await env.DB.prepare('DELETE FROM desktop_oauth_codes WHERE user_id=?').bind(user.id).run()}catch(error){console.error('MELO desktop OAuth cleanup failed',error)}
