@@ -417,6 +417,8 @@ async function login(request, env) {
 }
 
 async function deleteAccount(request, env) {
+  const body = await request.json().catch(() => ({}));
+  if (body.confirmation !== 'DELETE') return json({ error: 'Type DELETE to confirm account deletion.' }, 400, {}, request);
   const session = await getSession(request, env);
   if (!session) return json({ error: 'Please sign in to delete your account.' }, 401, {}, request);
   const userId = session.user_id;
