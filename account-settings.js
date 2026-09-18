@@ -15,6 +15,17 @@ $('profileForm').addEventListener('submit',async e=>{e.preventDefault();const pa
 async function save(payload){$('saveState').textContent='SAVING…';try{const r=await fetch(API+'/api/profile',{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Could not save your profile.');fill(d.user,d.profile);$('avatarInput').value='';$('saveState').textContent='SYNCED';notice('Profile saved across MELO.')}catch(err){$('saveState').textContent='ERROR';notice(err.message,true)}}
 async function connections(){try{const d=await getProfile(),u=d.user||{},vals=u?.providers||u?.identities||u?.connections,active=new Set();if(Array.isArray(vals))vals.forEach(x=>active.add(String(x?.provider||x?.name||x).toLowerCase()));const single=(u.provider||u.oauth_provider||u.auth_provider||'').toLowerCase();if(single)active.add(single);const names=[['google','Google','G'],['github','GitHub','GH'],['microsoft','Microsoft','M'],['spotify','Spotify','S'],['email','Email','@']];$('connections').innerHTML=names.map(([id,n,icon])=>{const on=active.has(id);return `<div class="connection"><div class="connection-left"><span class="connection-icon">${icon}</span><div><b>${n}</b><small>${on?'Connected to this MELO account':'Not connected'}</small></div></div><span class="connected-badge">${on?'CONNECTED':'—'}</span></div>`}).join('')}catch{}}
 $('logoutAll').onclick=async()=>{if(!confirm('Sign out of this MELO session?'))return;try{const r=await fetch(API+'/api/auth/logout',{method:'POST',credentials:'include'});if(!r.ok)throw new Error();notice('Signed out successfully.');setTimeout(()=>location.href='login.html',700)}catch{notice('Could not sign out.',true)}};
-$('deleteAccount').onclick=async()=>{if(!confirm('Remove your MELO profile permanently? This cannot be undone.'))return;const typed=prompt('Type REMOVE to confirm.');if(typed!=='REMOVE')return;try{const r=await fetch(API+'/api/profile',{method:'DELETE',credentials:'include'});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Could not remove profile.');notice('MELO profile removed.');setTimeout(()=>location.href='index.html?account=deleted',500)}catch(e){notice(e.message,true)}};
+$('deleteAccount').onclick=async()=>{
+  if(!confirm('Delete your MELO account permanently? This cannot be undone.'))return;
+  const typed=prompt('Type DELETE to confirm permanent account deletion.');
+  if(typed!=='DELETE')return;
+  try{
+    const r=await fetch(API+'/api/auth/delete-account',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmation:'DELETE'})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error||'Could not delete your MELO account.');
+    notice('MELO account deleted.');
+    setTimeout(()=>location.href='index.html?account=deleted',700);
+  }catch(e){notice(e.message,true)}
+};
 load();connections();
 })();
