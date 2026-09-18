@@ -284,8 +284,14 @@ async function me(request, env) {
 function providerCredentials(provider, env) {
   const prefix = provider.toUpperCase();
   const clientId = env[`${prefix}_CLIENT_ID`], clientSecret = env[`${prefix}_CLIENT_SECRET`];
-  if (!clientId || !clientSecret) throw new Error(`${provider} OAuth is not configured.`);
+  if (!clientId) throw new Error(`${provider} OAuth is not configured.`);
+  if (provider === 'spotify') return { clientId, clientSecret: null };
+  if (!clientSecret) throw new Error(`${provider} OAuth is not configured.`);
   return { clientId, clientSecret };
+}
+async function pkceChallenge(verifier) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return bytesToBase64(new Uint8Array(digest));
 }
 async function oauthStart(request, env, provider) {
   const config = PROVIDERS[provider];
@@ -299,6 +305,7 @@ async function oauthStart(request, env, provider) {
   const state = randomToken(24), verifier = randomToken(32);
   await env.DB.prepare('INSERT INTO oauth_states (state,provider,redirect_uri,code_verifier,desktop_redirect_uri,created_at,expires_at) VALUES (?,?,?,?,?,?,?)').bind(state, provider, redirectUri, verifier, desktopRedirect || null, now(), now() + OAUTH_STATE_TTL).run();
   const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: config.scope, state });
+  if (provider === 'spotify') { params.set('code_challenge_method', 'S256'); params.set('code_challenge', await pkceChallenge(verifier)); }
   if (provider === 'google') params.set('access_type', 'online');
   if (provider === 'microsoft') params.set('response_mode', 'query');
   return redirect(`${config.authorize}?${params}`);
@@ -316,7 +323,8 @@ async function oauthCallback(request, env, provider) {
   await env.DB.prepare('DELETE FROM oauth_states WHERE state=?').bind(state).run();
   if (!stateRow) return new Response('OAuth state expired. Please try again.', { status: 400 });
   const { clientId, clientSecret } = providerCredentials(provider, env);
-  const tokenBody = new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: stateRow.redirect_uri, grant_type: 'authorization_code' });
+  const tokenBody = new URLSearchParams({ client_id: clientId, code, redirect_uri: stateRow.redirect_uri, grant_type: 'authorization_code' });
+  if (provider === 'spotify') tokenBody.set('code_verifier', stateRow.code_verifier); else tokenBody.set('client_secret', clientSecret);
   const tokenResponse = await fetch(config.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: tokenBody });
   const token = await tokenResponse.json();
   if (!tokenResponse.ok || !token.access_token) return new Response('Could not complete OAuth sign-in.', { status: 502 });
