@@ -13,7 +13,26 @@ $('avatarInput').addEventListener('change',e=>{const f=e.target.files?.[0];if(!f
 $('reset').onclick=()=>{fields.forEach(id=>$(id).value=original[id]||'');$('publicCard').checked=!!original.public_card;$('showRecent').checked=!!original.show_recent;$('showArtists').checked=!!original.show_artists;$('bioCount').textContent=String(original.bio?.length||0);$('saveState').textContent='SYNCED';$('avatarInput').value='';avatar({avatar_url:original.avatar_data||'assets/melo-cat.png?v=20260915-2'});notice('Changes discarded.')};
 $('profileForm').addEventListener('submit',async e=>{e.preventDefault();const payload={display_name:$('displayName').value.trim(),handle:$('handle').value.trim().replace(/^@/,''),bio:$('bio').value.trim(),pronouns:$('pronouns').value,country:$('country').value.trim(),public_card:$('publicCard').checked,show_recent:$('showRecent').checked,show_artists:$('showArtists').checked};if(!payload.display_name)return notice('Display name is required.',true);if(payload.handle&&!/^[A-Za-z0-9_-]{3,30}$/.test(payload.handle))return notice('Handle must be 3–30 letters, numbers, _ or -.',true);const file=$('avatarInput').files?.[0];if(file){const reader=new FileReader();reader.onload=()=>save({...payload,avatar_data:reader.result});reader.readAsDataURL(file)}else save(payload)});
 async function save(payload){$('saveState').textContent='SAVING…';try{const r=await fetch(API+'/api/profile',{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Could not save your profile.');fill(d.user,d.profile);$('avatarInput').value='';$('saveState').textContent='SYNCED';notice('Profile saved across MELO.')}catch(err){$('saveState').textContent='ERROR';notice(err.message,true)}}
-async function connections(){try{const d=await getProfile(),u=d.user||{},vals=u?.providers||u?.identities||u?.connections,active=new Set();if(Array.isArray(vals))vals.forEach(x=>active.add(String(x?.provider||x?.name||x).toLowerCase()));const single=(u.provider||u.oauth_provider||u.auth_provider||'').toLowerCase();if(single)active.add(single);const names=[['google','Google','G'],['github','GitHub','GH'],['microsoft','Microsoft','M'],['spotify','Spotify','S'],['email','Email','@']];$('connections').innerHTML=names.map(([id,n,icon])=>{const on=active.has(id);return `<div class="connection"><div class="connection-left"><span class="connection-icon">${icon}</span><div><b>${n}</b><small>${on?'Connected to this MELO account':'Not connected'}</small></div></div><span class="connected-badge">${on?'CONNECTED':'—'}</span></div>`}).join('')}catch{}}
+async function connections(){
+  try{
+    const d=await getProfile(),u=d.user||{};
+    const r=await fetch(API+'/api/auth/connections',{credentials:'include',cache:'no-store'});
+    const data=await r.json().catch(()=>({}));
+    const active=new Map((data.connections||[]).map(x=>[String(x.provider||'').toLowerCase(),x]));
+    const names=[['google','Google','G'],['github','GitHub','GH'],['spotify','Spotify','S']];
+    $('connections').innerHTML=names.map(([id,n,icon])=>{
+      const c=active.get(id),on=!!c;
+      const detail=on?(c.provider_email||'Connected to this MELO account'):'Not connected';
+      return '<div class="connection"><div class="connection-left"><span class="connection-icon">'+icon+'</span><div><b>'+n+'</b><small>'+detail+'</small></div></div><button class="connect-btn '+(on?'connected':'')+'" data-provider="'+id+'" '+(on?'disabled':'')+'>'+(on?'CONNECTED':'CONNECT')+'</button></div>';
+    }).join('');
+    document.querySelectorAll('.connect-btn:not(.connected)').forEach(btn=>btn.addEventListener('click',()=>{
+      const provider=btn.dataset.provider;
+      if(provider) window.location.href=API+'/api/auth/oauth/'+provider+'?mode=connect';
+    }));
+  }catch{
+    $('connections').innerHTML='<div class="loading">COULD NOT LOAD CONNECTIONS.</div>';
+  }
+}
 $('logoutAll').onclick=async()=>{if(!confirm('Sign out of this MELO session?'))return;try{const r=await fetch(API+'/api/auth/logout',{method:'POST',credentials:'include'});if(!r.ok)throw new Error();notice('Signed out successfully.');setTimeout(()=>location.href='login.html',700)}catch{notice('Could not sign out.',true)}};
 $('deleteAccount').onclick=async()=>{
   if(!confirm('Delete your MELO account permanently? This cannot be undone.'))return;
