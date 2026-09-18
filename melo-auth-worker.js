@@ -416,6 +416,14 @@ async function login(request, env) {
   return json({ user: { id: user.id, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url } }, 200, headersWithCookie(cookie(SESSION_COOKIE, token, SESSION_TTL)), request);
 }
 
+async function deleteAccount(request, env) {
+  const session = await getSession(request, env);
+  if (!session) return json({ error: 'Please sign in to delete your account.' }, 401, {}, request);
+  const userId = session.user_id;
+  await env.DB.prepare('DELETE FROM users WHERE id=?').bind(userId).run();
+  return json({ ok: true, deleted: true }, 200, headersWithCookie(clearCookie()), request);
+}
+
 async function logout(request, env) {
   const header = request.headers.get('Cookie') || '';
   const match = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
@@ -586,6 +594,7 @@ async function handle(request, env) {
     if (path === '/api/auth/verify-email' && request.method === 'POST') return await verifyEmail(request, env);
     if (path === '/api/auth/resend-code' && request.method === 'POST') return await resendCode(request, env);
     if (path === '/api/auth/login' && request.method === 'POST') return await login(request, env);
+    if (path === '/api/auth/delete-account' && request.method === 'POST') return await deleteAccount(request, env);
     if (path === '/api/auth/logout' && request.method === 'POST') return await logout(request, env);
     if (path === '/api/auth/me' && request.method === 'GET') return await me(request, env);
     if (path === '/api/auth/oauth/exchange' && request.method === 'POST') return await oauthDesktopExchange(request, env);
