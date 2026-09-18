@@ -5,6 +5,7 @@ const VERIFICATION_TTL = 10 * 60;
 const VERIFICATION_MAX_ATTEMPTS = 5;
 const RESEND_COOLDOWN = 60;
 const PBKDF2_ITERATIONS = 210000;
+let passwordResetSchemaPromise = null;
 const FRONTEND_ORIGIN = 'https://yukidev-404.github.io';
 const PROVIDERS = {
   google: { authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', scope: 'openid email profile' },
@@ -176,8 +177,8 @@ async function sendVerificationEmail(env, email, name, code) {
 }
 
 async function ensurePasswordResetSchema(env) {
-  if (!env.__passwordResetSchemaPromise) {
-    env.__passwordResetSchemaPromise = env.DB.prepare(`
+  if (!passwordResetSchemaPromise) {
+    passwordResetSchemaPromise = env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -189,11 +190,11 @@ async function ensurePasswordResetSchema(env) {
         created_at INTEGER NOT NULL
       )
     `).run().catch(error => {
-      env.__passwordResetSchemaPromise = null;
+      passwordResetSchemaPromise = null;
       throw error;
     });
   }
-  await env.__passwordResetSchemaPromise;
+  await passwordResetSchemaPromise;
 }
 
 async function sendPasswordResetEmail(env, email, name, code) {
@@ -259,7 +260,7 @@ async function resetPassword(request, env) {
   const email = cleanEmail(body?.email);
   const code = String(body?.code || '').trim();
   const password = String(body?.password || '');
-  if (!validEmail(email) || !/^\\d{6}$/.test(code)) return json({ error: 'Enter the 6-digit reset code.' }, 400, {}, request);
+  if (!validEmail(email) || !/^\d{6}$/.test(code)) return json({ error: 'Enter the 6-digit reset code.' }, 400, {}, request);
   if (password.length < 8) return json({ error: 'Password must be at least 8 characters.' }, 400, {}, request);
 
   const row = await env.DB.prepare('SELECT * FROM password_reset_tokens WHERE email=? AND expires_at>? ORDER BY created_at DESC LIMIT 1').bind(email, now()).first();
