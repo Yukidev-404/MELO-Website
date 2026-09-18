@@ -135,11 +135,17 @@ async function ensureDesktopOAuthSchema(env) {
         redirect_uri TEXT NOT NULL,
         code_verifier TEXT,
         desktop_redirect_uri TEXT,
+        connect_user_id TEXT,
         created_at INTEGER NOT NULL,
         expires_at INTEGER NOT NULL
       )`).run();
       try {
         await env.DB.prepare('ALTER TABLE oauth_states ADD COLUMN desktop_redirect_uri TEXT').run();
+      } catch (error) {
+        if (!/duplicate column|already exists/i.test(String(error?.message || error))) throw error;
+      }
+      try {
+        await env.DB.prepare('ALTER TABLE oauth_states ADD COLUMN connect_user_id TEXT').run();
       } catch (error) {
         if (!/duplicate column|already exists/i.test(String(error?.message || error))) throw error;
       }
@@ -472,7 +478,9 @@ async function oauthStart(request, env, provider) {
   await ensureDesktopOAuthSchema(env);
   const redirectUri = `${origin(request, env)}/api/auth/oauth/${provider}/callback`;
   const state = randomToken(24), verifier = randomToken(32);
-  await env.DB.prepare('INSERT INTO oauth_states (state,provider,redirect_uri,code_verifier,desktop_redirect_uri,created_at,expires_at) VALUES (?,?,?,?,?,?,?)').bind(state, provider, redirectUri, verifier, desktopRedirect || null, now(), now() + OAUTH_STATE_TTL).run();
+  const connectUser = new URL(request.url).searchParams.get('mode') === 'connect' ? await getSession(request, env) : null;
+  if (new URL(request.url).searchParams.get('mode') === 'connect' && !connectUser) return redirect(`${origin(request, env)}/login.html?error=signin-required`);
+  await env.DB.prepare('INSERT INTO oauth_states (state,provider,redirect_uri,code_verifier,desktop_redirect_uri,connect_user_id,created_at,expires_at) VALUES (?,?,?,?,?,?,?,?)').bind(state, provider, redirectUri, verifier, desktopRedirect || null, connectUser?.user_id || null, now(), now() + OAUTH_STATE_TTL).run();
   const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: config.scope, state });
   if (provider === 'spotify') { params.set('code_challenge_method', 'S256'); params.set('code_challenge', await pkceChallenge(verifier)); }
   if (provider === 'google') params.set('access_type', 'online');
@@ -501,6 +509,15 @@ async function oauthCallback(request, env, provider) {
   const profile = await fetchOAuthProfile(provider, token.access_token);
   if (!profile?.id || !profile.email || profile.emailVerified === false) return new Response('Your OAuth account did not provide a verified email address.', { status: 400 });
   const email = cleanEmail(profile.email);
+  if (stateRow.connect_user_id) {
+    const current = await getSession(request, env);
+    if (!current || current.user_id !== stateRow.connect_user_id) return new Response('Your MELO session expired. Please try again.', { status: 401 });
+    const existing = await env.DB.prepare('SELECT user_id FROM auth_identities WHERE provider=? AND provider_user_id=?').bind(provider, profile.id).first();
+    if (existing && existing.user_id !== current.user_id) return new Response('That account is already connected to another MELO account.', { status: 409 });
+    if (!existing) await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), current.user_id, provider, profile.id, email, now()).run();
+    return redirect(`${origin(request, env)}/account-settings.html?connected=${encodeURIComponent(provider)}`);
+  }
+
   let identity = await env.DB.prepare('SELECT user_id FROM auth_identities WHERE provider=? AND provider_user_id=?').bind(provider, profile.id).first();
   let user;
   if (identity) {
@@ -601,6 +618,14 @@ async function handle(request, env) {
   if (path === '/api/stats/event' && request.method === 'POST') return await meloStatsEvent(request, env);
   if (path === '/api/stats' && request.method === 'GET') return await meloStatsGet(request, env);
   try {
+async function connections(request, env) {
+  const session = await getSession(request, env);
+  if (!session) return json({ authenticated: false }, 401, {}, request);
+  const rows = await env.DB.prepare('SELECT provider,provider_email,created_at FROM auth_identities WHERE user_id=? ORDER BY created_at ASC').bind(session.user_id).all();
+  return json({ authenticated: true, connections: rows.results || [] }, 200, {}, request);
+}
+
+    if (path === '/api/auth/connections' && request.method === 'GET') return await connections(request, env);
     if (path === '/api/auth/check-handle' && request.method === 'GET') return await checkHandle(request, env);
     if (path === '/api/auth/forgot-password' && request.method === 'POST') return await requestPasswordReset(request, env);
     if (path === '/api/auth/reset-password' && request.method === 'POST') return await resetPassword(request, env);
