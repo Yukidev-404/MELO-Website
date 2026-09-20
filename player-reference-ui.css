@@ -127,90 +127,36 @@
   .lyrics-panel{inset:62px 0 0 0}
 }
 @media (min-width:761px){
-  /* Exact reference desktop geometry. The reference uses a 500px player pane. */
+  /* Final reference geometry: 500px design pane, compact lower control stack. */
   .workspace{grid-template-columns:500px 1fr!important}
-
   .pane-head{left:16px;right:16px;height:56px;font-size:10px}
-
-  .record-wrap{
-    top:56px!important;
-    width:260px!important;
-    height:260px!important;
-  }
-
-  .track-info{
-    top:374px!important;
-    left:24px;
-    right:24px;
-  }
+  .record-wrap{top:56px!important;width:260px!important;height:260px!important}
+  .track-info{top:374px!important;left:24px;right:24px}
   .track-info div{font-size:13px}
   .track-info small{margin-top:7px;font-size:9px}
-
-  .time-row{
-    top:460px!important;
-    left:22px;
-    right:22px;
-    height:40px;
-  }
+  .time-row{top:458px!important;left:22px;right:22px;height:40px}
   .time-row .icon-button{width:42px;height:42px;padding:5px}
   .time-row .icon-button img{max-width:29px;max-height:29px}
   .time-row .favorite img{width:27px;height:27px}
-
-  .progress{
-    top:430px!important;
-    left:20px;
-    right:20px;
-    height:3px;
-  }
+  .progress{top:430px!important;left:20px;right:20px;height:3px}
   .progress i{height:3px}
-
-  .transport{
-    top:436px!important;
-    left:22px;
-    right:22px;
-    height:62px;
-  }
+  .transport{top:438px!important;left:22px;right:22px;height:58px}
   .transport button{width:30px;height:38px;font-size:19px}
   .transport .play{width:58px;height:58px}
   .transport .play img{width:47px;height:47px}
-
-  .visual-label{top:494px!important;left:28px;font-size:9px}
+  .visual-label{top:496px!important;left:28px;font-size:9px}
   .visualizer{top:526px!important;left:28px;right:28px;height:24px}
   .bar{width:2px}
-
-  .volume-row{
-    top:572px!important;
-    left:28px;
-    right:28px;
-    grid-template-columns:40px 1fr 42px;
-    gap:6px;
-    font-size:9px;
-  }
+  .volume-row{top:572px!important;left:28px;right:28px;grid-template-columns:40px 1fr 42px;gap:6px;font-size:9px}
   .volume-row input{height:16px}
-
-  .device{
-    top:610px!important;
-    left:28px;
-    right:28px;
-    height:38px;
-    gap:10px;
-    font-size:9px;
-  }
+  .device{top:610px!important;left:28px;right:28px;height:38px;gap:10px;font-size:9px}
   .device img{width:32px;height:32px}
-
-  .settings-link{
-    left:24px;
-    right:24px;
-    bottom:12px;
-    padding-top:14px;
-    font-size:10px;
-  }
-
-  .library-pane{padding:22px 25px 40px!important}
+  .settings-link{left:24px;right:24px;bottom:12px;padding-top:14px;font-size:10px}
+  .library-pane{padding:22px 40px 40px!important}
   .search-row{height:50px!important}
-  .search-row input{height:50px!important;border-radius:25px}
+  .search-row input{height:50px!important;border-radius:25px;width:calc(100% - 55px)}
   .search-row #searchButton{left:18px}
-  .library-title{margin-top:23px;height:45px}
+  .library-title{margin-top:12px;height:45px}
   .tabs{gap:10px}
   .tabs button{height:48px;border-radius:16px;padding:0 22px}
   .tabs #source{height:42px;padding:0 20px}
