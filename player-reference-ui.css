@@ -127,15 +127,16 @@
   .lyrics-panel{inset:62px 0 0 0}
 }
 @media (min-width:761px) and (max-height:900px){
+  /* Compact desktop: keep the same geometry, but give each control group more breathing room. */
   .player-pane{min-height:0}
-  .record-wrap{top:58px!important;width:290px!important;height:290px!important}
-  .track-info{top:402px!important}
-  .time-row{top:454px!important}
-  .progress{top:505px!important}
-  .transport{top:528px!important}
-  .visual-label{top:594px!important}
-  .visualizer{top:617px!important}
-  .volume-row{top:681px!important}
-  .device{top:721px!important}
-  .settings-link{bottom:14px!important;padding-top:18px!important}
+  .record-wrap{top:58px!important;width:320px!important;height:320px!important}
+  .track-info{top:438px!important}
+  .time-row{top:501px!important}
+  .progress{top:554px!important}
+  .transport{top:578px!important}
+  .visual-label{top:651px!important}
+  .visualizer{top:678px!important}
+  .volume-row{top:751px!important}
+  .device{top:803px!important}
+  .settings-link{bottom:12px!important;padding-top:18px!important}
 }
