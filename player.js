@@ -237,11 +237,11 @@ async function tabLoad(){
   if(s.source!=='SPOTIFY'){s.searchResults=null;s.searchPlaylists=null;render();return}
   try{
     if(s.tab==='PLAYLISTS'){
-      const d=await api(`/search?type=playlist&limit=50&q=${encodeURIComponent(q)}`);
+      const d=await api(`/search?type=playlist&limit=10&q=${encodeURIComponent(q)}`);
       s.searchPlaylists=(d.playlists?.items||[]).filter(Boolean).map(p=>({id:p.id,name:p.name,total:p.items?.total||0,image:p.images?.[0]?.url||'',owner:p.owner?.display_name||p.owner?.id||'Spotify'}));
       s.searchResults=null;
     }else{
-      const d=await api(`/search?type=track&limit=50&q=${encodeURIComponent(q)}`);
+      const d=await api(`/search?type=track&limit=10&q=${encodeURIComponent(q)}`);
       s.searchResults=(d.tracks?.items||[]).map(track).filter(Boolean);
       s.searchPlaylists=null;
     }
