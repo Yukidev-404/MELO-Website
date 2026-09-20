@@ -197,37 +197,71 @@ async function loadQueuePool(){
   const seedKey=queueTrackKey(seed);
   if(!seedKey)return;
   if(s.queuePoolLoaded&&s.queuePoolSeed===seedKey&&s.queuePool.length)return;
-  const pool=[]; const seen=new Set();
-  const add=t=>{if(!t)return;const k=queueTrackKey(t);if(!k||seen.has(k))return;seen.add(k);pool.push(t)};
-  try{
-    const artistIds=seed.artistIds||[];
-    const genres=new Set();
-    for(const id of artistIds.slice(0,2)){
-      try{const a=await api('/artists/'+encodeURIComponent(id));(a.genres||[]).forEach(g=>genres.add(g))}catch{}
-    }
-    for(const id of artistIds.slice(0,2)){
-      try{const d=await api('/artists/'+encodeURIComponent(id)+'/top-tracks?market=US');(d.tracks||[]).map(track).forEach(add)}catch{}
-    }
-    for(const genre of [...genres].slice(0,4)){
-      try{const d=await api('/search?type=track&limit=10&q='+encodeURIComponent('genre:"'+genre+'"'));(d.tracks?.items||[]).map(track).forEach(add)}catch{}
-    }
-    if(s.playlistContext?.tracks?.length){
-      s.playlistContext.tracks.forEach(add);
-    }
-  }catch(e){msg('Could not prepare related autoplay queue: '+e.message)}
-  s.queuePool=pool.filter(t=>queueTrackKey(t)!==seedKey);
+
+  const pool=[];const seen=new Set();
+  const add=t=>{if(!t)return;const k=queueTrackKey(t);if(!k||k===seedKey||seen.has(k))return;seen.add(k);pool.push(t)};
+
+  const artistNames=(seed.artist||'').split(',').map(x=>x.trim()).filter(Boolean);
+  const artistIds=seed.artistIds||[];
+
+  // 1. Same artist: reliable fallback and always available when the artist
+  // has more than one track in Spotify's catalogue.
+  for(const id of artistIds.slice(0,2)){
+    try{
+      const d=await api('/artists/'+encodeURIComponent(id)+'/top-tracks?market=US');
+      (d.tracks||[]).map(track).forEach(add);
+    }catch{}
+  }
+
+  // 2. Same artist via Search as a fallback for accounts where artist
+  // catalogue endpoints are unavailable.
+  for(const name of artistNames.slice(0,2)){
+    try{
+      const d=await api('/search?type=track&limit=10&q='+encodeURIComponent('artist:"'+name+'"'));
+      (d.tracks?.items||[]).map(track).forEach(add);
+    }catch{}
+  }
+
+  // 3. Same-vibe genre search. This is deliberately best-effort; queue must
+  // still work when genre metadata/search is unavailable.
+  for(const id of artistIds.slice(0,2)){
+    try{
+      const a=await api('/artists/'+encodeURIComponent(id));
+      for(const genre of (a.genres||[]).slice(0,2)){
+        try{
+          const d=await api('/search?type=track&limit=10&q='+encodeURIComponent('genre:'+genre));
+          (d.tracks?.items||[]).map(track).forEach(add);
+        }catch{}
+      }
+    }catch{}
+  }
+
+  // 4. Explicit playlist context is useful when the user actually played
+  // something from a playlist. Never use /me/tracks (Liked Songs) here.
+  if(s.playlistContext?.tracks?.length)s.playlistContext.tracks.forEach(add);
+
+  s.queuePool=pool;
   s.queuePoolSeed=seedKey;
-  s.queuePoolLoaded=true;
+  s.queuePoolLoaded=pool.length>0;
 }
+
 async function refillAutoQueue(force=false){
-  if(s.source!=='SPOTIFY')return;
+  if(s.source!=='SPOTIFY'||!s.currentTrack)return;
   if(!force&&s.autoQueue.length>2)return;
   await loadQueuePool();
-  if(!s.queuePool.length)return;
-  const used=new Set([queueTrackKey(s.currentTrack),...s.queue.map(queueTrackKey),...s.autoQueue.map(queueTrackKey),...s.queueHistory.slice(-30).map(queueTrackKey)]);
+
+  const used=new Set([
+    queueTrackKey(s.currentTrack),
+    ...s.queue.map(queueTrackKey),
+    ...s.autoQueue.map(queueTrackKey),
+    ...s.queueHistory.slice(-30).map(queueTrackKey)
+  ]);
   const candidates=s.queuePool.filter(t=>!used.has(queueTrackKey(t)));
-  for(const t of candidates.sort(()=>Math.random()-.5).slice(0,10)){
-    s.queueNumber+=1;s.autoQueue.push({...t,queueNo:s.queueNumber});
+  const shuffled=candidates.slice().sort(()=>Math.random()-.5);
+
+  for(const t of shuffled.slice(0,10)){
+    s.queueNumber+=1;
+    s.autoQueue.push({...t,queueNo:s.queueNumber});
   }
 }
 async function playQueueTrack(t){
