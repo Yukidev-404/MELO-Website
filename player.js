@@ -69,7 +69,7 @@ function vizDesktopSpotify(t){
     const avg=sum/Math.max(1,z-a),bass=1-i/bars.length;
     const target=3+Math.pow(avg/255,.72)*(12+bass*25);
     const current=parseFloat(b.style.height)||3;
-    b.style.height=(current+(target-current)*(target>current?.34:.12)).toFixed(2)+'px';
+    b.style.height=(current+(target-current)*(target>current ? .34 : .12)).toFixed(2)+'px';
   });
 }
 function vizLoop(){
@@ -89,7 +89,7 @@ vizLoop();function vizLocal(){
     const avg=sum/Math.max(1,z-a), bass=1-i/bars.length;
     const target=3+Math.pow(avg/255,.72)*(12+bass*25);
     const current=parseFloat(b.style.height)||3;
-    b.style.height=(current+(target-current)*(target>current?.34:.12)).toFixed(2)+'px';
+    b.style.height=(current+(target-current)*(target>current ? .34 : .12)).toFixed(2)+'px';
   });
 }
 function vizLoop(){
