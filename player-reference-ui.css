@@ -126,3 +126,16 @@
   .content::after{opacity:.18;right:-20px;top:70px;width:280px;height:280px}
   .lyrics-panel{inset:62px 0 0 0}
 }
+@media (min-width:761px) and (max-height:900px){
+  .player-pane{min-height:0}
+  .record-wrap{top:58px!important;width:290px!important;height:290px!important}
+  .track-info{top:402px!important}
+  .time-row{top:454px!important}
+  .progress{top:505px!important}
+  .transport{top:528px!important}
+  .visual-label{top:594px!important}
+  .visualizer{top:617px!important}
+  .volume-row{top:681px!important}
+  .device{top:721px!important}
+  .settings-link{bottom:14px!important;padding-top:18px!important}
+}
