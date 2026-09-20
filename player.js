@@ -120,7 +120,11 @@ async function play(i){
       if(s.tab==='PLAYLISTS'&&s.playlistContext)s.playlistContext.index=i;
       else if(s.playlistContext&&s.tracks===s.playlistContext.tracks)s.playlistContext.index=i;
       else if(s.playlistContext){const pi=s.playlistContext.tracks.findIndex(x=>x.id===t.id);if(pi>=0)s.playlistContext.index=pi}
-      setCurrent(t,true);await spotifyPlay(t)
+      recordQueueTransition(t);
+      setCurrent(t,true);
+      await spotifyPlay(t);
+      await refillAutoQueue();
+      if(s.tab==='QUEUE')render();
     }catch(e){msg(e.message);if(!s.spotify)openSpotify()}
   }else{audio.src=t.url;s.current=i;setCurrent(t);audio.play().catch(()=>{})}
 }
