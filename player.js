@@ -304,7 +304,7 @@ function renderQueue(){
       <button class="queue-load-more" id="queueLoadMore" type="button"><span>---------</span> LOAD MORE <span>---------</span></button>
       <div class="queue-section-title">RECENTLY PLAYED</div>
       ${history.length?history.map(t=>`<div class="queue-history" data-history-id="${esc(queueTrackKey(t))}">
-        <span class="queue-number">${String(t.historyNo||1).padStart(2,'0')}</span>
+        <span class="queue-number">${String(history.indexOf(t)+1).padStart(2,'0')}</span>
         <div class="queue-track-copy"><b>${esc(t.name)} - ${esc(t.artist)}</b><small>${esc(t.album)}</small></div>
       </div>`).join(''):'<div class="empty">NO PLAYED HISTORY</div>'}
     </div>`;
