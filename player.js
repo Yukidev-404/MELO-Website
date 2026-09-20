@@ -262,10 +262,29 @@ function renderQueue(){
       ${current?`<div class="track-row queue-current"><span class="num">▶</span><div><b>${esc(current.name)}</b><small>${esc(current.artist)} · ${esc(current.album)}</small></div></div>`:'<div class="empty">NOTHING PLAYING</div>'}
       <div class="queue-section-title">NEXT IN QUEUE</div>
       ${upcoming.length?upcoming.map((t,i)=>`<div class="track-row queue-item" data-q-index="${i}"><span class="num">${String(t.queueNo||i+1).padStart(2,'0')}</span><div><b>${esc(t.name)}</b><small>${esc(t.artist)} · ${esc(t.album)}</small></div><span class="queue-kind">${i<s.queue.length?'MANUAL':'AUTO'}</span></div>`).join(''):'<div class="empty">QUEUE IS EMPTY</div>'}
+      <button class="queue-load-more" id="queueLoadMore" type="button">LOAD MORE</button>
       <div class="queue-section-title">RECENTLY PLAYED</div>
       ${history.length?history.map(t=>`<div class="track-row queue-history" data-history-id="${esc(queueTrackKey(t))}"><span class="num">${String(t.queueNo||0).padStart(2,'0')}</span><div><b>${esc(t.name)}</b><small>${esc(t.artist)} · ${esc(t.album)}</small></div></div>`).join(''):'<div class="empty">NO PLAYED HISTORY</div>'}
     </div>`;
   content.querySelectorAll('.queue-item').forEach(r=>r.onclick=async()=>{const i=Number(r.dataset.qIndex);const t=[...s.queue,...s.autoQueue][i];try{await playQueueTrack(t)}catch(e){msg(e.message)}});
+  $('queueLoadMore')?.addEventListener('click',async()=>{
+    const btn=$('queueLoadMore');
+    if(!btn)return;
+    btn.disabled=true;
+    btn.textContent='LOADING…';
+    try{
+      const before=s.autoQueue.length;
+      await refillAutoQueue(true);
+      const added=s.autoQueue.length-before;
+      btn.textContent=added?('LOAD MORE · +'+added):'QUEUE FULL';
+      if(added)msg('ADDED '+added+' MORE SONG'+(added===1?'':'S')+' TO QUEUE');
+      renderQueue();
+    }catch(e){
+      btn.disabled=false;
+      btn.textContent='LOAD MORE';
+      msg(e.message);
+    }
+  });
   content.querySelectorAll('.queue-history').forEach(r=>r.onclick=async()=>{const t=s.queueHistory.find(x=>queueTrackKey(x)===r.dataset.historyId);if(!t)return;try{await playQueueTrack(t)}catch(e){msg(e.message)}});
 }
 function updateFavoriteUI(t){const liked=!!t&&s.favorites.some(v=>v.id===t.id);const img=$('favorite')?.querySelector('img');if(img)img.src=liked?'assets/favorite_wave_active.png':'assets/favorite_wave.png'}
