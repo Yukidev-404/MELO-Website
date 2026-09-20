@@ -186,9 +186,12 @@ function recordQueueTransition(nextTrack){
   if(prev&&nextId&&queueTrackKey(prev)!==nextId){
     const key=queueTrackKey(prev)+'->'+nextId;
     if(key!==s.lastQueueTransition){
-      // Queue numbers belong to upcoming queue entries. Never consume a
-      // number when moving a track into history.
-      s.queueHistory.push({...prev,queueNo:prev.queueNo||null});
+      const lastHistoryNo=s.queueHistory.reduce((max,t)=>Math.max(max,Number(t.historyNo)||0),0);
+      s.queueHistory.push({
+        ...prev,
+        historyNo:lastHistoryNo+1,
+        queueNo:prev.queueNo||null
+      });
       s.lastQueueTransition=key;
     }
   }
@@ -301,7 +304,7 @@ function renderQueue(){
       <button class="queue-load-more" id="queueLoadMore" type="button"><span>---------</span> LOAD MORE <span>---------</span></button>
       <div class="queue-section-title">RECENTLY PLAYED</div>
       ${history.length?history.map(t=>`<div class="queue-history" data-history-id="${esc(queueTrackKey(t))}">
-        ${t.queueNo?'<span class="queue-number">'+String(t.queueNo).padStart(2,'0')+'</span>':'<span class="queue-number queue-number-empty">--</span>'}
+        <span class="queue-number">${String(t.historyNo||1).padStart(2,'0')}</span>
         <div class="queue-track-copy"><b>${esc(t.name)} - ${esc(t.artist)}</b><small>${esc(t.album)}</small></div>
       </div>`).join(''):'<div class="empty">NO PLAYED HISTORY</div>'}
     </div>`;
