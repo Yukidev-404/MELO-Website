@@ -165,6 +165,6 @@
 
 /* Synced lyrics — desktop-style karaoke lines */
 .lyrics-body{display:flex;flex-direction:column;align-items:center;gap:10px;max-height:calc(100vh - 220px);overflow:auto;scroll-behavior:smooth}
-.lyrics-line{border:0;background:transparent;color:#76767b;font:inherit;font-size:18px;padding:8px 14px;cursor:pointer;transition:color .12s,transform .12s}
-.lyrics-line:hover{color:#ffb7d9}
-.lyrics-line.active{color:#ff47a3;font-weight:bold;transform:scale(1.04)}
+.lyric-line{border:0;background:transparent;color:#76767b;font:inherit;font-size:18px;padding:8px 14px;cursor:pointer;transition:color .12s,transform .12s}
+.lyric-line:hover{color:#ffb7d9}
+.lyric-line.active{color:#ff47a3;font-weight:bold;transform:scale(1.04)}
