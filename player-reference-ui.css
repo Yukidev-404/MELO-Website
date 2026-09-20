@@ -127,19 +127,44 @@
   .lyrics-panel{inset:62px 0 0 0}
 }
 @media (min-width:761px) and (max-height:900px){
-  /* Short desktop browser viewport: scale the player content down so the
-     same MELO spacing rhythm remains visible from record through settings. */
-  .player-pane{min-height:0}
-  .record-wrap{top:58px!important;width:270px!important;height:270px!important}
-  .track-info{top:370px!important}
-  .time-row{top:425px!important}
-  .progress{top:485px!important}
-  .transport{top:510px!important;height:58px!important}
-  .visual-label{top:575px!important}
-  .visualizer{top:598px!important;height:28px!important}
-  .volume-row{top:645px!important}
-  .device{top:695px!important}
-  .settings-link{bottom:10px!important;padding-top:14px!important}
+  /* Compact desktop player — size the components first, then space them. */
+  .workspace{grid-template-columns:minmax(400px,33%) 1fr!important}
+  .record-wrap{top:56px!important;width:300px!important;height:300px!important}
+  .track-info{top:395px!important;left:24px;right:24px}
+  .track-info div{font-size:15px}
+  .track-info small{margin-top:8px;font-size:11px}
+
+  .time-row{top:468px!important;left:22px;right:22px;height:40px}
+  .time-row .icon-button{width:42px;height:42px;padding:5px}
+  .time-row .icon-button img{max-width:29px;max-height:29px}
+  .time-row .favorite img{width:27px;height:27px}
+
+  .progress{top:530px!important;left:22px;right:22px;height:3px}
+  .progress i{height:3px}
+
+  .transport{top:550px!important;left:22px;right:22px;height:62px}
+  .transport button{width:28px;height:38px;font-size:19px}
+  .transport .play{width:58px;height:58px}
+  .transport .play img{width:47px;height:47px}
+
+  .visual-label{top:625px!important;left:26px;font-size:9px}
+  .visualizer{top:650px!important;left:26px;right:26px;height:24px}
+  .bar{width:2px}
+
+  .volume-row{
+    top:704px!important;
+    left:26px;
+    right:26px;
+    grid-template-columns:40px 1fr 42px;
+    gap:6px;
+    font-size:9px
+  }
+  .volume-row input{height:16px}
+
+  .device{top:748px!important;left:26px;right:26px;height:38px;gap:10px;font-size:9px}
+  .device img{width:32px;height:32px}
+
+  .settings-link{left:22px;right:22px;bottom:10px;padding-top:14px;font-size:10px}
 }
 
 
