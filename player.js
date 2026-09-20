@@ -193,6 +193,12 @@ function recordQueueTransition(nextTrack){
     }
   }
 }
+function renumberUpcomingQueue(){
+  const upcoming=[...s.queue,...s.autoQueue];
+  const start=s.currentTrack?.queueNo?Number(s.currentTrack.queueNo)+1:1;
+  upcoming.forEach((t,i)=>{t.queueNo=start+i});
+  s.queueNumber=upcoming.length?start+upcoming.length-1:(start-1);
+}
 async function loadQueuePool(){
   const seed=s.currentTrack;
   const seedKey=queueTrackKey(seed);
@@ -396,7 +402,7 @@ async function tabLoad(){
     render();
     msg(`PLAYLIST · ${s.playlistContext.name} · ${tracks.length} TRACKS`);
   }catch(e){msg(e.message)}
-}function trackMenu(x,y,id){const t=s.tracks.find(v=>v.id===id),m=$('contextMenu');if(!t)return;m.innerHTML='<button data-a="q">Add Selected to Queue</button><button data-a="f">Add Selected to Favorites</button>';m.classList.add('open');m.style.left=`${Math.min(x,innerWidth-245)}px`;m.style.top=`${Math.min(y,innerHeight-120)}px`;m.querySelector('[data-a="q"]').onclick=async()=>{try{s.queue.push(t);msg(`ADDED TO MELO QUEUE · ${s.queue.length}`)}catch(e){msg(e.message)}m.classList.remove('open')};m.querySelector('[data-a="f"]').onclick=async()=>{try{if(s.source==='SPOTIFY')await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'PUT'});else{s.favorites=[...s.favorites.filter(v=>v.id!==t.id),t];localStorage.setItem('melo_favorites',JSON.stringify(s.favorites))}msg('SAVED')}catch(e){msg(e.message)}m.classList.remove('open')}}async function search(q){
+}function trackMenu(x,y,id){const t=s.tracks.find(v=>v.id===id),m=$('contextMenu');if(!t)return;m.innerHTML='<button data-a="q">Add Selected to Queue</button><button data-a="f">Add Selected to Favorites</button>';m.classList.add('open');m.style.left=`${Math.min(x,innerWidth-245)}px`;m.style.top=`${Math.min(y,innerHeight-120)}px`;m.querySelector('[data-a="q"]').onclick=async()=>{try{s.queue.push({...t});renumberUpcomingQueue();if(s.tab==='QUEUE')renderQueue();msg(`ADDED TO MELO QUEUE · ${s.queue.length}`)}catch(e){msg(e.message)}m.classList.remove('open')};m.querySelector('[data-a="f"]').onclick=async()=>{try{if(s.source==='SPOTIFY')await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'PUT'});else{s.favorites=[...s.favorites.filter(v=>v.id!==t.id),t];localStorage.setItem('melo_favorites',JSON.stringify(s.favorites))}msg('SAVED')}catch(e){msg(e.message)}m.classList.remove('open')}}async function search(q){
   q=String(q||'').trim();
   s.searchQuery=q;
   if(!q){s.searchResults=null;s.searchPlaylists=null;await tabLoad();return}
