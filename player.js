@@ -121,7 +121,7 @@ async function play(i){
       else if(s.playlistContext&&s.tracks===s.playlistContext.tracks)s.playlistContext.index=i;
       else if(s.playlistContext){const pi=s.playlistContext.tracks.findIndex(x=>x.id===t.id);if(pi>=0)s.playlistContext.index=pi}
       recordQueueTransition(t);
-      s.autoQueue=[];s.queuePool=[];s.queuePoolLoaded=false;
+      s.autoQueue=[];s.queuePool=[];s.queuePoolLoaded=false;s.queuePoolSeed=null;s.queueNumber=0;
       setCurrent(t,true);
       await spotifyPlay(t);
       await refillAutoQueue();
@@ -201,12 +201,11 @@ async function loadQueuePool(){
 
   const pool=[];const seen=new Set();
   const add=t=>{if(!t)return;const k=queueTrackKey(t);if(!k||k===seedKey||seen.has(k))return;seen.add(k);pool.push(t)};
-
-  const artistNames=(seed.artist||'').split(',').map(x=>x.trim()).filter(Boolean);
   const artistIds=seed.artistIds||[];
+  const artistNames=(seed.artist||'').split(',').map(x=>x.trim()).filter(Boolean);
 
-  // 1. Same artist: reliable fallback and always available when the artist
-  // has more than one track in Spotify's catalogue.
+  // Build a large related pool. Spotify's current API caps search limit at 10,
+  // so we page through multiple 10-track requests instead of relying on one.
   for(const id of artistIds.slice(0,2)){
     try{
       const d=await api('/artists/'+encodeURIComponent(id)+'/top-tracks?market=US');
@@ -214,31 +213,33 @@ async function loadQueuePool(){
     }catch{}
   }
 
-  // 2. Same artist via Search as a fallback for accounts where artist
-  // catalogue endpoints are unavailable.
   for(const name of artistNames.slice(0,2)){
-    try{
-      const d=await api('/search?type=track&limit=10&q='+encodeURIComponent('artist:"'+name+'"'));
-      (d.tracks?.items||[]).map(track).forEach(add);
-    }catch{}
+    for(let offset=0;offset<40;offset+=10){
+      try{
+        const d=await api('/search?type=track&limit=10&offset='+offset+'&q='+encodeURIComponent('artist:"'+name+'"'));
+        const items=d.tracks?.items||[];
+        items.map(track).forEach(add);
+        if(items.length<10)break;
+      }catch{break}
+    }
   }
 
-  // 3. Same-vibe genre search. This is deliberately best-effort; queue must
-  // still work when genre metadata/search is unavailable.
   for(const id of artistIds.slice(0,2)){
     try{
       const a=await api('/artists/'+encodeURIComponent(id));
-      for(const genre of (a.genres||[]).slice(0,2)){
-        try{
-          const d=await api('/search?type=track&limit=10&q='+encodeURIComponent('genre:'+genre));
-          (d.tracks?.items||[]).map(track).forEach(add);
-        }catch{}
+      for(const genre of (a.genres||[]).slice(0,3)){
+        for(let offset=0;offset<20;offset+=10){
+          try{
+            const d=await api('/search?type=track&limit=10&offset='+offset+'&q='+encodeURIComponent('genre:'+genre));
+            const items=d.tracks?.items||[];
+            items.map(track).forEach(add);
+            if(items.length<10)break;
+          }catch{break}
+        }
       }
     }catch{}
   }
 
-  // 4. Explicit playlist context is useful when the user actually played
-  // something from a playlist. Never use /me/tracks (Liked Songs) here.
   if(s.playlistContext?.tracks?.length)s.playlistContext.tracks.forEach(add);
 
   s.queuePool=pool;
