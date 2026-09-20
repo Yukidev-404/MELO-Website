@@ -10,6 +10,10 @@ export default {
     if (!session) return json({ authenticated: false }, 401);
     if (['POST', 'PATCH', 'DELETE'].includes(request.method) && !sameOrigin(request, url)) return json({ error: 'Invalid origin.' }, 403);
     if (url.pathname === '/api/admin/audit-log' && request.method === 'GET') return auditList(env, url);
+    if (url.pathname === '/api/admin/accounts' && request.method === 'GET') return accountList(env, url);
+    if (url.pathname === '/api/admin/account/action' && request.method === 'POST') return accountAction(request, env, session);
+    if (url.pathname === '/api/admin/plans' && request.method === 'GET') return planList(env);
+    if (url.pathname === '/api/admin/plans' && request.method === 'POST') return planMutation(request, env, session);
     if (url.pathname === '/api/admin/flag' && request.method === 'POST') return flagMutation(request, env, session);
     if (url.pathname === '/api/admin/crash/status' && request.method === 'POST') return crashStatus(request, env, session);
     if (url.pathname === '/api/admin/release' && request.method === 'GET') return releaseList(env, session);
@@ -29,6 +33,43 @@ async function getSession(request, env) {
   return row;
 }
 
+async function ensureAccountSchema(env){
+  const alters=["ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'","ALTER TABLE users ADD COLUMN plan_code TEXT NOT NULL DEFAULT 'free'","ALTER TABLE users ADD COLUMN suspended_until INTEGER","ALTER TABLE users ADD COLUMN banned_until INTEGER","ALTER TABLE users ADD COLUMN moderation_reason TEXT"];
+  for(const sql of alters){try{await env.DB.prepare(sql).run()}catch(e){if(!/duplicate column|already exists/i.test(String(e?.message||'')))throw e}}
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS melo_plans (plan_code TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER NOT NULL DEFAULT 0,currency TEXT NOT NULL DEFAULT 'USD',description TEXT NOT NULL DEFAULT '',enabled INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)").run();
+  const t=Math.floor(Date.now()/1000);
+  for(const p of [['free','Free',0,'USD','MELO account and core player access'],['plus','Plus',0,'USD','Additional MELO features'],['pro','Pro',0,'USD','Full MELO feature set']]) await env.DB.prepare("INSERT OR IGNORE INTO melo_plans (plan_code,name,price_cents,currency,description,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)").bind(p[0],p[1],p[2],p[3],p[4],1,t,t).run();
+}
+function canModerate(session){return ['owner','admin','moderator'].includes(session?.role)}
+async function accountList(env,url){
+  await ensureAccountSchema(env);
+  const q=String(url.searchParams.get('q')||'').trim().slice(0,128),limit=Math.min(200,Math.max(1,Number(url.searchParams.get('limit')||100)));
+  const cols='u.id,u.email,u.display_name,u.created_at,u.updated_at,u.last_login_at,u.account_status,u.plan_code,u.suspended_until,u.banned_until,u.moderation_reason,p.handle,CASE WHEN ai.user_id IS NULL THEN 0 ELSE 1 END AS spotify_linked,(SELECT MAX(last_seen_at) FROM sessions s WHERE s.user_id=u.id) AS last_seen';
+  let result;
+  if(q){const p=`%${q.replace(/[%_]/g,'\\async function ensureAuditSchema(env) {')}%`;result=await env.DB.prepare(`SELECT ${cols} FROM users u LEFT JOIN melo_profiles p ON p.user_id=u.id LEFT JOIN (SELECT DISTINCT user_id FROM auth_identities WHERE provider='spotify') ai ON ai.user_id=u.id WHERE u.email LIKE ? ESCAPE '\\' OR u.display_name LIKE ? ESCAPE '\\' OR p.handle LIKE ? ESCAPE '\\' OR u.id LIKE ? ESCAPE '\\' ORDER BY u.created_at DESC LIMIT ?`).bind(p,p,p,p,limit).all()}
+  else result=await env.DB.prepare(`SELECT ${cols} FROM users u LEFT JOIN melo_profiles p ON p.user_id=u.id LEFT JOIN (SELECT DISTINCT user_id FROM auth_identities WHERE provider='spotify') ai ON ai.user_id=u.id ORDER BY u.created_at DESC LIMIT ?`).bind(limit).all();
+  const rows=result?.results||[];return json({ok:true,rows,metrics:{total:rows.length,active:rows.filter(x=>x.account_status==='active').length,suspended:rows.filter(x=>x.account_status==='suspended').length,banned:rows.filter(x=>x.account_status==='banned').length,spotifyLinked:rows.filter(x=>Number(x.spotify_linked)).length},generatedAt:Math.floor(Date.now()/1000)});
+}
+async function accountAction(request,env,session){
+  if(!canModerate(session))return json({error:'Moderation access required.'},403);await ensureAccountSchema(env);let b;try{b=await request.json()}catch{return json({error:'Invalid JSON payload.'},400)}
+  const userId=String(b?.user_id||'').trim(),action=String(b?.action||'').trim().toLowerCase(),reason=String(b?.reason||'').trim().slice(0,500);
+  if(!userId||!['activate','suspend','ban','unban','change_plan','revoke_sessions','unlink_spotify'].includes(action))return json({error:'Invalid account action.'},400);
+  const user=await env.DB.prepare('SELECT id,email,display_name,account_status,plan_code FROM users WHERE id=?').bind(userId).first();if(!user)return json({error:'Account not found.'},404);
+  const t=Math.floor(Date.now()/1000);
+  if(action==='change_plan'){const plan=String(b?.plan_code||'free').toLowerCase(),p=await env.DB.prepare('SELECT plan_code FROM melo_plans WHERE plan_code=? AND enabled=1').bind(plan).first();if(!p)return json({error:'Plan not found.'},404);await env.DB.prepare('UPDATE users SET plan_code=?,updated_at=? WHERE id=?').bind(plan,t,userId).run();await audit(env,session,request,'account.plan_change','user',userId,{before:user.plan_code,after:plan});return json({ok:true,plan_code:plan})}
+  if(action==='revoke_sessions'){await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(userId).run();await audit(env,session,request,'account.sessions_revoke','user',userId,{});return json({ok:true})}
+  if(action==='unlink_spotify'){await env.DB.prepare("DELETE FROM auth_identities WHERE user_id=? AND provider='spotify'").bind(userId).run();await audit(env,session,request,'account.spotify_unlink','user',userId,{});return json({ok:true})}
+  let status='active',until=null;if(action==='suspend'){status='suspended';until=Number(b?.until)||t+7*86400}else if(action==='ban'){status='banned';until=Number(b?.until)||null}else if(action==='unban'||action==='activate')status='active';
+  await env.DB.prepare('UPDATE users SET account_status=?,suspended_until=?,banned_until=?,moderation_reason=?,updated_at=? WHERE id=?').bind(status,status==='suspended'?until:null,status==='banned'?until:null,reason||null,t,userId).run();
+  if(status!=='active')await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(userId).run();
+  await audit(env,session,request,`account.${action}`,'user',userId,{beforeStatus:user.account_status,afterStatus:status,reason,until});return json({ok:true,status,until,reason});
+}
+async function planList(env){await ensureAccountSchema(env);const r=await env.DB.prepare("SELECT p.plan_code,p.name,p.price_cents,p.currency,p.description,p.enabled,p.created_at,p.updated_at,(SELECT COUNT(*) FROM users u WHERE u.plan_code=p.plan_code) AS user_count FROM melo_plans p ORDER BY p.price_cents,p.name").all();return json({ok:true,rows:r?.results||[]})}
+async function planMutation(request,env,session){
+  if(session.role!=='owner')return json({error:'Owner access required for plan management.'},403);await ensureAccountSchema(env);let b;try{b=await request.json()}catch{return json({error:'Invalid JSON payload.'},400)}
+  const code=String(b?.plan_code||'').trim().toLowerCase(),name=String(b?.name||'').trim().slice(0,60),description=String(b?.description||'').trim().slice(0,500),price=Math.max(0,Math.floor(Number(b?.price_cents||0))),enabled=b?.enabled!==false;if(!/^[a-z][a-z0-9_-]{1,31}$/.test(code)||!name)return json({error:'Invalid plan.'},400);
+  const t=Math.floor(Date.now()/1000),currency=String(b?.currency||'USD').slice(0,3).toUpperCase();await env.DB.prepare("INSERT INTO melo_plans (plan_code,name,price_cents,currency,description,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(plan_code) DO UPDATE SET name=excluded.name,price_cents=excluded.price_cents,currency=excluded.currency,description=excluded.description,enabled=excluded.enabled,updated_at=excluded.updated_at").bind(code,name,price,currency,description,enabled?1:0,t,t).run();await audit(env,session,request,'plan.upsert','plan',code,{name,price_cents:price,enabled});return json({ok:true})
+}
 async function ensureAuditSchema(env) {
   await env.DB.batch([
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_audit_log (audit_id TEXT PRIMARY KEY,admin_id TEXT,username TEXT,role TEXT,action TEXT NOT NULL,resource_type TEXT NOT NULL,resource_id TEXT,details_json TEXT,ip_address TEXT,created_at INTEGER NOT NULL)`),
