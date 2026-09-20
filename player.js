@@ -108,7 +108,7 @@ function bindSpotifySetup(){const close=$('spotifyClose'),connect=$('spotifyConn
     s.spotify={access:d.access_token,expires:Date.now()+Math.max(60,Number(d.expires_in||3600))*1000-60000,scope:String(d.scope||'')};
     return true;
   }catch{s.spotify=null;return false}
-}async function api(path,o={}){if(!s.spotify)throw Error('Spotify is not connected.');if(!s.spotify||s.spotify.expires<=Date.now()){const ok=await load();if(!ok)throw Error('Spotify session expired. Reconnect Spotify.')}const r=await fetch(API+path,{...o,headers:{Authorization:`Bearer ${s.spotify.access}`,'Content-Type':'application/json',...(o.headers||{})}});if(r.status===204)return null;const d=await r.json().catch(()=>null);if(r.status===401){s.spotify=null;s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw Error('Spotify session expired. Reconnect Spotify.')}if(!r.ok)throw Error(d?.error?.message||`Spotify API HTTP ${r.status}`);return d}function track(t){if(!t)return null;return{id:t.id,uri:t.uri,name:t.name||'Unknown Track',artist:(t.artists||[]).map(a=>a.name).join(', ')||'Unknown Artist',album:t.album?.name||'Unknown Album',image:t.album?.images?.[0]?.url||'',duration:t.duration_ms||0,url:t.external_urls?.spotify||'',playable:t.is_playable!==false}}async function profile(){try{const p=await api('/me');s.spotifyProfile=p;const name=p.display_name||p.id||'SPOTIFY';$('sourceStatus').textContent=`CONNECTED · ${name}`;msg(`Connected as ${name}`);return p}catch(e){s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw e}}async function sdk(){if(!s.spotify||!window.Spotify)return;if(s.player){try{await s.player.disconnect()}catch{}s.player=null;s.device=null}const p=new Spotify.Player({name:'MELO Web Player',getOAuthToken:async cb=>{try{if(s.spotify.expires<=Date.now())await api('/me');cb(s.spotify.access)}catch(e){msg(e.message);cb('')}},volume:Number(localStorage.getItem('melo_volume')||75)/100,enableMediaSession:true});p.addListener('ready',d=>{s.device=d.device_id;$('deviceName').textContent='DEVICE: MELO WEB PLAYER';$('sourceStatus').textContent='CONNECTED · '+(s.spotifyProfile?.display_name||s.spotifyProfile?.id||'SPOTIFY')});p.addListener('not_ready',()=>{$('deviceName').textContent='DEVICE: SPOTIFY OFFLINE'});p.addListener('initialization_error',d=>{msg('Spotify player initialization failed: '+(d?.message||'Unknown error'))});p.addListener('authentication_error',d=>{$('sourceStatus').textContent='SESSION EXPIRED';msg(d?.message||'Spotify authentication expired.');s.spotify=null;s.spotifyProfile=null});p.addListener('account_error',d=>{msg(d?.message||'Spotify Premium is required for MELO Web playback.')});p.addListener('playback_error',d=>{msg(d?.message||'Spotify playback error.')});p.addListener('autoplay_failed',()=>{msg('Spotify needs one interaction before playback can start.')});p.addListener('player_state_changed',st=>{if(!st)return;s.lastSpotifyState=st;const t=track(st.track_window?.current_track);if(t){if(!s.currentTrack||queueTrackKey(s.currentTrack)!==queueTrackKey(t))recordQueueTransition(t);setCurrent(t,true);if(!st.paused)refillAutoQueue();}$('elapsed').textContent=fmt(st.position/1000);$('duration').textContent=fmt(st.duration/1000);$('progressFill').style.width=st.duration?String(st.position/st.duration*100)+'%':'0%';syncLyrics(st.position/1000);if(t&&!st.paused){s.recent=[t,...s.recent.filter(v=>v.id!==t.id)].slice(0,100);persistLocal()}record.classList.toggle('playing',!st.paused);$('playIcon').src=st.paused?'assets/custom_play.png':'assets/custom_pause.png';});;const connected=await p.connect();if(!connected){s.player=null;s.device=null;msg('Spotify Web Player could not connect. Check your browser permissions and Spotify account.');return}s.player=p}window.onSpotifyWebPlaybackSDKReady=()=>{if(load())sdk()};async function spotifyPlay(t){if(!s.player||!s.device)throw Error('MELO Spotify Web Player is not ready yet.');if(!t?.uri)throw Error('This Spotify track has no playable URI.');try{await s.player.activateElement()}catch{}try{await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[s.device],play:false})});}catch(e){throw Error('Could not activate MELO Spotify device: '+e.message)}try{await api('/me/player/play?device_id='+encodeURIComponent(s.device),{method:'PUT',body:JSON.stringify({uris:[t.uri],position_ms:0})});}catch(e){throw Error('Spotify playback command failed: '+e.message)}}
+}async function api(path,o={}){if(!s.spotify)throw Error('Spotify is not connected.');if(!s.spotify||s.spotify.expires<=Date.now()){const ok=await load();if(!ok)throw Error('Spotify session expired. Reconnect Spotify.')}const r=await fetch(API+path,{...o,headers:{Authorization:`Bearer ${s.spotify.access}`,'Content-Type':'application/json',...(o.headers||{})}});if(r.status===204)return null;const d=await r.json().catch(()=>null);if(r.status===401){s.spotify=null;s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw Error('Spotify session expired. Reconnect Spotify.')}if(!r.ok)throw Error(d?.error?.message||`Spotify API HTTP ${r.status}`);return d}function track(t){if(!t)return null;return{id:t.id,uri:t.uri,name:t.name||'Unknown Track',artist:(t.artists||[]).map(a=>a.name).join(', ')||'Unknown Artist',artistIds:(t.artists||[]).map(a=>a.id).filter(Boolean),album:t.album?.name||'Unknown Album',image:t.album?.images?.[0]?.url||'',duration:t.duration_ms||0,url:t.external_urls?.spotify||'',playable:t.is_playable!==false}}async function profile(){try{const p=await api('/me');s.spotifyProfile=p;const name=p.display_name||p.id||'SPOTIFY';$('sourceStatus').textContent=`CONNECTED · ${name}`;msg(`Connected as ${name}`);return p}catch(e){s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw e}}async function sdk(){if(!s.spotify||!window.Spotify)return;if(s.player){try{await s.player.disconnect()}catch{}s.player=null;s.device=null}const p=new Spotify.Player({name:'MELO Web Player',getOAuthToken:async cb=>{try{if(s.spotify.expires<=Date.now())await api('/me');cb(s.spotify.access)}catch(e){msg(e.message);cb('')}},volume:Number(localStorage.getItem('melo_volume')||75)/100,enableMediaSession:true});p.addListener('ready',d=>{s.device=d.device_id;$('deviceName').textContent='DEVICE: MELO WEB PLAYER';$('sourceStatus').textContent='CONNECTED · '+(s.spotifyProfile?.display_name||s.spotifyProfile?.id||'SPOTIFY')});p.addListener('not_ready',()=>{$('deviceName').textContent='DEVICE: SPOTIFY OFFLINE'});p.addListener('initialization_error',d=>{msg('Spotify player initialization failed: '+(d?.message||'Unknown error'))});p.addListener('authentication_error',d=>{$('sourceStatus').textContent='SESSION EXPIRED';msg(d?.message||'Spotify authentication expired.');s.spotify=null;s.spotifyProfile=null});p.addListener('account_error',d=>{msg(d?.message||'Spotify Premium is required for MELO Web playback.')});p.addListener('playback_error',d=>{msg(d?.message||'Spotify playback error.')});p.addListener('autoplay_failed',()=>{msg('Spotify needs one interaction before playback can start.')});p.addListener('player_state_changed',st=>{if(!st)return;s.lastSpotifyState=st;const t=track(st.track_window?.current_track);if(t){if(!s.currentTrack||queueTrackKey(s.currentTrack)!==queueTrackKey(t))recordQueueTransition(t);setCurrent(t,true);if(!st.paused)refillAutoQueue();}$('elapsed').textContent=fmt(st.position/1000);$('duration').textContent=fmt(st.duration/1000);$('progressFill').style.width=st.duration?String(st.position/st.duration*100)+'%':'0%';syncLyrics(st.position/1000);if(t&&!st.paused){s.recent=[t,...s.recent.filter(v=>v.id!==t.id)].slice(0,100);persistLocal()}record.classList.toggle('playing',!st.paused);$('playIcon').src=st.paused?'assets/custom_play.png':'assets/custom_pause.png';});;const connected=await p.connect();if(!connected){s.player=null;s.device=null;msg('Spotify Web Player could not connect. Check your browser permissions and Spotify account.');return}s.player=p}window.onSpotifyWebPlaybackSDKReady=()=>{if(load())sdk()};async function spotifyPlay(t){if(!s.player||!s.device)throw Error('MELO Spotify Web Player is not ready yet.');if(!t?.uri)throw Error('This Spotify track has no playable URI.');try{await s.player.activateElement()}catch{}try{await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[s.device],play:false})});}catch(e){throw Error('Could not activate MELO Spotify device: '+e.message)}try{await api('/me/player/play?device_id='+encodeURIComponent(s.device),{method:'PUT',body:JSON.stringify({uris:[t.uri],position_ms:0})});}catch(e){throw Error('Spotify playback command failed: '+e.message)}}
 function setCurrent(t,spotify){s.currentTrack=t;s.current=s.tracks.findIndex(x=>x.id===t.id);$('trackTitle').textContent=t.name;$('trackArtist').textContent=t.artist;if(!spotify){$('playIcon').src='assets/custom_pause.png';record.classList.add('playing')}else record.classList.add('playing');updateFavoriteUI(t)}
 async function play(i){
   // Search results are rendered separately from s.tracks. Use the exact
@@ -192,21 +192,30 @@ function recordQueueTransition(nextTrack){
   }
 }
 async function loadQueuePool(){
-  if(s.queuePoolLoaded&&s.queuePool.length)return;
-  const pool=[];
+  const seed=s.currentTrack;
+  const seedKey=queueTrackKey(seed);
+  if(!seedKey)return;
+  if(s.queuePoolLoaded&&s.queuePoolSeed===seedKey&&s.queuePool.length)return;
+  const pool=[]; const seen=new Set();
+  const add=t=>{if(!t)return;const k=queueTrackKey(t);if(!k||seen.has(k))return;seen.add(k);pool.push(t)};
   try{
-    if(s.playlistContext?.tracks?.length)pool.push(...s.playlistContext.tracks);
-    if(!pool.length){
-      const d=await api('/me/tracks?limit=50');
-      pool.push(...(d.items||[]).map(x=>track(x.track)).filter(Boolean));
+    const artistIds=seed.artistIds||[];
+    const genres=new Set();
+    for(const id of artistIds.slice(0,2)){
+      try{const a=await api('/artists/'+encodeURIComponent(id));(a.genres||[]).forEach(g=>genres.add(g))}catch{}
     }
-    try{
-      const top=await api('/me/top/tracks?limit=10&time_range=short_term');
-      pool.push(...(top.items||[]).map(track).filter(Boolean));
-    }catch{}
-  }catch(e){msg('Could not prepare autoplay queue: '+e.message)}
-  const seen=new Set();
-  s.queuePool=pool.filter(t=>{const k=queueTrackKey(t);if(!k||seen.has(k))return false;seen.add(k);return true});
+    for(const id of artistIds.slice(0,2)){
+      try{const d=await api('/artists/'+encodeURIComponent(id)+'/top-tracks?market=US');(d.tracks||[]).map(track).forEach(add)}catch{}
+    }
+    for(const genre of [...genres].slice(0,4)){
+      try{const d=await api('/search?type=track&limit=10&q='+encodeURIComponent('genre:"'+genre+'"'));(d.tracks?.items||[]).map(track).forEach(add)}catch{}
+    }
+    if(s.playlistContext?.tracks?.length){
+      s.playlistContext.tracks.forEach(add);
+    }
+  }catch(e){msg('Could not prepare related autoplay queue: '+e.message)}
+  s.queuePool=pool.filter(t=>queueTrackKey(t)!==seedKey);
+  s.queuePoolSeed=seedKey;
   s.queuePoolLoaded=true;
 }
 async function refillAutoQueue(force=false){
@@ -214,30 +223,10 @@ async function refillAutoQueue(force=false){
   if(!force&&s.autoQueue.length>2)return;
   await loadQueuePool();
   if(!s.queuePool.length)return;
-  const used=new Set([
-    queueTrackKey(s.currentTrack),
-    ...s.queue.map(queueTrackKey),
-    ...s.autoQueue.map(queueTrackKey),
-    ...s.queueHistory.slice(-30).map(queueTrackKey)
-  ]);
+  const used=new Set([queueTrackKey(s.currentTrack),...s.queue.map(queueTrackKey),...s.autoQueue.map(queueTrackKey),...s.queueHistory.slice(-30).map(queueTrackKey)]);
   const candidates=s.queuePool.filter(t=>!used.has(queueTrackKey(t)));
-  const shuffled=candidates.slice().sort(()=>Math.random()-.5);
-  let added=0;
-  for(const t of shuffled){
-    if(added>=10)break;
-    s.queueNumber+=1;
-    s.autoQueue.push({...t,queueNo:s.queueNumber});
-    added++;
-  }
-  if(added<10){
-    const fallback=s.queuePool.filter(t=>queueTrackKey(t)!==queueTrackKey(s.currentTrack));
-    for(const t of fallback.slice().sort(()=>Math.random()-.5)){
-      if(added>=10)break;
-      if(s.autoQueue.some(x=>queueTrackKey(x)===queueTrackKey(t))||s.queue.some(x=>queueTrackKey(x)===queueTrackKey(t)))continue;
-      s.queueNumber+=1;
-      s.autoQueue.push({...t,queueNo:s.queueNumber});
-      added++;
-    }
+  for(const t of candidates.sort(()=>Math.random()-.5).slice(0,10)){
+    s.queueNumber+=1;s.autoQueue.push({...t,queueNo:s.queueNumber});
   }
 }
 async function playQueueTrack(t){
