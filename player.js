@@ -76,7 +76,6 @@ function vizLoop(){
   vizFrame=requestAnimationFrame(vizLoop);
   if(s.source==='LOCAL')vizLocal();
   else vizDesktopSpotify(s.lastSpotifyState);
-  else vizDesktopSpotify(s.lastSpotifyState);
 }
 vizLoop();function vizLocal(){
   if(!vizAnalyser||!vizData){vizDesktopSpotify(s.lastSpotifyState);return}
