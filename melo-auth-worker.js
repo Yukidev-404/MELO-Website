@@ -15,6 +15,7 @@ const PROVIDERS = {
 };
 
 let pendingSchemaPromise = null;
+let userControlSchemaPromise = null;
 
 function corsHeaders(request) {
   const requestOrigin = request.headers.get('Origin');
@@ -161,6 +162,14 @@ async function ensureDesktopOAuthSchema(env) {
   await desktopOAuthSchemaPromise;
 }
 
+async function ensureUserControlSchema(env){
+  if(!userControlSchemaPromise) userControlSchemaPromise=(async()=>{
+    for(const sql of ["ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'","ALTER TABLE users ADD COLUMN plan_code TEXT NOT NULL DEFAULT 'free'","ALTER TABLE users ADD COLUMN suspended_until INTEGER","ALTER TABLE users ADD COLUMN banned_until INTEGER","ALTER TABLE users ADD COLUMN moderation_reason TEXT"]){
+      try{await env.DB.prepare(sql).run()}catch(e){if(!/duplicate column|already exists/i.test(String(e?.message||'')))throw e}
+    }
+  })().catch(e=>{userControlSchemaPromise=null;throw e});
+  await userControlSchemaPromise;
+}
 async function createSession(env, userId) {
   const raw = randomToken(32);
   const t = now();
@@ -168,14 +177,19 @@ async function createSession(env, userId) {
   return raw;
 }
 async function getSession(request, env) {
+  await ensureUserControlSchema(env);
   const header = request.headers.get('Cookie') || '';
   const cookieMatch = header.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
   const bearer = request.headers.get('Authorization') || '';
   const bearerMatch = bearer.match(/^Bearer\s+(.+)$/i);
   const token = cookieMatch?.[1] || bearerMatch?.[1]?.trim();
   if (!token) return null;
-  const row = await env.DB.prepare('SELECT s.*, u.email, u.display_name, u.avatar_url FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(token), now()).first();
+  const row = await env.DB.prepare('SELECT s.*, u.email, u.display_name, u.avatar_url, u.account_status, u.suspended_until, u.banned_until, u.plan_code FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?').bind(await digest(token), now()).first();
   if (!row) return null;
+  const t=now();
+  if(row.account_status==='banned' && (!row.banned_until || Number(row.banned_until)>t)) return null;
+  if(row.account_status==='suspended' && (!row.suspended_until || Number(row.suspended_until)>t)) return null;
+  if(row.account_status!=='active') { await env.DB.prepare("UPDATE users SET account_status='active',suspended_until=NULL,banned_until=NULL,moderation_reason=NULL,updated_at=? WHERE id=?").bind(t,row.user_id).run(); row.account_status='active'; }
   await env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE id=?').bind(now(), row.id).run();
   return row;
 }
