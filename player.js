@@ -163,7 +163,48 @@ async function scanLocalDirectory(h){const files=[];async function walk(dir,pref
 async function pickLocalFolder(){if('showDirectoryPicker' in window){try{const h=await window.showDirectoryPicker({mode:'read'});if(await dirPermission(h)){localDirHandle=h;await saveLocalDirHandle(h);await scanLocalDirectory(h);return}}catch(e){if(e?.name==='AbortError')return}}$('folder').click()}
 function persistLocal(){try{localStorage.setItem('melo_recent',JSON.stringify(s.recent.slice(0,100)));localStorage.setItem('melo_favorites',JSON.stringify(s.favorites))}catch{}}
 function updateFavoriteUI(t){const liked=!!t&&s.favorites.some(v=>v.id===t.id);const img=$('favorite')?.querySelector('img');if(img)img.src=liked?'assets/favorite_wave_active.png':'assets/favorite_wave.png'}
-async function tabLoad(){if(s.source==='LOCAL'){s.tracks=s.localTracks.slice();if(s.tab==='FAVORITES')s.tracks=s.favorites.slice();if(s.tab==='RECENT')s.tracks=s.recent.slice();if(s.tab==='QUEUE')s.tracks=s.queue.slice();render();return}try{if(s.tab==='LIBRARY'||s.tab==='FAVORITES'){const d=await api('/me/tracks?limit=50');s.tracks=(d.items||[]).map(x=>track(x.track)).filter(Boolean);s.favorites=s.tracks.slice()}else if(s.tab==='RECENT'){const d=await api('/me/player/recently-played?limit=50');s.tracks=(d.items||[]).map(x=>track(x.track)).filter(Boolean)}else if(s.tab==='QUEUE'){const d=await api('/me/player/queue');s.tracks=[track(d.current_track),...(d.queue||[]).map(track)].filter(Boolean)}else if(s.tab==='PLAYLISTS'){const d=await api('/me/playlists?limit=50');s.playlists=(d.items||[]).map(p=>({id:p.id,name:p.name,total:p.items?.total||0,image:p.images?.[0]?.url||'',owner:p.owner?.display_name||p.owner?.id||'Spotify'}));s.tracks=[]}render()}catch(e){$('sourceStatus').textContent='OFFLINE';content.innerHTML=`<div class="empty">${esc(e.message)}</div>`}}function render(){
+async function tabLoad(){
+  // Every tab owns its own dataset. Clear the previous tab's tracks first so
+  // FAVORITES can never leak into LIST (or another tab).
+  s.searchResults=null;
+  s.searchPlaylists=null;
+  s.playlistContext=null;
+  if(s.source==='LOCAL'){
+    s.tracks=s.localTracks.slice();
+    if(s.tab==='FAVORITES')s.tracks=s.favorites.slice();
+    else if(s.tab==='RECENT')s.tracks=s.recent.slice();
+    else if(s.tab==='QUEUE')s.tracks=s.queue.slice();
+    else if(s.tab==='PLAYLISTS')s.tracks=[];
+    render();
+    return;
+  }
+  try{
+    if(s.tab==='LIBRARY'){
+      // LIST is the neutral/default view. It must not reuse the previous tab's data.
+      s.tracks=[];
+    }else if(s.tab==='FAVORITES'){
+      const d=await api('/me/tracks?limit=50');
+      s.tracks=(d.items||[]).map(x=>track(x.track)).filter(Boolean);
+      s.favorites=s.tracks.slice();
+    }else if(s.tab==='RECENT'){
+      const d=await api('/me/player/recently-played?limit=50');
+      s.tracks=(d.items||[]).map(x=>track(x.track)).filter(Boolean);
+    }else if(s.tab==='QUEUE'){
+      const d=await api('/me/player/queue');
+      s.tracks=[track(d.current_track),...(d.queue||[]).map(track)].filter(Boolean);
+    }else if(s.tab==='PLAYLISTS'){
+      const d=await api('/me/playlists?limit=50');
+      s.playlists=(d.items||[]).map(p=>({id:p.id,name:p.name,total:p.items?.total||0,image:p.images?.[0]?.url||'',owner:p.owner?.display_name||p.owner?.id||'Spotify'}));
+      s.tracks=[];
+    }
+    render();
+  }catch(e){
+    s.tracks=[];
+    render();
+    $('sourceStatus').textContent='OFFLINE';
+    content.innerHTML=`<div class="empty">${esc(e.message)}</div>`;
+  }
+}function render(){
   let list=s.searchResults ? s.searchResults.slice() : (s.tracks||[]).slice();
   const q=$('search').value.trim().toLowerCase();
   if(s.source==='LOCAL'&&q)list=list.filter(t=>`${t.name} ${t.artist} ${t.album}`.toLowerCase().includes(q));
