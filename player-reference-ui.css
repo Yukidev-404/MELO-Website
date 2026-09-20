@@ -140,3 +140,18 @@
   .device{top:803px!important}
   .settings-link{bottom:12px!important;padding-top:18px!important}
 }
+
+
+@media (min-width:761px) and (min-height:901px) and (max-height:1000px){
+  /* Mid-height desktop windows: preserve the roomy MELO layout without clipping the lower controls. */
+  .record-wrap{top:52px!important;width:340px!important;height:340px!important}
+  .track-info{top:432px!important}
+  .time-row{top:492px!important}
+  .progress{top:548px!important}
+  .transport{top:572px!important;height:58px!important}
+  .visual-label{top:646px!important}
+  .visualizer{top:672px!important;height:28px!important}
+  .volume-row{top:744px!important}
+  .device{top:796px!important}
+  .settings-link{bottom:18px!important;padding-top:18px!important}
+}
