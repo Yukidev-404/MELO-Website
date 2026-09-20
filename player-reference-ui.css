@@ -127,46 +127,90 @@
   .lyrics-panel{inset:62px 0 0 0}
 }
 @media (min-width:761px) and (max-height:900px){
-  /* Compact desktop player — size the components first, then space them. */
-  .workspace{grid-template-columns:minmax(400px,33%) 1fr!important}
-  .record-wrap{top:56px!important;width:300px!important;height:300px!important}
-  .track-info{top:395px!important;left:24px;right:24px}
-  .track-info div{font-size:15px}
-  .track-info small{margin-top:8px;font-size:11px}
+  /* Reference-driven desktop layout: pane proportions first, components second. */
+  .workspace{grid-template-columns:minmax(500px,28.4%) 1fr!important}
 
-  .time-row{top:468px!important;left:22px;right:22px;height:40px}
-  .time-row .icon-button{width:42px;height:42px;padding:5px}
-  .time-row .icon-button img{max-width:29px;max-height:29px}
-  .time-row .favorite img{width:27px;height:27px}
+  .player-pane{
+    --player-pad:24px;
+    --disc-size:min(270px,calc(100% - 110px));
+  }
 
-  .progress{top:530px!important;left:22px;right:22px;height:3px}
+  .pane-head{left:16px;right:16px;height:56px;font-size:10px}
+
+  .record-wrap{
+    top:126px!important;
+    width:var(--disc-size)!important;
+    height:var(--disc-size)!important;
+  }
+
+  .track-info{
+    top:446px!important;
+    left:24px;
+    right:24px;
+  }
+  .track-info div{font-size:13px}
+  .track-info small{margin-top:7px;font-size:9px}
+
+  .time-row{
+    top:525px!important;
+    left:24px;
+    right:24px;
+    height:34px;
+  }
+  .time-row .icon-button{width:36px;height:36px;padding:4px}
+  .time-row .icon-button img{max-width:25px;max-height:25px}
+  .time-row .favorite img{width:24px;height:24px}
+
+  .progress{
+    top:580px!important;
+    left:20px;
+    right:20px;
+    height:3px;
+  }
   .progress i{height:3px}
 
-  .transport{top:550px!important;left:22px;right:22px;height:62px}
-  .transport button{width:28px;height:38px;font-size:19px}
+  .transport{
+    top:593px!important;
+    left:24px;
+    right:24px;
+    height:56px;
+  }
+  .transport button{width:30px;height:38px;font-size:18px}
   .transport .play{width:58px;height:58px}
   .transport .play img{width:47px;height:47px}
 
-  .visual-label{top:625px!important;left:26px;font-size:9px}
-  .visualizer{top:650px!important;left:26px;right:26px;height:24px}
+  .visual-label{top:665px!important;left:28px;font-size:9px}
+  .visualizer{top:692px!important;left:28px;right:28px;height:20px}
   .bar{width:2px}
 
   .volume-row{
-    top:704px!important;
-    left:26px;
-    right:26px;
+    top:748px!important;
+    left:28px;
+    right:28px;
     grid-template-columns:40px 1fr 42px;
     gap:6px;
-    font-size:9px
+    font-size:9px;
   }
-  .volume-row input{height:16px}
+  .volume-row input{height:14px}
 
-  .device{top:748px!important;left:26px;right:26px;height:38px;gap:10px;font-size:9px}
-  .device img{width:32px;height:32px}
+  .device{
+    top:786px!important;
+    left:28px;
+    right:28px;
+    height:36px;
+    gap:10px;
+    font-size:9px;
+  }
+  .device img{width:30px;height:30px}
 
-  .settings-link{left:22px;right:22px;bottom:10px;padding-top:14px;font-size:10px}
+  .settings-link{
+    left:24px;
+    right:24px;
+    bottom:12px;
+    padding-top:14px;
+    font-size:10px;
+  }
 }
-
 
 @media (min-width:761px) and (min-height:901px) and (max-height:1000px){
   /* Exact desktop reference proportions — do not resize or redesign. */
