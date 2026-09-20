@@ -55,7 +55,7 @@ function vizDesktopSpotify(t){
       beatPulse*(9*bass+5*mid)+
       drop*(5*bass+3*high);
     const current=parseFloat(bar.style.height)||3;
-    const smoothing=target>current?.34:.115;
+    const smoothing=target>current ? .34 : .115;
     bar.style.height=(current+(target-current)*Math.min(1,smoothing)).toFixed(2)+'px';
   });
 }function vizLocal(){
