@@ -1,4 +1,4 @@
-(()=>{'use strict';const $=id=>document.getElementById(id),audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];for(let i=0;i<48;i++){const b=document.createElement('i');b.className='bar';$('visualizer').appendChild(b)}
+(()=>{'use strict';const $=id=>document.getElementById(id),audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now(),vizCaptureCtx=null,vizCaptureAnalyser=null,vizCaptureData=null,vizCaptureStream=null;let lyricLines=[];for(let i=0;i<48;i++){const b=document.createElement('i');b.className='bar';$('visualizer').appendChild(b)}
 const vizBars=()=>Array.from(document.querySelectorAll('.bar'));
 function vizReset(){vizBars().forEach(b=>b.style.height='3px')}
 function vizEnsureLocalAnalyser(){
@@ -17,24 +17,91 @@ function vizEnsureLocalAnalyser(){
   }catch{vizCtx=null;vizAnalyser=null;vizData=null}
 }
 function vizDesktopSpotify(t){
-  const bars=vizBars(), now=performance.now(), dt=Math.min(40,now-vizLast);vizLast=now;
+  const bars=vizBars(),now=performance.now(),dt=Math.min(40,now-vizLast);vizLast=now;
   const paused=!t||t.paused;
   if(paused){bars.forEach(b=>{const h=parseFloat(b.style.height)||3;b.style.height=Math.max(3,h-dt*.045)+'px'});return}
   const pos=(Number(t.position)||0)/1000;
   vizPhase+=dt*.006;
   const seed=String(t.track_window?.current_track?.id||'melo');
   let hash=0;for(let i=0;i<seed.length;i++)hash=(hash*31+seed.charCodeAt(i))>>>0;
-  bars.forEach((b,i)=>{
-    const x=i/Math.max(1,bars.length-1), low=Math.max(0,1-x*1.25);
-    const wave=.5+.5*Math.sin(pos*(4.0+low*3.5)+i*.71+vizPhase*.45+(hash%97)/17);
-    const bass=.5+.5*Math.sin(pos*2.15+i*.19+(hash%53));
+  bars.forEach((b,k)=>{
+    const x=k/Math.max(1,bars.length-1),low=Math.max(0,1-x*1.25);
+    const wave=.5+.5*Math.sin(pos*(4+low*3.5)+k*.71+vizPhase*.45+(hash%97)/17);
+    const bass=.5+.5*Math.sin(pos*2.15+k*.19+(hash%53));
     const target=3+Math.pow(.18+.82*wave,1.8)*(8+low*23)+bass*low*7;
     const current=parseFloat(b.style.height)||3;
     const attack=target>current?.28:.10;
     b.style.height=(current+(target-current)*Math.min(1,attack)).toFixed(2)+'px';
   });
 }
+function startSpotifyCapture(){
+  if(vizCaptureAnalyser||!navigator.mediaDevices?.getDisplayMedia)return false;
+  try{
+    const capturePromise=navigator.mediaDevices.getDisplayMedia({
+      video:{displaySurface:'browser'},
+      audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}
+    });
+    capturePromise.then(stream=>{
+      const tracks=stream.getAudioTracks();
+      if(!tracks.length){stream.getTracks().forEach(x=>x.stop());return}
+      vizCaptureStream=stream;
+      vizCaptureCtx=new (window.AudioContext||window.webkitAudioContext)();
+      vizCaptureAnalyser=vizCaptureCtx.createAnalyser();
+      vizCaptureAnalyser.fftSize=1024;
+      vizCaptureAnalyser.minDecibels=-90;
+      vizCaptureAnalyser.maxDecibels=-10;
+      vizCaptureAnalyser.smoothingTimeConstant=.78;
+      vizCaptureData=new Uint8Array(vizCaptureAnalyser.frequencyBinCount);
+      const src=vizCaptureCtx.createMediaStreamSource(stream);
+      src.connect(vizCaptureAnalyser);
+      vizCaptureStream.getAudioTracks()[0].addEventListener('ended',stopSpotifyCapture);
+      msg('REAL AUDIO VISUALIZER ACTIVE');
+    }).catch(()=>{});
+    return true;
+  }catch{return false}
+}
+function stopSpotifyCapture(){
+  try{vizCaptureStream?.getTracks().forEach(x=>x.stop())}catch{}
+  try{vizCaptureCtx?.close()}catch{}
+  vizCaptureStream=null;vizCaptureCtx=null;vizCaptureAnalyser=null;vizCaptureData=null;
+}
+function vizCaptured(){
+  if(!vizCaptureAnalyser||!vizCaptureData){vizDesktopSpotify(s.lastSpotifyState);return}
+  if(vizCaptureCtx?.state==='suspended')vizCaptureCtx.resume().catch(()=>{});
+  vizCaptureAnalyser.getByteFrequencyData(vizCaptureData);
+  const bars=vizBars(),bins=vizCaptureData.length;
+  bars.forEach((b,i)=>{
+    const a=Math.floor(Math.pow(i/bars.length,1.7)*(bins*.62));
+    const z=Math.max(a+1,Math.floor(Math.pow((i+1)/bars.length,1.7)*(bins*.62)));
+    let sum=0,peak=0;
+    for(let k=a;k<z;k++){const v=vizCaptureData[k];sum+=v;if(v>peak)peak=v}
+    const avg=sum/Math.max(1,z-a),bass=1-i/bars.length;
+    const target=3+Math.pow(avg/255,.72)*(12+bass*25)+Math.max(0,peak-180)/75*bass*8;
+    const current=parseFloat(b.style.height)||3;
+    b.style.height=(current+(target-current)*(target>current?.34:.12)).toFixed(2)+'px';
+  });
+}
 function vizLocal(){
+  if(!vizAnalyser||!vizData){return}
+  if(vizCtx?.state==='suspended')vizCtx.resume().catch(()=>{});
+  vizAnalyser.getByteFrequencyData(vizData);
+  const bars=vizBars(),bins=vizData.length;
+  bars.forEach((b,i)=>{
+    const a=Math.floor(Math.pow(i/bars.length,1.7)*(bins*.62)),z=Math.max(a+1,Math.floor(Math.pow((i+1)/bars.length,1.7)*(bins*.62)));
+    let sum=0;for(let j=a;j<z;j++)sum+=vizData[j];
+    const avg=sum/Math.max(1,z-a),bass=1-i/bars.length;
+    const target=3+Math.pow(avg/255,.72)*(12+bass*25);
+    const current=parseFloat(b.style.height)||3;
+    b.style.height=(current+(target-current)*(target>current?.34:.12)).toFixed(2)+'px';
+  });
+}
+function vizLoop(){
+  vizFrame=requestAnimationFrame(vizLoop);
+  if(s.source==='LOCAL')vizLocal();
+  else if(vizCaptureAnalyser)vizCaptured();
+  else vizDesktopSpotify(s.lastSpotifyState);
+}
+vizLoop();function vizLocal(){
   if(!vizAnalyser||!vizData){vizDesktopSpotify(s.lastSpotifyState);return}
   if(vizCtx?.state==='suspended')vizCtx.resume().catch(()=>{});
   vizAnalyser.getByteFrequencyData(vizData);
