@@ -186,8 +186,9 @@ function recordQueueTransition(nextTrack){
   if(prev&&nextId&&queueTrackKey(prev)!==nextId){
     const key=queueTrackKey(prev)+'->'+nextId;
     if(key!==s.lastQueueTransition){
-      s.queueNumber+=1;
-      s.queueHistory.push({...prev,queueNo:s.queueNumber});
+      // Queue numbers belong to upcoming queue entries. Never consume a
+      // number when moving a track into history.
+      s.queueHistory.push({...prev,queueNo:prev.queueNo||null});
       s.lastQueueTransition=key;
     }
   }
@@ -282,34 +283,48 @@ function renderQueue(){
   const current=s.currentTrack;
   content.innerHTML=`
     <div class="queue-panel">
+      <div class="queue-heading">QUEUE</div>
       <div class="queue-section-title">NOW PLAYING</div>
-      ${current?`<div class="track-row queue-current"><span class="num">▶</span><div><b>${esc(current.name)}</b><small>${esc(current.artist)} · ${esc(current.album)}</small></div></div>`:'<div class="empty">NOTHING PLAYING</div>'}
+      ${current?`<div class="queue-now-playing"><span class="queue-now-label">NOW PLAYING</span><span class="queue-now-track">${esc(current.name)} - ${esc(current.artist)}</span></div>`:'<div class="empty">NOTHING PLAYING</div>'}
       <div class="queue-section-title">NEXT IN QUEUE</div>
-      ${upcoming.length?upcoming.map((t,i)=>`<div class="track-row queue-item" data-q-index="${i}"><span class="num">${String(t.queueNo||i+1).padStart(2,'0')}</span><div><b>${esc(t.name)}</b><small>${esc(t.artist)} · ${esc(t.album)}</small></div><span class="queue-kind">${i<s.queue.length?'MANUAL':'AUTO'}</span></div>`).join(''):'<div class="empty">QUEUE IS EMPTY</div>'}
-      <button class="queue-load-more" id="queueLoadMore" type="button">LOAD MORE</button>
+      ${upcoming.length?upcoming.map((t,i)=>`<div class="queue-item" data-q-index="${i}">
+        <span class="queue-number">${String(t.queueNo||i+1).padStart(2,'0')}</span>
+        <div class="queue-track-copy"><b>${esc(t.name)} - ${esc(t.artist)}</b><small>${esc(t.album)}</small></div>
+      </div>`).join(''):'<div class="empty">QUEUE IS EMPTY</div>'}
+      <button class="queue-load-more" id="queueLoadMore" type="button"><span>---------</span> LOAD MORE <span>---------</span></button>
       <div class="queue-section-title">RECENTLY PLAYED</div>
-      ${history.length?history.map(t=>`<div class="track-row queue-history" data-history-id="${esc(queueTrackKey(t))}"><span class="num">${String(t.queueNo||0).padStart(2,'0')}</span><div><b>${esc(t.name)}</b><small>${esc(t.artist)} · ${esc(t.album)}</small></div></div>`).join(''):'<div class="empty">NO PLAYED HISTORY</div>'}
+      ${history.length?history.map(t=>`<div class="queue-history" data-history-id="${esc(queueTrackKey(t))}">
+        ${t.queueNo?'<span class="queue-number">'+String(t.queueNo).padStart(2,'0')+'</span>':'<span class="queue-number queue-number-empty">--</span>'}
+        <div class="queue-track-copy"><b>${esc(t.name)} - ${esc(t.artist)}</b><small>${esc(t.album)}</small></div>
+      </div>`).join(''):'<div class="empty">NO PLAYED HISTORY</div>'}
     </div>`;
-  content.querySelectorAll('.queue-item').forEach(r=>r.onclick=async()=>{const i=Number(r.dataset.qIndex);const t=[...s.queue,...s.autoQueue][i];try{await playQueueTrack(t)}catch(e){msg(e.message)}});
+  content.querySelectorAll('.queue-item').forEach(r=>r.onclick=async()=>{
+    const i=Number(r.dataset.qIndex);
+    const t=[...s.queue,...s.autoQueue][i];
+    try{await playQueueTrack(t)}catch(e){msg(e.message)}
+  });
   $('queueLoadMore')?.addEventListener('click',async()=>{
     const btn=$('queueLoadMore');
     if(!btn)return;
     btn.disabled=true;
-    btn.textContent='LOADING…';
+    btn.innerHTML='<span>---------</span> LOADING… <span>---------</span>';
     try{
       const before=s.autoQueue.length;
       await refillAutoQueue(true);
       const added=s.autoQueue.length-before;
-      btn.textContent=added?('LOAD MORE · +'+added):'QUEUE FULL';
       if(added)msg('ADDED '+added+' MORE SONG'+(added===1?'':'S')+' TO QUEUE');
       renderQueue();
     }catch(e){
       btn.disabled=false;
-      btn.textContent='LOAD MORE';
+      btn.innerHTML='<span>---------</span> LOAD MORE <span>---------</span>';
       msg(e.message);
     }
   });
-  content.querySelectorAll('.queue-history').forEach(r=>r.onclick=async()=>{const t=s.queueHistory.find(x=>queueTrackKey(x)===r.dataset.historyId);if(!t)return;try{await playQueueTrack(t)}catch(e){msg(e.message)}});
+  content.querySelectorAll('.queue-history').forEach(r=>r.onclick=async()=>{
+    const t=s.queueHistory.find(x=>queueTrackKey(x)===r.dataset.historyId);
+    if(!t)return;
+    try{await playQueueTrack(t)}catch(e){msg(e.message)}
+  });
 }
 function updateFavoriteUI(t){const liked=!!t&&s.favorites.some(v=>v.id===t.id);const img=$('favorite')?.querySelector('img');if(img)img.src=liked?'assets/favorite_wave_active.png':'assets/favorite_wave.png'}
 async function tabLoad(){
