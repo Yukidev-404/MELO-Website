@@ -169,26 +169,53 @@
 
 
 @media (min-width:761px) and (min-height:901px) and (max-height:1000px){
-  /* Match the approved MELO desktop spacing reference. */
-  .record-wrap{top:82px!important;width:313px!important;height:313px!important}
-  .track-info{top:430px!important}
-  .time-row{top:486px!important}
-  .progress{top:478px!important}
-  .transport{top:492px!important;height:76px!important}
-  .visual-label{top:548px!important}
-  .visualizer{top:596px!important;height:28px!important}
-  .volume-row{top:652px!important}
-  .device{top:696px!important}
-  .settings-link{bottom:18px!important;padding-top:18px!important}
+  /* Exact desktop reference proportions — do not resize or redesign. */
+  .workspace{grid-template-columns:minmax(400px,33%) 1fr!important}
+  .record-wrap{top:56px!important;width:300px!important;height:300px!important}
+  .track-info{top:395px!important;left:24px;right:24px}
+  .track-info div{font-size:15px}
+  .track-info small{margin-top:8px;font-size:11px}
 
-  /* Match the wider, airier library controls in the same reference. */
-  .library-pane{padding:27px 32px 40px!important}
-  .search-row{height:60px!important}
-  .search-row input{height:60px!important;border-radius:30px}
-  .search-row #searchButton{left:20px}
-  .library-title{margin-top:35px;height:45px}
-  .tabs{gap:12px}
-  .tabs button{height:56px;border-radius:17px;padding:0 24px}
-  .tabs #source{height:48px;padding:0 22px}
-  .content{margin-top:18px;height:calc(100% - 197px);padding:32px}
+  .time-row{top:468px!important;left:22px;right:22px;height:40px}
+  .time-row .icon-button{width:42px;height:42px;padding:5px}
+  .time-row .icon-button img{max-width:29px;max-height:29px}
+  .time-row .favorite img{width:27px;height:27px}
+
+  .progress{top:530px!important;left:22px;right:22px;height:3px}
+  .progress i{height:3px}
+
+  .transport{top:550px!important;left:22px;right:22px;height:62px}
+  .transport button{width:28px;height:38px;font-size:19px}
+  .transport .play{width:58px;height:58px}
+  .transport .play img{width:47px;height:47px}
+
+  .visual-label{top:625px!important;left:26px;font-size:9px}
+  .visualizer{top:650px!important;left:26px;right:26px;height:24px}
+  .bar{width:2px}
+
+  .volume-row{
+    top:704px!important;
+    left:26px;
+    right:26px;
+    grid-template-columns:40px 1fr 42px;
+    gap:6px;
+    font-size:9px
+  }
+  .volume-row input{height:16px}
+
+  .device{top:748px!important;left:26px;right:26px;height:38px;gap:10px;font-size:9px}
+  .device img{width:32px;height:32px}
+
+  .settings-link{left:22px;right:22px;bottom:10px;padding-top:14px;font-size:10px}
+
+  /* Right panel matches the reference at the same viewport size. */
+  .library-pane{padding:22px 25px 40px!important}
+  .search-row{height:50px!important}
+  .search-row input{height:50px!important;border-radius:25px}
+  .search-row #searchButton{left:18px}
+  .library-title{margin-top:23px;height:45px}
+  .tabs{gap:10px}
+  .tabs button{height:48px;border-radius:16px;padding:0 22px}
+  .tabs #source{height:42px;padding:0 20px}
+  .content{margin-top:14px;height:calc(100% - 178px);padding:28px}
 }
