@@ -6,7 +6,8 @@ const logout=document.getElementById('logout');
 
 const views={
   dashboard:{title:'MELO Administration',heading:'MELO',copy:'Private administration console · live D1 telemetry'},
-  users:{title:'Users',heading:'Users',copy:'Telemetry-backed MELO installations. Account-level user management is not enabled yet.'},
+  users:{title:'Accounts',heading:'Accounts',copy:'MELO account identity, plans, Spotify connections and moderation.'},
+  plans:{title:'Plans',heading:'Plans',copy:'Owner-controlled MELO plan definitions and account distribution.'},
   installations:{title:'Installations',heading:'Installations',copy:'Registered MELO clients and their latest heartbeat state.'},
   crashes:{title:'Crashes',heading:'Crash Logs',copy:'Investigate sanitized crash reports received from MELO clients.'},
   'bug-reports':{title:'Bug Reports',heading:'Bug Reports',copy:'Review manually submitted MELO bug reports.'},
@@ -52,7 +53,7 @@ function showServicesLoading(){content.innerHTML=`<section class="page services-
 async function renderServices(){showServicesLoading();try{const d=await api('/api/admin/health-detail');const services=[['CONTROL ROOM API','Protected administrator request handler',true],['D1 DATABASE','Administrative data store',true],['TELEMETRY INGESTION','Client telemetry ingestion pipeline',true],['CRASH REPORTING','Sanitized crash report ingestion',true]];const detail=Object.entries(d||{});content.innerHTML=`<section class="page services-page"><div class="page-intro"><h2>API / Services</h2><p>Current control-plane and telemetry service status.</p></div><section class="panel"><div class="panel-head"><h2>Service Status</h2><span>LIVE API</span></div><div class="service-list">${services.map(([name,desc])=>`<div class="service-row"><div><strong>${name}</strong><span>${desc}</span></div><b>OPERATIONAL</b></div>`).join('')}</div></section>${detail.length?`<section class="panel service-detail-panel"><div class="panel-head"><h2>Endpoint Detail</h2><span>HEALTH DETAIL</span></div><div class="service-detail-list">${detail.map(([k,v])=>`<div><span>${esc(k.replace(/[_-]+/g,' ').toUpperCase())}</span><b>${esc(typeof v==='object'?JSON.stringify(v):v)}</b></div>`).join('')}</div></section>`:''}<div class="health-strip"><span><strong>SERVICE LAYER ACTIVE.</strong> Values come from the protected health endpoint.</span><span class="right">LIVE</span></div></section>`}catch(e){content.innerHTML=`<section class="page services-page"><div class="page-intro"><h2>API / Services</h2><p>Current control-plane and telemetry service status.</p></div><section class="panel"><div class="empty">Unable to load service status. ${esc(e.message)}</div></section></section>`}}
 
 let currentView='dashboard',refreshTimer;
-const specializedViews=new Set(['users','installations','bug-reports','crashes','security','chat','releases','flags','analytics','health','settings','audit']);
+const specializedViews=new Set(['users','plans','installations','bug-reports','crashes','security','chat','releases','flags','analytics','health','settings','audit']);
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>loadSpecialized(currentView),30)}
 async function loadSpecialized(view){return;}
 async function renderDashboard(){content.innerHTML=`<section class="page"><div class="page-intro"><h2>MELO</h2><p>Loading live control-room data…</p></div></section>`;try{const [d,r]=await Promise.all([api('/api/admin/dashboard'),api('/api/admin/releases').catch(()=>({rows:[]}))]);content.innerHTML=dashboardHtml(d,r)}catch(e){content.innerHTML=`<section class="page"><div class="page-intro"><h2>Unable to load dashboard</h2><p>${esc(e.message)}</p></div></section>`}}
