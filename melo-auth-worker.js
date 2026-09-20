@@ -11,7 +11,7 @@ const FRONTEND_ORIGIN = 'https://yukidev-404.github.io';
 const PROVIDERS = {
   google: { authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', scope: 'openid email profile' },
   github: { authorize: 'https://github.com/login/oauth/authorize', token: 'https://github.com/login/oauth/access_token', scope: 'read:user user:email' },
-  spotify: { authorize: 'https://accounts.spotify.com/authorize', token: 'https://accounts.spotify.com/api/token', scope: 'user-read-email user-read-private' }
+  spotify: { authorize: 'https://accounts.spotify.com/authorize', token: 'https://accounts.spotify.com/api/token', scope: 'user-read-email user-read-private user-read-recently-played user-library-read user-library-modify playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-read-playback-state user-modify-playback-state user-read-currently-playing streaming' }
 };
 
 let pendingSchemaPromise = null;
@@ -468,6 +468,81 @@ async function pkceChallenge(verifier) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
   return bytesToBase64(new Uint8Array(digest));
 }
+async function ensureSpotifyTokenSchema(env) {
+  for (const sql of [
+    'ALTER TABLE auth_identities ADD COLUMN provider_refresh_token TEXT',
+    'ALTER TABLE auth_identities ADD COLUMN provider_token_expires_at INTEGER',
+    'ALTER TABLE auth_identities ADD COLUMN provider_scope TEXT'
+  ]) {
+    try { await env.DB.prepare(sql).run(); }
+    catch (error) { if (!/duplicate column|already exists/i.test(String(error?.message || error))) throw error; }
+  }
+}
+function spotifyTokenSecret(env) {
+  return String(env.SPOTIFY_TOKEN_ENCRYPTION_KEY || env.RESEND_API_KEY || '').trim();
+}
+async function encryptSpotifyRefreshToken(value, env) {
+  const secret=spotifyTokenSecret(env);
+  if(!secret) throw new Error('Spotify token encryption is not configured.');
+  const keyBytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(secret)));
+  const key=await crypto.subtle.importKey('raw',keyBytes,{name:'AES-GCM'},false,['encrypt']);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const encrypted=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(String(value||''))));
+  return bytesToBase64(iv)+'.'+bytesToBase64(encrypted);
+}
+async function decryptSpotifyRefreshToken(value, env) {
+  const secret=spotifyTokenSecret(env);
+  if(!secret) throw new Error('Spotify token encryption is not configured.');
+  const [ivText,dataText]=String(value||'').split('.');
+  if(!ivText||!dataText) throw new Error('Stored Spotify token is invalid.');
+  const keyBytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(secret)));
+  const key=await crypto.subtle.importKey('raw',keyBytes,{name:'AES-GCM'},false,['decrypt']);
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:base64ToBytes(ivText)},key,base64ToBytes(dataText));
+  return new TextDecoder().decode(plain);
+}
+async function saveSpotifyToken(env,userId,providerUserId,providerEmail,token) {
+  await ensureSpotifyTokenSchema(env);
+  const encryptedRefresh=token.refresh_token ? await encryptSpotifyRefreshToken(token.refresh_token,env) : null;
+  const expiresAt=now()+Math.max(60,Number(token.expires_in||3600))-30;
+  const scope=String(token.scope||'').trim();
+  const existing=await env.DB.prepare('SELECT id FROM auth_identities WHERE user_id=? AND provider=?').bind(userId,'spotify').first();
+  if(existing) {
+    await env.DB.prepare('UPDATE auth_identities SET provider_user_id=?,provider_email=?,provider_refresh_token=COALESCE(?,provider_refresh_token),provider_token_expires_at=?,provider_scope=? WHERE id=?').bind(providerUserId,providerEmail,encryptedRefresh,expiresAt,scope,existing.id).run();
+  } else {
+    await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,provider_refresh_token,provider_token_expires_at,provider_scope,created_at) VALUES (?,?,?,?,?,?,?,?,?)').bind(id(),userId,'spotify',providerUserId,providerEmail,encryptedRefresh,expiresAt,scope,now()).run();
+  }
+}
+async function spotifyToken(request,env) {
+  const session=await getSession(request,env);
+  if(!session) return json({authenticated:false},401,{},request);
+  await ensureSpotifyTokenSchema(env);
+  const identity=await env.DB.prepare('SELECT provider_user_id,provider_email,provider_refresh_token,provider_token_expires_at,provider_scope FROM auth_identities WHERE user_id=? AND provider=? LIMIT 1').bind(session.user_id,'spotify').first();
+  if(!identity?.provider_refresh_token) return json({authenticated:true,connected:false,reauthorize:true},409,{},request);
+  let refreshToken;
+  try { refreshToken=await decryptSpotifyRefreshToken(identity.provider_refresh_token,env); }
+  catch(error) { return json({error:error?.message||'Spotify token storage is unavailable.'},503,{},request); }
+  const {clientId}=providerCredentials('spotify',env);
+  const body=new URLSearchParams({grant_type:'refresh_token',refresh_token:refreshToken,client_id:clientId});
+  const response=await fetch(PROVIDERS.spotify.token,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',Accept:'application/json'},body});
+  const token=await response.json().catch(()=>({}));
+  if(!response.ok||!token.access_token) {
+    if(String(token.error||'')==='invalid_grant') {
+      await env.DB.prepare('UPDATE auth_identities SET provider_refresh_token=NULL,provider_token_expires_at=NULL WHERE user_id=? AND provider=?').bind(session.user_id,'spotify').run();
+      return json({authenticated:true,connected:false,reauthorize:true,error:'Spotify authorization expired. Reconnect Spotify.'},401,{},request);
+    }
+    return json({error:token.error_description||'Spotify token refresh failed.'},502,{},request);
+  }
+  const nextScope=String(token.scope||identity.provider_scope||'');
+  const nextExpiry=now()+Math.max(60,Number(token.expires_in||3600))-30;
+  if(token.refresh_token) {
+    const encrypted=await encryptSpotifyRefreshToken(token.refresh_token,env);
+    await env.DB.prepare('UPDATE auth_identities SET provider_refresh_token=?,provider_token_expires_at=?,provider_scope=? WHERE user_id=? AND provider=?').bind(encrypted,nextExpiry,nextScope,session.user_id,'spotify').run();
+  } else {
+    await env.DB.prepare('UPDATE auth_identities SET provider_token_expires_at=?,provider_scope=? WHERE user_id=? AND provider=?').bind(nextExpiry,nextScope,session.user_id,'spotify').run();
+  }
+  return json({authenticated:true,connected:true,access_token:token.access_token,expires_in:Number(token.expires_in||3600),scope:nextScope},200,{},request);
+}
+
 async function oauthStart(request, env, provider) {
   const config = PROVIDERS[provider];
   if (!config) return json({ error: 'Unsupported OAuth provider.' }, 404, {}, request);
@@ -506,6 +581,7 @@ async function oauthCallback(request, env, provider) {
   const tokenResponse = await fetch(config.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: tokenBody });
   const token = await tokenResponse.json();
   if (!tokenResponse.ok || !token.access_token) return new Response('Could not complete OAuth sign-in.', { status: 502 });
+  if (provider === 'spotify') await ensureSpotifyTokenSchema(env);
   const profile = await fetchOAuthProfile(provider, token.access_token);
   if (!profile?.id || !profile.email || profile.emailVerified === false) return new Response('Your OAuth account did not provide a verified email address.', { status: 400 });
   const email = cleanEmail(profile.email);
@@ -518,9 +594,11 @@ async function oauthCallback(request, env, provider) {
         env.DB.prepare('DELETE FROM auth_identities WHERE provider=? AND provider_user_id=?').bind(provider, profile.id),
         env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), current.user_id, provider, profile.id, email, now())
       ]);
+      if (provider === 'spotify') await saveSpotifyToken(env,current.user_id,profile.id,email,token);
       return redirect(`${origin(request, env)}/account-settings.html?connected=${encodeURIComponent(provider)}&moved=1`);
     }
     if (!existing) await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), current.user_id, provider, profile.id, email, now());
+    if (provider === 'spotify') await saveSpotifyToken(env,current.user_id,profile.id,email,token);
     return redirect(`${origin(request, env)}/account-settings.html?connected=${encodeURIComponent(provider)}`);
   }
 
@@ -538,6 +616,7 @@ async function oauthCallback(request, env, provider) {
     await env.DB.prepare('INSERT INTO auth_identities (id,user_id,provider,provider_user_id,provider_email,created_at) VALUES (?,?,?,?,?,?)').bind(id(), user.id, provider, profile.id, email, now()).run();
   }
   await env.DB.prepare('UPDATE users SET display_name=COALESCE(NULLIF(?,\'\'),display_name), avatar_url=COALESCE(NULLIF(?,\'\'),avatar_url), last_login_at=?,updated_at=? WHERE id=?').bind(cleanName(profile.name), profile.avatarUrl || '', now(), now(), user.id).run();
+  if (provider === 'spotify') await saveSpotifyToken(env,user.id,profile.id,email,token);
   if (stateRow.desktop_redirect_uri) {
     await ensureDesktopOAuthSchema(env);
     const rawCode = randomToken(32);
@@ -631,6 +710,7 @@ async function connections(request, env) {
   return json({ authenticated: true, connections: rows.results || [] }, 200, {}, request);
 }
 
+    if (path === '/api/auth/spotify/token' && request.method === 'POST') return await spotifyToken(request, env);
     if (path === '/api/auth/connections' && request.method === 'GET') return await connections(request, env);
     if (path === '/api/auth/check-handle' && request.method === 'GET') return await checkHandle(request, env);
     if (path === '/api/auth/forgot-password' && request.method === 'POST') return await requestPasswordReset(request, env);
