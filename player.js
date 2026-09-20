@@ -18,23 +18,47 @@ function vizEnsureLocalAnalyser(){
 }
 function vizDesktopSpotify(t){
   const bars=vizBars(),now=performance.now(),dt=Math.min(40,now-vizLast);vizLast=now;
-  const paused=!t||t.paused;
-  if(paused){bars.forEach(b=>{const h=parseFloat(b.style.height)||3;b.style.height=Math.max(3,h-dt*.045)+'px'});return}
-  const pos=(Number(t.position)||0)/1000;
-  vizPhase+=dt*.006;
-  const seed=String(t.track_window?.current_track?.id||'melo');
-  let hash=0;for(let i=0;i<seed.length;i++)hash=(hash*31+seed.charCodeAt(i))>>>0;
-  bars.forEach((b,k)=>{
-    const x=k/Math.max(1,bars.length-1),low=Math.max(0,1-x*1.25);
-    const wave=.5+.5*Math.sin(pos*(4+low*3.5)+k*.71+vizPhase*.45+(hash%97)/17);
-    const bass=.5+.5*Math.sin(pos*2.15+k*.19+(hash%53));
-    const target=3+Math.pow(.18+.82*wave,1.8)*(8+low*23)+bass*low*7;
-    const current=parseFloat(b.style.height)||3;
-    const attack=target>current?.28:.10;
-    b.style.height=(current+(target-current)*Math.min(1,attack)).toFixed(2)+'px';
+  if(!t||t.paused){
+    bars.forEach(b=>{const h=parseFloat(b.style.height)||3;b.style.height=Math.max(3,h-dt*.055)+'px'});
+    return;
+  }
+  const pos=Math.max(0,Number(t.position)||0)/1000;
+  const duration=Math.max(1,Number(t.duration)||1)/1000;
+  const progress=Math.min(1,pos/duration);
+  const trackId=String(t.track_window?.current_track?.id||'melo');
+  let hash=0;for(let i=0;i<trackId.length;i++)hash=(hash*31+trackId.charCodeAt(i))>>>0;
+
+  // Song-aware visual engine. Spotify no longer exposes Audio Analysis to new
+  // third-party apps, so this uses playback position + deterministic per-track
+  // phase/energy instead of pretending to have waveform data.
+  const bpm=96+(hash%49); // 96–144 BPM visual tempo, stable for this track.
+  const beat=pos*bpm/60;
+  const beatFrac=beat-Math.floor(beat);
+  const beatPulse=Math.pow(Math.max(0,1-Math.min(1,beatFrac)*3.2),2.2);
+  const section=Math.sin(progress*Math.PI*8+(hash%37))*.5+.5;
+  const energy=.45+.55*(.5+.5*Math.sin(progress*Math.PI*6.0+(hash%71)));
+  const drop=Math.pow(Math.max(0,Math.sin(progress*Math.PI*4+(hash%23))*.5+.5),3);
+  vizPhase+=dt*.004;
+
+  bars.forEach((bar,i)=>{
+    const x=i/Math.max(1,bars.length-1);
+    const bass=Math.pow(1-x,1.55);
+    const mid=1-Math.abs(x-.48)*1.65;
+    const high=Math.max(0,x-.58)/.42;
+    const wave=.5+.5*Math.sin(beat*Math.PI*2+i*.57+vizPhase+(hash%97)/13);
+    const stagger=.5+.5*Math.sin(beat*Math.PI*2*(1.5+bass*.8)+i*.31+hash%19);
+    const target=3+
+      energy*(6+12*bass)+
+      section*(4+8*mid)+
+      wave*(4+10*(.25+bass*.75))+
+      stagger*4+
+      beatPulse*(9*bass+5*mid)+
+      drop*(5*bass+3*high);
+    const current=parseFloat(bar.style.height)||3;
+    const smoothing=target>current?.34:.115;
+    bar.style.height=(current+(target-current)*Math.min(1,smoothing)).toFixed(2)+'px';
   });
-}
-function vizLocal(){
+}function vizLocal(){
   if(!vizAnalyser||!vizData){return}
   if(vizCtx?.state==='suspended')vizCtx.resume().catch(()=>{});
   vizAnalyser.getByteFrequencyData(vizData);
