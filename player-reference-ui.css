@@ -168,3 +168,29 @@
 .lyric-line{border:0;background:transparent;color:#76767b;font:inherit;font-size:18px;padding:8px 14px;cursor:pointer;transition:color .12s,transform .12s}
 .lyric-line:hover{color:#ffb7d9}
 .lyric-line.active{color:#ff47a3;font-weight:bold;transform:scale(1.04)}
+
+
+/* Queue — desktop reference layout */
+.queue-panel{font-family:'DM Mono',monospace;color:#171514;min-height:100%;padding:0 0 28px}
+.queue-heading{font-size:10px;color:#6e6c72;margin:0 0 18px;letter-spacing:.02em}
+.queue-section-title{font-size:9px;color:#6e6c72;margin:0 0 12px;text-transform:uppercase}
+.queue-now-playing{display:flex;align-items:center;gap:62px;min-height:24px;margin:0 0 31px}
+.queue-now-label{font-size:9px;color:var(--melo-pink);white-space:nowrap}
+.queue-now-track{font-size:10px;color:#171514;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-item,.queue-history{display:flex;align-items:center;gap:14px;min-height:66px;padding:12px 16px;border-bottom:1px solid rgba(23,21,20,.12);cursor:pointer;transition:background .12s}
+.queue-item:hover,.queue-history:hover{background:rgba(255,71,163,.045)}
+.queue-number{flex:0 0 19px;font-size:10px;line-height:1;color:#171514;text-align:left}
+.queue-number-empty{color:#aaa}
+.queue-track-copy{min-width:0;display:flex;flex-direction:column;gap:7px}
+.queue-track-copy b{font:10px 'DM Mono',monospace;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-track-copy small{font:8px 'DM Mono',monospace;color:#77747a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-load-more{display:flex;align-items:center;justify-content:center;gap:3px;width:100%;margin:17px 0 22px;padding:0;border:0;background:transparent;color:var(--melo-pink);font:8px 'DM Mono',monospace;letter-spacing:.03em;cursor:pointer}
+.queue-load-more span{color:var(--melo-pink);opacity:.95}
+.queue-load-more:hover{opacity:.72}
+.queue-load-more:disabled{cursor:wait;opacity:.65}
+.queue-panel>.queue-section-title:not(:first-of-type){margin-top:0}
+@media(max-width:760px){
+  .queue-now-playing{gap:22px}
+  .queue-item,.queue-history{min-height:58px;padding:10px 8px}
+  .queue-track-copy b{font-size:9px}
+}
