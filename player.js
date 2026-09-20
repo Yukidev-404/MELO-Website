@@ -1,4 +1,4 @@
-(()=>{'use strict';const $=id=>document.getElementById(id),audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];for(let i=0;i<48;i++){const b=document.createElement('i');b.className='bar';$('visualizer').appendChild(b)}
+(()=>{'use strict';const $=id=>document.getElementById(id),audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],autoQueue:[],queueHistory:[],queueNumber:0,lastQueueTransition:'',queuePool:[],queuePoolLoaded:false,favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];for(let i=0;i<48;i++){const b=document.createElement('i');b.className='bar';$('visualizer').appendChild(b)}
 const vizBars=()=>Array.from(document.querySelectorAll('.bar'));
 function vizReset(){vizBars().forEach(b=>b.style.height='3px')}
 function vizEnsureLocalAnalyser(){
@@ -108,7 +108,7 @@ function bindSpotifySetup(){const close=$('spotifyClose'),connect=$('spotifyConn
     s.spotify={access:d.access_token,expires:Date.now()+Math.max(60,Number(d.expires_in||3600))*1000-60000,scope:String(d.scope||'')};
     return true;
   }catch{s.spotify=null;return false}
-}async function api(path,o={}){if(!s.spotify)throw Error('Spotify is not connected.');if(!s.spotify||s.spotify.expires<=Date.now()){const ok=await load();if(!ok)throw Error('Spotify session expired. Reconnect Spotify.')}const r=await fetch(API+path,{...o,headers:{Authorization:`Bearer ${s.spotify.access}`,'Content-Type':'application/json',...(o.headers||{})}});if(r.status===204)return null;const d=await r.json().catch(()=>null);if(r.status===401){s.spotify=null;s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw Error('Spotify session expired. Reconnect Spotify.')}if(!r.ok)throw Error(d?.error?.message||`Spotify API HTTP ${r.status}`);return d}function track(t){if(!t)return null;return{id:t.id,uri:t.uri,name:t.name||'Unknown Track',artist:(t.artists||[]).map(a=>a.name).join(', ')||'Unknown Artist',album:t.album?.name||'Unknown Album',image:t.album?.images?.[0]?.url||'',duration:t.duration_ms||0,url:t.external_urls?.spotify||'',playable:t.is_playable!==false}}async function profile(){try{const p=await api('/me');s.spotifyProfile=p;const name=p.display_name||p.id||'SPOTIFY';$('sourceStatus').textContent=`CONNECTED · ${name}`;msg(`Connected as ${name}`);return p}catch(e){s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw e}}async function sdk(){if(!s.spotify||!window.Spotify)return;if(s.player){try{await s.player.disconnect()}catch{}s.player=null;s.device=null}const p=new Spotify.Player({name:'MELO Web Player',getOAuthToken:async cb=>{try{if(s.spotify.expires<=Date.now())await api('/me');cb(s.spotify.access)}catch(e){msg(e.message);cb('')}},volume:Number(localStorage.getItem('melo_volume')||75)/100,enableMediaSession:true});p.addListener('ready',d=>{s.device=d.device_id;$('deviceName').textContent='DEVICE: MELO WEB PLAYER';$('sourceStatus').textContent='CONNECTED · '+(s.spotifyProfile?.display_name||s.spotifyProfile?.id||'SPOTIFY')});p.addListener('not_ready',()=>{$('deviceName').textContent='DEVICE: SPOTIFY OFFLINE'});p.addListener('initialization_error',d=>{msg('Spotify player initialization failed: '+(d?.message||'Unknown error'))});p.addListener('authentication_error',d=>{$('sourceStatus').textContent='SESSION EXPIRED';msg(d?.message||'Spotify authentication expired.');s.spotify=null;s.spotifyProfile=null});p.addListener('account_error',d=>{msg(d?.message||'Spotify Premium is required for MELO Web playback.')});p.addListener('playback_error',d=>{msg(d?.message||'Spotify playback error.')});p.addListener('autoplay_failed',()=>{msg('Spotify needs one interaction before playback can start.')});p.addListener('player_state_changed',st=>{if(!st)return;s.lastSpotifyState=st;const t=track(st.track_window?.current_track);if(t)setCurrent(t,true);$('elapsed').textContent=fmt(st.position/1000);$('duration').textContent=fmt(st.duration/1000);$('progressFill').style.width=st.duration?String(st.position/st.duration*100)+'%':'0%';syncLyrics(st.position/1000);if(t&&!st.paused){s.recent=[t,...s.recent.filter(v=>v.id!==t.id)].slice(0,100);persistLocal()}record.classList.toggle('playing',!st.paused);$('playIcon').src=st.paused?'assets/custom_play.png':'assets/custom_pause.png';});;const connected=await p.connect();if(!connected){s.player=null;s.device=null;msg('Spotify Web Player could not connect. Check your browser permissions and Spotify account.');return}s.player=p}window.onSpotifyWebPlaybackSDKReady=()=>{if(load())sdk()};async function spotifyPlay(t){if(!s.player||!s.device)throw Error('MELO Spotify Web Player is not ready yet.');if(!t?.uri)throw Error('This Spotify track has no playable URI.');try{await s.player.activateElement()}catch{}try{await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[s.device],play:false})});}catch(e){throw Error('Could not activate MELO Spotify device: '+e.message)}try{await api('/me/player/play?device_id='+encodeURIComponent(s.device),{method:'PUT',body:JSON.stringify({uris:[t.uri],position_ms:0})});}catch(e){throw Error('Spotify playback command failed: '+e.message)}}
+}async function api(path,o={}){if(!s.spotify)throw Error('Spotify is not connected.');if(!s.spotify||s.spotify.expires<=Date.now()){const ok=await load();if(!ok)throw Error('Spotify session expired. Reconnect Spotify.')}const r=await fetch(API+path,{...o,headers:{Authorization:`Bearer ${s.spotify.access}`,'Content-Type':'application/json',...(o.headers||{})}});if(r.status===204)return null;const d=await r.json().catch(()=>null);if(r.status===401){s.spotify=null;s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw Error('Spotify session expired. Reconnect Spotify.')}if(!r.ok)throw Error(d?.error?.message||`Spotify API HTTP ${r.status}`);return d}function track(t){if(!t)return null;return{id:t.id,uri:t.uri,name:t.name||'Unknown Track',artist:(t.artists||[]).map(a=>a.name).join(', ')||'Unknown Artist',album:t.album?.name||'Unknown Album',image:t.album?.images?.[0]?.url||'',duration:t.duration_ms||0,url:t.external_urls?.spotify||'',playable:t.is_playable!==false}}async function profile(){try{const p=await api('/me');s.spotifyProfile=p;const name=p.display_name||p.id||'SPOTIFY';$('sourceStatus').textContent=`CONNECTED · ${name}`;msg(`Connected as ${name}`);return p}catch(e){s.spotifyProfile=null;$('sourceStatus').textContent='SESSION EXPIRED';throw e}}async function sdk(){if(!s.spotify||!window.Spotify)return;if(s.player){try{await s.player.disconnect()}catch{}s.player=null;s.device=null}const p=new Spotify.Player({name:'MELO Web Player',getOAuthToken:async cb=>{try{if(s.spotify.expires<=Date.now())await api('/me');cb(s.spotify.access)}catch(e){msg(e.message);cb('')}},volume:Number(localStorage.getItem('melo_volume')||75)/100,enableMediaSession:true});p.addListener('ready',d=>{s.device=d.device_id;$('deviceName').textContent='DEVICE: MELO WEB PLAYER';$('sourceStatus').textContent='CONNECTED · '+(s.spotifyProfile?.display_name||s.spotifyProfile?.id||'SPOTIFY')});p.addListener('not_ready',()=>{$('deviceName').textContent='DEVICE: SPOTIFY OFFLINE'});p.addListener('initialization_error',d=>{msg('Spotify player initialization failed: '+(d?.message||'Unknown error'))});p.addListener('authentication_error',d=>{$('sourceStatus').textContent='SESSION EXPIRED';msg(d?.message||'Spotify authentication expired.');s.spotify=null;s.spotifyProfile=null});p.addListener('account_error',d=>{msg(d?.message||'Spotify Premium is required for MELO Web playback.')});p.addListener('playback_error',d=>{msg(d?.message||'Spotify playback error.')});p.addListener('autoplay_failed',()=>{msg('Spotify needs one interaction before playback can start.')});p.addListener('player_state_changed',st=>{if(!st)return;s.lastSpotifyState=st;const t=track(st.track_window?.current_track);if(t){if(!s.currentTrack||queueTrackKey(s.currentTrack)!==queueTrackKey(t))recordQueueTransition(t);setCurrent(t,true);if(!st.paused)refillAutoQueue();}$('elapsed').textContent=fmt(st.position/1000);$('duration').textContent=fmt(st.duration/1000);$('progressFill').style.width=st.duration?String(st.position/st.duration*100)+'%':'0%';syncLyrics(st.position/1000);if(t&&!st.paused){s.recent=[t,...s.recent.filter(v=>v.id!==t.id)].slice(0,100);persistLocal()}record.classList.toggle('playing',!st.paused);$('playIcon').src=st.paused?'assets/custom_play.png':'assets/custom_pause.png';});;const connected=await p.connect();if(!connected){s.player=null;s.device=null;msg('Spotify Web Player could not connect. Check your browser permissions and Spotify account.');return}s.player=p}window.onSpotifyWebPlaybackSDKReady=()=>{if(load())sdk()};async function spotifyPlay(t){if(!s.player||!s.device)throw Error('MELO Spotify Web Player is not ready yet.');if(!t?.uri)throw Error('This Spotify track has no playable URI.');try{await s.player.activateElement()}catch{}try{await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[s.device],play:false})});}catch(e){throw Error('Could not activate MELO Spotify device: '+e.message)}try{await api('/me/player/play?device_id='+encodeURIComponent(s.device),{method:'PUT',body:JSON.stringify({uris:[t.uri],position_ms:0})});}catch(e){throw Error('Spotify playback command failed: '+e.message)}}
 function setCurrent(t,spotify){s.currentTrack=t;s.current=s.tracks.findIndex(x=>x.id===t.id);$('trackTitle').textContent=t.name;$('trackArtist').textContent=t.artist;if(!spotify){$('playIcon').src='assets/custom_pause.png';record.classList.add('playing')}else record.classList.add('playing');updateFavoriteUI(t)}
 async function play(i){
   // Search results are rendered separately from s.tracks. Use the exact
@@ -127,15 +127,24 @@ async function play(i){
 async function next(){
   if(s.source==='SPOTIFY'){
     try{
-      if(s.queue.length){const t=s.queue.shift();setCurrent(t,true);await spotifyPlay(t);persistLocal();return}
+      const upcoming=[...s.queue,...s.autoQueue];
+      if(upcoming.length){
+        await playQueueTrack(upcoming[0]);
+        await refillAutoQueue();
+        return;
+      }
       if(s.playlistContext?.tracks?.length){
         const ctx=s.playlistContext;
         let i=ctx.index+1;
-        if(i<ctx.tracks.length){ctx.index=i;s.tracks=ctx.tracks;await play(i);return}
-        if(s.repeat==='context'){ctx.index=0;s.tracks=ctx.tracks;await play(0);return}
+        if(i<ctx.tracks.length){ctx.index=i;await playQueueTrack(ctx.tracks[i]);return}
+        if(s.repeat==='context'){ctx.index=0;await playQueueTrack(ctx.tracks[0]);return}
       }
+      await refillAutoQueue(true);
+      const nextTrack=[...s.queue,...s.autoQueue][0];
+      if(nextTrack){await playQueueTrack(nextTrack);return}
       if(!s.player)throw Error('Spotify Web Player is not ready yet.');
-      await s.player.nextTrack();return
+      await s.player.nextTrack();
+      return;
     }catch(e){msg(e.message);return}
   }
   if(s.queue.length){const t=s.queue.shift();s.tracks=s.localTracks;const i=s.tracks.findIndex(x=>x.id===t.id);if(i>=0)await play(i);persistLocal();return}
@@ -165,6 +174,96 @@ async function dirPermission(h,write=false){try{return (await h.queryPermission(
 async function scanLocalDirectory(h){const files=[];async function walk(dir,prefix=''){for await(const [name,entry] of dir.entries()){if(entry.kind==='file'){const f=await entry.getFile();if(f.type.startsWith('audio/')||/\.(mp3|wav|flac|m4a|aac|ogg|opus|webm)$/i.test(name))files.push({file:f,path:prefix+name})}else if(entry.kind==='directory'&&files.length<5000)await walk(entry,prefix+name+'/')}}await walk(h);s.urls.forEach(URL.revokeObjectURL);s.urls=[];s.localTracks=files.map(({file,path})=>{const u=URL.createObjectURL(file);s.urls.push(u);return{id:path,uri:'',name:file.name.replace(/\.[^.]+$/,''),artist:'LOCAL FILE',album:path,duration:0,url:u}});s.tracks=s.localTracks.slice();s.current=-1;s.tab='LIBRARY';render()}
 async function pickLocalFolder(){if('showDirectoryPicker' in window){try{const h=await window.showDirectoryPicker({mode:'read'});if(await dirPermission(h)){localDirHandle=h;await saveLocalDirHandle(h);await scanLocalDirectory(h);return}}catch(e){if(e?.name==='AbortError')return}}$('folder').click()}
 function persistLocal(){try{localStorage.setItem('melo_recent',JSON.stringify(s.recent.slice(0,100)));localStorage.setItem('melo_favorites',JSON.stringify(s.favorites))}catch{}}
+function queueTrackKey(t){return String(t?.id||t?.uri||'')} 
+function recordQueueTransition(nextTrack){
+  const prev=s.currentTrack;
+  const nextId=queueTrackKey(nextTrack);
+  if(prev&&nextId&&queueTrackKey(prev)!==nextId){
+    const key=queueTrackKey(prev)+'->'+nextId;
+    if(key!==s.lastQueueTransition){
+      s.queueNumber+=1;
+      s.queueHistory.push({...prev,queueNo:s.queueNumber});
+      s.lastQueueTransition=key;
+    }
+  }
+}
+async function loadQueuePool(){
+  if(s.queuePoolLoaded&&s.queuePool.length)return;
+  const pool=[];
+  try{
+    if(s.playlistContext?.tracks?.length)pool.push(...s.playlistContext.tracks);
+    if(!pool.length){
+      const d=await api('/me/tracks?limit=50');
+      pool.push(...(d.items||[]).map(x=>track(x.track)).filter(Boolean));
+    }
+    try{
+      const top=await api('/me/top/tracks?limit=10&time_range=short_term');
+      pool.push(...(top.items||[]).map(track).filter(Boolean));
+    }catch{}
+  }catch(e){msg('Could not prepare autoplay queue: '+e.message)}
+  const seen=new Set();
+  s.queuePool=pool.filter(t=>{const k=queueTrackKey(t);if(!k||seen.has(k))return false;seen.add(k);return true});
+  s.queuePoolLoaded=true;
+}
+async function refillAutoQueue(force=false){
+  if(s.source!=='SPOTIFY')return;
+  if(!force&&s.autoQueue.length>2)return;
+  await loadQueuePool();
+  if(!s.queuePool.length)return;
+  const used=new Set([
+    queueTrackKey(s.currentTrack),
+    ...s.queue.map(queueTrackKey),
+    ...s.autoQueue.map(queueTrackKey),
+    ...s.queueHistory.slice(-30).map(queueTrackKey)
+  ]);
+  const candidates=s.queuePool.filter(t=>!used.has(queueTrackKey(t)));
+  const shuffled=candidates.slice().sort(()=>Math.random()-.5);
+  let added=0;
+  for(const t of shuffled){
+    if(added>=10)break;
+    s.queueNumber+=1;
+    s.autoQueue.push({...t,queueNo:s.queueNumber});
+    added++;
+  }
+  if(added<10){
+    const fallback=s.queuePool.filter(t=>queueTrackKey(t)!==queueTrackKey(s.currentTrack));
+    for(const t of fallback.slice().sort(()=>Math.random()-.5)){
+      if(added>=10)break;
+      if(s.autoQueue.some(x=>queueTrackKey(x)===queueTrackKey(t))||s.queue.some(x=>queueTrackKey(x)===queueTrackKey(t)))continue;
+      s.queueNumber+=1;
+      s.autoQueue.push({...t,queueNo:s.queueNumber});
+      added++;
+    }
+  }
+}
+async function playQueueTrack(t){
+  if(!t)return;
+  const manualIndex=s.queue.findIndex(x=>queueTrackKey(x)===queueTrackKey(t));
+  const autoIndex=s.autoQueue.findIndex(x=>queueTrackKey(x)===queueTrackKey(t));
+  if(manualIndex>=0)s.queue.splice(manualIndex,1);
+  if(autoIndex>=0)s.autoQueue.splice(autoIndex,1);
+  recordQueueTransition(t);
+  setCurrent(t,true);
+  await spotifyPlay(t);
+  await refillAutoQueue();
+  if(s.tab==='QUEUE')render();
+}
+function renderQueue(){
+  const history=s.queueHistory.slice().reverse();
+  const upcoming=[...s.queue,...s.autoQueue];
+  const current=s.currentTrack;
+  content.innerHTML=`
+    <div class="queue-panel">
+      <div class="queue-section-title">NOW PLAYING</div>
+      ${current?`<div class="track-row queue-current"><span class="num">▶</span><div><b>${esc(current.name)}</b><small>${esc(current.artist)} · ${esc(current.album)}</small></div></div>`:'<div class="empty">NOTHING PLAYING</div>'}
+      <div class="queue-section-title">NEXT IN QUEUE</div>
+      ${upcoming.length?upcoming.map((t,i)=>`<div class="track-row queue-item" data-q-index="${i}"><span class="num">${String(t.queueNo||i+1).padStart(2,'0')}</span><div><b>${esc(t.name)}</b><small>${esc(t.artist)} · ${esc(t.album)}</small></div><span class="queue-kind">${i<s.queue.length?'MANUAL':'AUTO'}</span></div>`).join(''):'<div class="empty">QUEUE IS EMPTY</div>'}
+      <div class="queue-section-title">RECENTLY PLAYED</div>
+      ${history.length?history.map(t=>`<div class="track-row queue-history" data-history-id="${esc(queueTrackKey(t))}"><span class="num">${String(t.queueNo||0).padStart(2,'0')}</span><div><b>${esc(t.name)}</b><small>${esc(t.artist)} · ${esc(t.album)}</small></div></div>`).join(''):'<div class="empty">NO PLAYED HISTORY</div>'}
+    </div>`;
+  content.querySelectorAll('.queue-item').forEach(r=>r.onclick=async()=>{const i=Number(r.dataset.qIndex);const t=[...s.queue,...s.autoQueue][i];try{await playQueueTrack(t)}catch(e){msg(e.message)}});
+  content.querySelectorAll('.queue-history').forEach(r=>r.onclick=async()=>{const t=s.queueHistory.find(x=>queueTrackKey(x)===r.dataset.historyId);if(!t)return;try{await playQueueTrack(t)}catch(e){msg(e.message)}});
+}
 function updateFavoriteUI(t){const liked=!!t&&s.favorites.some(v=>v.id===t.id);const img=$('favorite')?.querySelector('img');if(img)img.src=liked?'assets/favorite_wave_active.png':'assets/favorite_wave.png'}
 async function tabLoad(){
   // Every tab owns its own dataset. Clear the previous tab's tracks first so
@@ -176,7 +275,7 @@ async function tabLoad(){
     s.tracks=s.localTracks.slice();
     if(s.tab==='FAVORITES')s.tracks=s.favorites.slice();
     else if(s.tab==='RECENT')s.tracks=s.recent.slice();
-    else if(s.tab==='QUEUE')s.tracks=s.queue.slice();
+    else if(s.tab==='QUEUE')s.tracks=[];
     else if(s.tab==='PLAYLISTS')s.tracks=[];
     render();
     return;
@@ -208,6 +307,7 @@ async function tabLoad(){
     content.innerHTML=`<div class="empty">${esc(e.message)}</div>`;
   }
 }function render(){
+  if(s.tab==='QUEUE'&&s.source==='SPOTIFY'){renderQueue();return}
   let list=s.searchResults ? s.searchResults.slice() : (s.tracks||[]).slice();
   const q=$('search').value.trim().toLowerCase();
   if(s.source==='LOCAL'&&q)list=list.filter(t=>`${t.name} ${t.artist} ${t.album}`.toLowerCase().includes(q));
