@@ -36,7 +36,17 @@ function updateGeometry(){
   pane.style.setProperty("--favorite-y", favorite_y);
 }
 window.addEventListener("resize", updateGeometry);
-,audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',viewMode:'LIST',selected:-1,turnOffset:0,tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],autoQueue:[],queueHistory:[],queueNumber:0,lastQueueTransition:'',lastPlayedQueueTrackKey:'',queuePool:[],queuePoolLoaded:false,favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];for(let i=0;i<48;i++){const b=document.createElement('i');b.className='bar';$('visualizer').appendChild(b)}
+,audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',viewMode:'LIST',selected:-1,turnOffset:0,tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],autoQueue:[],queueHistory:[],queueNumber:0,lastQueueTransition:'',lastPlayedQueueTrackKey:'',queuePool:[],queuePoolLoaded:false,favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];$('themeToggle').onclick = () => {
+    const theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = theme;
+    localStorage.setItem('melo_theme', theme);
+};
+$('sourceToggle').onclick = async () => {
+    s.source = s.source === 'SPOTIFY' ? 'LOCAL' : 'SPOTIFY';
+    $('sourceToggle').textContent = s.source;
+    await sourceUI();
+};
+for(let i=0;i<48;i++){const b=document.createElement('i');b.className='dot';$('visualizer').appendChild(b)}
 const vizBars=()=>Array.from(document.querySelectorAll('.bar'));
 function vizReset(){vizBars().forEach(b=>b.style.height='3px')}
 function vizEnsureLocalAnalyser(){
