@@ -27,3 +27,50 @@
 .disc-row.selected .disc-row-title{color:#ff47a3}
 .disc-row-artist{display:block;font-size:9px;color:#76767b;margin-top:4px}
 .disc-hint{grid-column:1/-1;text-align:center;font-size:10px;color:#76767b;margin-top:8px}
+
+
+.theme-toggle{border:2px solid #c8c7c4;border-radius:13px;background:#f7f6f2;padding:0 12px;height:38px;color:#1c1c1f;font-size:12px;cursor:pointer;transition:border-color .12s,color .12s,background .12s}
+.theme-toggle:hover{border-color:#ffb7d9;color:#ff47a3}
+
+[data-theme="dark"] body,[data-theme="dark"] .melo-window{background:#1c1b21;color:#f1edf2}
+[data-theme="dark"] .titlebar{background:#201f25;border-bottom-color:#3c3a43}
+[data-theme="dark"] .brand b{color:#ff47a3}
+[data-theme="dark"] .brand span{color:#f1edf2}
+[data-theme="dark"] .window-controls button{color:#f1edf2}
+[data-theme="dark"] .window-controls button:hover{background:#382632;color:#ff47a3}
+[data-theme="dark"] .workspace{background-image:linear-gradient(#302f37 1px,transparent 1px),linear-gradient(90deg,#302f37 1px,transparent 1px)}
+[data-theme="dark"] .player-pane{background:#201f25}
+[data-theme="dark"] .library-pane{background:#1c1b21}
+[data-theme="dark"] .search-row input{background:#2b2a31;border-color:#4d4a53;color:#f1edf2}
+[data-theme="dark"] .search-row input:focus{border-color:#ff9aca}
+[data-theme="dark"] .library-title span:first-child{color:#f1edf2}
+[data-theme="dark"] .tabs button{background:#2b2a31;border-color:#4d4a53;color:#f1edf2}
+[data-theme="dark"] .tabs button:hover{border-color:#ff9aca;color:#ff47a3}
+[data-theme="dark"] .tabs button.active{border-color:#ff47a3;color:#ff47a3}
+[data-theme="dark"] .content{background:#242329}
+[data-theme="dark"] .track-row{border-bottom-color:#3c3a43}
+[data-theme="dark"] .track-row:hover{background:#2b2a31}
+[data-theme="dark"] .track-row b{color:#f1edf2}
+[data-theme="dark"] .track-row small{color:#b4afb9}
+[data-theme="dark"] .empty{color:#b4afb9}
+[data-theme="dark"] .progress{background:#625f68}
+[data-theme="dark"] .transport button{color:#f1edf2}
+[data-theme="dark"] .transport button:hover{color:#ff9aca}
+[data-theme="dark"] .visual-label{color:#b4afb9}
+[data-theme="dark"] .bar{background:#ff47a3}
+[data-theme="dark"] .volume-row{color:#f1edf2}
+[data-theme="dark"] .device{color:#f1edf2}
+[data-theme="dark"] .device:hover{color:#b4afb9}
+[data-theme="dark"] .settings-link{border-top-color:#3c3a43;color:#f1edf2}
+[data-theme="dark"] .settings-link:hover{color:#b4afb9}
+[data-theme="dark"] .context-menu{background:#201f25;border-color:#4d4a53;color:#f1edf2}
+[data-theme="dark"] .context-menu button:hover{background:#382632;color:#ff47a3}
+[data-theme="dark"] .modal{background:#201f25;border-color:#4d4a53;color:#f1edf2}
+[data-theme="dark"] .modal p{color:#b4afb9}
+[data-theme="dark"] .modal label input{background:#2b2a31;border-color:#4d4a53;color:#f1edf2}
+[data-theme="dark"] .redirect-box{background:#242329}
+[data-theme="dark"] .redirect-box small{color:#b4afb9}
+[data-theme="dark"] .modal-actions button{background:#2b2a31;border-color:#4d4a53;color:#f1edf2}
+[data-theme="dark"] .modal-actions button:hover{border-color:#ff47a3;color:#ff47a3}
+[data-theme="dark"] .theme-toggle{background:#2b2a31;border-color:#4d4a53;color:#f1edf2}
+[data-theme="dark"] .theme-toggle:hover{border-color:#ff9aca;color:#ff47a3}
