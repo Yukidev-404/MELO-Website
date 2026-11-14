@@ -36,16 +36,15 @@ function updateGeometry(){
   pane.style.setProperty("--favorite-y", favorite_y);
 }
 window.addEventListener("resize", updateGeometry);
-,audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',viewMode:'LIST',selected:-1,turnOffset:0,tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],autoQueue:[],queueHistory:[],queueNumber:0,lastQueueTransition:'',lastPlayedQueueTrackKey:'',queuePool:[],queuePoolLoaded:false,favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];$('themeToggle').onclick = () => {
+,audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',viewMode:'LIST',selected:-1,turnOffset:0,tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],autoQueue:[],queueHistory:[],queueNumber:0,lastQueueTransition:'',lastPlayedQueueTrackKey:'',queuePool:[],queuePoolLoaded:false,favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];const themeToggle = document.getElementById('themeToggle');
+if (themeToggle) {
+  themeToggle.onclick = () => {
     const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('melo_theme', theme);
-};
-$('sourceToggle').onclick = async () => {
-    s.source = s.source === 'SPOTIFY' ? 'LOCAL' : 'SPOTIFY';
-    $('sourceToggle').textContent = s.source;
-    await sourceUI();
-};
+  };
+}
+document.documentElement.setAttribute('data-theme', localStorage.getItem('melo_theme') || 'light');
 for(let i=0;i<48;i++){const b=document.createElement('i');b.className='dot';$('visualizer').appendChild(b)}
 const vizBars=()=>Array.from(document.querySelectorAll('.bar'));
 function vizReset(){vizBars().forEach(b=>b.style.height='3px')}
@@ -65,83 +64,36 @@ function vizEnsureLocalAnalyser(){
   }catch{vizCtx=null;vizAnalyser=null;vizData=null}
 }
 function vizDesktopSpotify(t){
-  const bars=vizBars(),now=performance.now(),dt=Math.min(40,now-vizLast);vizLast=now;
+  const dots=Array.from(document.querySelectorAll('.dot')),now=performance.now(),dt=Math.min(40,now-vizLast);vizLast=now;
   if(!t||t.paused){
-    bars.forEach(b=>{const h=parseFloat(b.style.height)||3;b.style.height=Math.max(3,h-dt*.055)+'px'});
+    dots.forEach(d=>d.classList.remove('active'));
     return;
   }
   const pos=Math.max(0,Number(t.position)||0)/1000;
-  const duration=Math.max(1,Number(t.duration)||1)/1000;
-  const progress=Math.min(1,pos/duration);
   const trackId=String(t.track_window?.current_track?.id||'melo');
   let hash=0;for(let i=0;i<trackId.length;i++)hash=(hash*31+trackId.charCodeAt(i))>>>0;
-
-  // Song-aware visual engine. Spotify no longer exposes Audio Analysis to new
-  // third-party apps, so this uses playback position + deterministic per-track
-  // phase/energy instead of pretending to have waveform data.
-  const bpm=96+(hash%49); // 96–144 BPM visual tempo, stable for this track.
+  const bpm=96+(hash%49);
   const beat=pos*bpm/60;
-  const beatFrac=beat-Math.floor(beat);
-  const beatPulse=Math.pow(Math.max(0,1-Math.min(1,beatFrac)*3.2),2.2);
-  const section=Math.sin(progress*Math.PI*8+(hash%37))*.5+.5;
-  const energy=.45+.55*(.5+.5*Math.sin(progress*Math.PI*6.0+(hash%71)));
-  const drop=Math.pow(Math.max(0,Math.sin(progress*Math.PI*4+(hash%23))*.5+.5),3);
   vizPhase+=dt*.004;
 
-  bars.forEach((bar,i)=>{
-    const x=i/Math.max(1,bars.length-1);
-    const bass=Math.pow(1-x,1.55);
-    const mid=1-Math.abs(x-.48)*1.65;
-    const high=Math.max(0,x-.58)/.42;
+  dots.forEach((dot,i)=>{
     const wave=.5+.5*Math.sin(beat*Math.PI*2+i*.57+vizPhase+(hash%97)/13);
-    const stagger=.5+.5*Math.sin(beat*Math.PI*2*(1.5+bass*.8)+i*.31+hash%19);
-    const target=3+
-      energy*(6+12*bass)+
-      section*(4+8*mid)+
-      wave*(4+10*(.25+bass*.75))+
-      stagger*4+
-      beatPulse*(9*bass+5*mid)+
-      drop*(5*bass+3*high);
-    const current=parseFloat(bar.style.height)||3;
-    const smoothing=target>current ? .34 : .115;
-    bar.style.height=(current+(target-current)*Math.min(1,smoothing)).toFixed(2)+'px';
+    dot.classList.toggle('active', wave > 0.7);
   });
 }function vizLocal(){
   if(!vizAnalyser||!vizData){return}
   if(vizCtx?.state==='suspended')vizCtx.resume().catch(()=>{});
   vizAnalyser.getByteFrequencyData(vizData);
-  const bars=vizBars(),bins=vizData.length;
-  bars.forEach((b,i)=>{
-    const a=Math.floor(Math.pow(i/bars.length,1.7)*(bins*.62)),z=Math.max(a+1,Math.floor(Math.pow((i+1)/bars.length,1.7)*(bins*.62)));
-    let sum=0;for(let j=a;j<z;j++)sum+=vizData[j];
-    const avg=sum/Math.max(1,z-a),bass=1-i/bars.length;
-    const target=3+Math.pow(avg/255,.72)*(12+bass*25);
-    const current=parseFloat(b.style.height)||3;
-    b.style.height=(current+(target-current)*(target>current ? .34 : .12)).toFixed(2)+'px';
+  const dots=Array.from(document.querySelectorAll('.dot')),bins=vizData.length;
+  dots.forEach((d,i)=>{
+    const a=Math.floor((i/dots.length)*bins*0.5);
+    const val=vizData[a];
+    d.classList.toggle('active', val > 128);
   });
 }
 function vizLoop(){
   vizFrame=requestAnimationFrame(vizLoop);
-  if(s.source==='LOCAL')vizLocal();
-  else vizDesktopSpotify(s.lastSpotifyState);
-}
-vizLoop();function vizLocal(){
-  if(!vizAnalyser||!vizData){vizDesktopSpotify(s.lastSpotifyState);return}
-  if(vizCtx?.state==='suspended')vizCtx.resume().catch(()=>{});
-  vizAnalyser.getByteFrequencyData(vizData);
-  const bars=vizBars(), bins=vizData.length;
-  bars.forEach((b,i)=>{
-    const a=Math.floor(Math.pow(i/bars.length,1.7)*(bins*.62)), z=Math.max(a+1,Math.floor(Math.pow((i+1)/bars.length,1.7)*(bins*.62)));
-    let sum=0;for(let j=a;j<z;j++)sum+=vizData[j];
-    const avg=sum/Math.max(1,z-a), bass=1-i/bars.length;
-    const target=3+Math.pow(avg/255,.72)*(12+bass*25);
-    const current=parseFloat(b.style.height)||3;
-    b.style.height=(current+(target-current)*(target>current ? .34 : .12)).toFixed(2)+'px';
-  });
-}
-function vizLoop(){
-  vizFrame=requestAnimationFrame(vizLoop);
-  if(s.source==='LOCAL')vizLocal();else vizDesktopSpotify(s.lastSpotifyState);
+  vizDesktopSpotify(s.lastSpotifyState);
 }
 vizLoop();const fmt=v=>{v=Math.max(0,Math.floor(Number(v)||0));return`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`},esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function msg(v){$('spotifyMessage').textContent=v||''}function redirect(){return REDIRECT_URI}function b64(a){let x='';a.forEach(v=>x+=String.fromCharCode(v));return btoa(x).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}function rand(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return b64(a)}async function hash(v){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(v))}async function meloProfile(){try{const r=await fetch('https://melo-website.tajtaranga.workers.dev/api/profile',{credentials:'include',cache:'no-store'});const d=await r.json().catch(()=>({}));return r.ok&&d.authenticated?d:null}catch{return null}}
 async function connectSpotifyToMelo(){const d=await meloProfile();if(!d){msg('Sign in to your MELO account first.');setTimeout(()=>location.href='login.html?next='+encodeURIComponent('melo-web.html'),700);return}location.href='https://melo-website.tajtaranga.workers.dev/api/auth/oauth/spotify?mode=connect'}
@@ -163,62 +115,54 @@ async function play(i){
   // dataset currently visible so clicking a search result plays that track.
   const visibleTracks=s.searchResults?.length?s.searchResults:s.tracks;
   const t=visibleTracks?.[i];if(!t)return;
-  if(s.source==='SPOTIFY'){
-    try{
-      if(s.tab==='PLAYLISTS'&&s.playlistContext)s.playlistContext.index=i;
-      else if(s.playlistContext&&s.tracks===s.playlistContext.tracks)s.playlistContext.index=i;
-      else if(s.playlistContext){const pi=s.playlistContext.tracks.findIndex(x=>x.id===t.id);if(pi>=0)s.playlistContext.index=pi}
-      s.autoQueue=[];s.queuePool=[];s.queuePoolLoaded=false;s.queuePoolSeed=null;s.queueNumber=0;
-      setCurrent(t,true);
-      await spotifyPlay(t);
-      await refillAutoQueue();
-      if(s.tab==='QUEUE')updateGeometry();
-render();
-    }catch(e){msg(e.message);if(!s.spotify)openSpotify()}
-  }else{audio.src=t.url;s.current=i;s.selected=i;setCurrent(t);audio.play().catch(()=>{})}
+  try{
+    if(s.tab==='PLAYLISTS'&&s.playlistContext)s.playlistContext.index=i;
+    else if(s.playlistContext&&s.tracks===s.playlistContext.tracks)s.playlistContext.index=i;
+    else if(s.playlistContext){const pi=s.playlistContext.tracks.findIndex(x=>x.id===t.id);if(pi>=0)s.playlistContext.index=pi}
+    s.autoQueue=[];s.queuePool=[];s.queuePoolLoaded=false;s.queuePoolSeed=null;s.queueNumber=0;
+    setCurrent(t,true);
+    await spotifyPlay(t);
+    await refillAutoQueue();
+    if(s.tab==='QUEUE')updateGeometry();
+    render();
+  }catch(e){msg(e.message);if(!s.spotify)openSpotify()}
 }
 async function next(){
-  if(s.source==='SPOTIFY'){
-    try{
-      const upcoming=[...s.queue,...s.autoQueue];
-      if(upcoming.length){
-        await playQueueTrack(upcoming[0]);
-        await refillAutoQueue();
-        return;
-      }
-      if(s.playlistContext?.tracks?.length){
-        const ctx=s.playlistContext;
-        let i=ctx.index+1;
-        if(i<ctx.tracks.length){ctx.index=i;await playQueueTrack(ctx.tracks[i]);return}
-        if(s.repeat==='context'){ctx.index=0;await playQueueTrack(ctx.tracks[0]);return}
-      }
-      await refillAutoQueue(true);
-      const nextTrack=[...s.queue,...s.autoQueue][0];
-      if(nextTrack){await playQueueTrack(nextTrack);return}
-      if(!s.player)throw Error('Spotify Web Player is not ready yet.');
-      await s.player.nextTrack();
+  try{
+    const upcoming=[...s.queue,...s.autoQueue];
+    if(upcoming.length){
+      await playQueueTrack(upcoming[0]);
+      await refillAutoQueue();
       return;
-    }catch(e){msg(e.message);return}
-  }
-  if(s.queue.length){const t=s.queue.shift();s.tracks=s.localTracks;const i=s.tracks.findIndex(x=>x.id===t.id);if(i>=0)await play(i);persistLocal();return}
-  if(s.tracks.length){let i=s.shuffle?Math.floor(Math.random()*s.tracks.length):(s.current+1)%s.tracks.length;if(s.current<0)i=0;await play(i)}
+    }
+    if(s.playlistContext?.tracks?.length){
+      const ctx=s.playlistContext;
+      let i=ctx.index+1;
+      if(i<ctx.tracks.length){ctx.index=i;await playQueueTrack(ctx.tracks[i]);return}
+      if(s.repeat==='context'){ctx.index=0;await playQueueTrack(ctx.tracks[0]);return}
+    }
+    await refillAutoQueue(true);
+    const nextTrack=[...s.queue,...s.autoQueue][0];
+    if(nextTrack){await playQueueTrack(nextTrack);return}
+    if(!s.player)throw Error('Spotify Web Player is not ready yet.');
+    await s.player.nextTrack();
+    return;
+  }catch(e){msg(e.message);return}
 }
 async function prev(){
-  if(s.source==='SPOTIFY'){
-    try{
-      const st=s.lastSpotifyState;
-      if(st&&st.position>3000){await s.player.seek(0);return}
-      if(s.queue.length){msg('PREVIOUS IS UNAVAILABLE WHILE MELO QUEUE IS ACTIVE');return}
-      if(s.playlistContext?.tracks?.length){
-        const ctx=s.playlistContext,i=ctx.index-1;
-        if(i>=0){ctx.index=i;s.tracks=ctx.tracks;await play(i);return}
-      }
-      if(!s.player)throw Error('Spotify Web Player is not ready yet.');
-      await s.player.previousTrack()
-    }catch(e){msg(e.message)}
-  }else if(s.current>0)await play(s.current-1)
+  try{
+    const st=s.lastSpotifyState;
+    if(st&&st.position>3000){await s.player.seek(0);return}
+    if(s.queue.length){msg('PREVIOUS IS UNAVAILABLE WHILE MELO QUEUE IS ACTIVE');return}
+    if(s.playlistContext?.tracks?.length){
+      const ctx=s.playlistContext,i=ctx.index-1;
+      if(i>=0){ctx.index=i;s.tracks=ctx.tracks;await play(i);return}
+    }
+    if(!s.player)throw Error('Spotify Web Player is not ready yet.');
+    await s.player.previousTrack()
+  }catch(e){msg(e.message)}
 }
-async function toggle(){if(s.source==='SPOTIFY'){try{if(!s.player)throw Error('Spotify Web Player is not ready yet.');const st=s.lastSpotifyState;if(st?.paused)await s.player.resume();else if(st)await s.player.pause();else await spotifyPlay(s.currentTrack||s.tracks[0]);}catch(e){msg(e.message)}}else audio.paused?play(s.current<0?0:s.current):audio.pause()}
+async function toggle(){try{if(!s.player)throw Error('Spotify Web Player is not ready yet.');const st=s.lastSpotifyState;if(st?.paused)await s.player.resume();else if(st)await s.player.pause();else await spotifyPlay(s.currentTrack||s.tracks[0]);}catch(e){msg(e.message)}}
 
 async function openLocalDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open('melo-local',1);r.onupgradeneeded=()=>r.result.createObjectStore('handles');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 async function saveLocalDirHandle(h){try{const db=await openLocalDB();const tx=db.transaction('handles','readwrite');tx.objectStore('handles').put(h,'music');await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});db.close()}catch{}}
@@ -305,7 +249,7 @@ async function loadQueuePool(){
 }
 
 async function refillAutoQueue(force=false){
-  if(s.source!=='SPOTIFY'||!s.currentTrack)return;
+  if(!s.currentTrack)return;
   if(!force&&s.autoQueue.length>2)return;
   await loadQueuePool();
 
@@ -390,15 +334,6 @@ async function tabLoad(){
   s.searchResults=null;
   s.searchPlaylists=null;
   s.playlistContext=null;
-  if(s.source==='LOCAL'){
-    s.tracks=s.localTracks.slice();
-    if(s.tab==='FAVORITES')s.tracks=s.favorites.slice();
-    else if(s.tab==='RECENT')s.tracks=s.recent.slice();
-    else if(s.tab==='QUEUE')s.tracks=[];
-    else if(s.tab==='PLAYLISTS')s.tracks=[];
-    render();
-    return;
-  }
   try{
     if(s.tab==='LIBRARY'){
       // LIST is the neutral/default view. It must not reuse the previous tab's data.
@@ -501,11 +436,11 @@ function renderDisc(){
   });
 }
 function render(){ensureSelection();const vm=$('libraryMode');if(vm)vm.textContent=s.viewMode==='DISC'?'LIST':'DISC';if(s.viewMode==='DISC'){renderDisc();return;}
-  if(s.tab==='QUEUE'&&s.source==='SPOTIFY'){renderQueue();return}
+  if(s.tab==='QUEUE'){renderQueue();return}
   let list=s.searchResults ? s.searchResults.slice() : (s.tracks||[]).slice();
   const q=$('search').value.trim().toLowerCase();
-  if(s.source==='LOCAL'&&q)list=list.filter(t=>`${t.name} ${t.artist} ${t.album}`.toLowerCase().includes(q));
-  if(s.tab==='PLAYLISTS'&&s.source==='SPOTIFY'){
+  if(q)list=list.filter(t=>`${t.name} ${t.artist} ${t.album}`.toLowerCase().includes(q));
+  if(s.tab==='PLAYLISTS'){
     const pls=s.searchPlaylists||s.playlists||[];
     content.innerHTML=pls.length?`<div class="playlist-grid">${pls.map(p=>`<article class="playlist-card" data-pl="${esc(p.id)}"><div class="playlist-cover">${p.image?`<img src="${esc(p.image)}" alt="">`:'<span>♪</span>'}</div><div class="playlist-card-meta"><div class="playlist-card-title" title="${esc(p.name)}">${esc(p.name)}</div><div class="playlist-card-owner">by ${esc(p.owner||'Spotify')}</div><div class="playlist-card-count">${esc(p.total)} tracks</div></div><button class="playlist-open" type="button">OPEN</button></article>`).join('')}</div>`:'<div class="empty">NO PLAYLISTS FOUND</div>';
     content.querySelectorAll('.playlist-card').forEach(r=>r.onclick=()=>playlist(r.dataset.pl));
@@ -527,11 +462,10 @@ function render(){ensureSelection();const vm=$('libraryMode');if(vm)vm.textConte
     render();
     msg(`PLAYLIST · ${s.playlistContext.name} · ${tracks.length} TRACKS`);
   }catch(e){msg(e.message)}
-}function trackMenu(x,y,id){const t=s.tracks.find(v=>v.id===id),m=$('contextMenu');if(!t)return;m.innerHTML='<button data-a="q">Add Selected to Queue</button><button data-a="f">Add Selected to Favorites</button>';m.classList.add('open');m.style.left=`${Math.min(x,innerWidth-245)}px`;m.style.top=`${Math.min(y,innerHeight-120)}px`;m.querySelector('[data-a="q"]').onclick=async()=>{try{s.queue.push({...t});renumberUpcomingQueue();if(s.tab==='QUEUE')renderQueue();msg(`ADDED TO MELO QUEUE · ${s.queue.length}`)}catch(e){msg(e.message)}m.classList.remove('open')};m.querySelector('[data-a="f"]').onclick=async()=>{try{if(s.source==='SPOTIFY')await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'PUT'});else{s.favorites=[...s.favorites.filter(v=>v.id!==t.id),t];localStorage.setItem('melo_favorites',JSON.stringify(s.favorites))}msg('SAVED')}catch(e){msg(e.message)}m.classList.remove('open')}}async function search(q){
+}function trackMenu(x,y,id){const t=s.tracks.find(v=>v.id===id),m=$('contextMenu');if(!t)return;m.innerHTML='<button data-a="q">Add Selected to Queue</button><button data-a="f">Add Selected to Favorites</button>';m.classList.add('open');m.style.left=`${Math.min(x,innerWidth-245)}px`;m.style.top=`${Math.min(y,innerHeight-120)}px`;m.querySelector('[data-a="q"]').onclick=async()=>{try{s.queue.push({...t});renumberUpcomingQueue();if(s.tab==='QUEUE')renderQueue();msg(`ADDED TO MELO QUEUE · ${s.queue.length}`)}catch(e){msg(e.message)}m.classList.remove('open')};m.querySelector('[data-a="f"]').onclick=async()=>{try{await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'PUT'});msg('SAVED')}catch(e){msg(e.message)}m.classList.remove('open')}}async function search(q){
   q=String(q||'').trim();
   s.searchQuery=q;
   if(!q){s.searchResults=null;s.searchPlaylists=null;await tabLoad();return}
-  if(s.source!=='SPOTIFY'){s.searchResults=null;s.searchPlaylists=null;render();return}
   try{
     if(s.tab==='PLAYLISTS'){
       const d=await api(`/search?type=playlist&limit=10&q=${encodeURIComponent(q)}`);
@@ -544,7 +478,7 @@ function render(){ensureSelection();const vm=$('libraryMode');if(vm)vm.textConte
     }
     render();
   }catch(e){content.innerHTML=`<div class="empty">${esc(e.message)}</div>`}
-}async function sourceUI(){const sp=s.source==='SPOTIFY';if($('source'))$('source').textContent='SPOTIFY';if(!sp){s.tracks=s.localTracks.slice();s.current=-1;s.selected=s.tracks.length?0:-1;s.turnOffset=0;render();$('sourceStatus').textContent='LOCAL MUSIC';updateFavoriteUI(s.currentTrack)}else await tabLoad()}$('source')?.addEventListener('click',openSpotify);$('settings').onclick=openSpotify;$('closeLyrics').onclick=()=>$('lyricsPanel').classList.remove('open');function renderLyrics(data){lyricLines=Array.isArray(data?.lines)?data.lines:[];const body=$('lyricsBody');if(!body)return;if(!lyricLines.length){body.textContent='NO LYRICS';return}body.innerHTML=lyricLines.map((l,i)=>{const tm=l.time==null?'':String(l.time);return '<button class="lyric-line" data-time="'+tm+'" data-i="'+i+'">'+esc(l.text)+'</button>'}).join('');body.querySelectorAll('.lyric-line').forEach(b=>b.onclick=()=>{const t=Number(b.dataset.time);if(!Number.isFinite(t))return;if(s.source==='LOCAL'&&audio.duration)audio.currentTime=t;else if(s.currentTrack)api('/me/player/seek?position_ms='+Math.round(t*1000),{method:'PUT'}).catch(e=>msg(e.message))})}
+}async function sourceUI(){await tabLoad()}$('settings').onclick=openSpotify;$('closeLyrics').onclick=()=>$('lyricsPanel').classList.remove('open');function renderLyrics(data){lyricLines=Array.isArray(data?.lines)?data.lines:[];const body=$('lyricsBody');if(!body)return;if(!lyricLines.length){body.textContent='NO LYRICS';return}body.innerHTML=lyricLines.map((l,i)=>{const tm=l.time==null?'':String(l.time);return '<button class="lyric-line" data-time="'+tm+'" data-i="'+i+'">'+esc(l.text)+'</button>'}).join('');body.querySelectorAll('.lyric-line').forEach(b=>b.onclick=()=>{const t=Number(b.dataset.time);if(!Number.isFinite(t))return;if(s.currentTrack)api('/me/player/seek?position_ms='+Math.round(t*1000),{method:'PUT'}).catch(e=>msg(e.message))})}
 function syncLyrics(position){const body=$('lyricsBody');if(!body||!lyricLines.length)return;let active=-1;for(let i=0;i<lyricLines.length;i++){const t=Number(lyricLines[i].time);if(Number.isFinite(t)&&position>=t)active=i;else if(Number.isFinite(t)&&position<t)break}body.querySelectorAll('.lyric-line').forEach((b,i)=>b.classList.toggle('active',i===active));if(active>=0){const el=body.querySelector('.lyric-line.active');el?.scrollIntoView({block:'center',behavior:'smooth'})}}
 $('previous').onclick=prev;$('play').onclick=toggle;$('next').onclick=next;
-$('lyrics').onclick=async()=>{const t=s.currentTrack;$('lyricsPanel').classList.add('open');$('lyricsTitle').textContent=t?.name||'Lyrics';$('lyricsArtist').textContent=t?.artist||'';$('lyricsBody').textContent='LOADING LYRICS…';lyricLines=[];if(!t){$('lyricsBody').textContent='NO LYRICS';return}try{const r=await fetch('https://lrclib.net/api/get?track_name='+encodeURIComponent(t.name)+'&artist_name='+encodeURIComponent(t.artist)),d=await r.json();if(!d?.syncedLyrics&&!d?.plainLyrics)throw Error('Lyrics not found');const raw=d.syncedLyrics||d.plainLyrics||'';const lines=[];if(d.syncedLyrics){raw.split(/\r?\n/).forEach(line=>{const m=[...line.matchAll(/\[(\d+):(\d{2})(?:\.(\d{1,3}))?\]/g)];const text=line.replace(/\[[^\]]+\]/g,'').trim();if(text)m.forEach(x=>{const ms=String(x[3]||'').padEnd(3,'0').slice(0,3);lines.push({time:Number(x[1])*60+Number(x[2])+Number(ms)/1000,text})})});lines.sort((a,b)=>a.time-b.time)}else raw.split(/\r?\n/).forEach(text=>text.trim()&&lines.push({time:null,text:text.trim()}));renderLyrics({lines})}catch{$('lyricsBody').textContent='NO LYRICS'}};$('volume').oninput=e=>{const v=Number(e.target.value);audio.volume=v/100;$('volumeValue').textContent=`${v}%`;localStorage.setItem('melo_volume',v);if(s.player)s.player.setVolume(v/100).catch?.(()=>{})};$('progress').onclick=async e=>{const r=e.currentTarget.getBoundingClientRect(),p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));if(s.source==='LOCAL'&&audio.duration)audio.currentTime=audio.duration*p;else if(s.currentTrack){try{const duration=s.lastSpotifyState?.duration||s.currentTrack.duration;await api(`/me/player/seek?position_ms=${Math.round(duration*p)}`,{method:'PUT'})}catch(err){msg(err.message)}}};$('shuffle').onclick=async()=>{s.shuffle=!s.shuffle;$('shuffle').style.color=s.shuffle?'#ff47a3':'';if(s.source==='SPOTIFY')try{await api(`/me/player/shuffle?state=${s.shuffle}`,{method:'PUT'})}catch(e){msg(e.message)}};$('repeat').onclick=async()=>{s.repeat=s.repeat==='off'?'context':s.repeat==='context'?'track':'off';$('repeat').style.color=s.repeat==='off'?'':'#ff47a3';if(s.source==='SPOTIFY')try{await api(`/me/player/repeat?state=${s.repeat}`,{method:'PUT'})}catch(e){msg(e.message)}};$('favorite').onclick=async()=>{const t=s.currentTrack;if(!t)return;try{const liked=s.favorites.some(v=>v.id===t.id);if(s.source==='SPOTIFY'){if(liked)await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'DELETE'});else await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'PUT'})}if(liked)s.favorites=s.favorites.filter(v=>v.id!==t.id);else s.favorites=[...s.favorites.filter(v=>v.id!==t.id),t];persistLocal();updateFavoriteUI(t);if(s.tab==='FAVORITES')tabLoad()}catch(e){msg(e.message)}};$('search').oninput=()=>{clearTimeout(s.timer);const q=$('search').value.trim();if(s.source==='SPOTIFY')s.timer=setTimeout(()=>search(q),350);else render()};$('searchButton').onclick=()=>search($('search').value.trim());$('overflow').onclick=e=>{$('contextMenu').innerHTML='<button id="clearSearch">Clear Search</button><button id="closePlayer">Close Player</button>';$('contextMenu').classList.add('open');$('contextMenu').style.left=`${Math.min(e.clientX,innerWidth-245)}px`;$('contextMenu').style.top=`${Math.min(e.clientY,innerHeight-150)}px`;$('clearSearch').onclick=async()=>{$('search').value='';s.searchQuery='';s.searchResults=null;s.searchPlaylists=null;await tabLoad();$('contextMenu').classList.remove('open')};$('closePlayer').onclick=()=>location.href='index.html'};$('device').onclick=async()=>{if(s.source!=='SPOTIFY'){msg('Output device selection is available for Spotify playback.');return}try{const d=await api('/me/player/devices'),m=$('contextMenu');m.innerHTML=(d.devices||[]).map(v=>`<button data-d="${esc(v.id)}">${esc(v.name)}${v.is_active?' · ACTIVE':''}</button>`).join('')||'<button>NO DEVICES</button>';m.classList.add('open');(d.devices||[]).forEach(v=>m.querySelector(`[data-d="${CSS.escape(v.id)}"]`)?.addEventListener('click',async()=>{await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[v.id],play:false})});$('deviceName').textContent=`DEVICE: ${v.name}`;m.classList.remove('open')}))}catch(e){msg(e.message)}};$('libraryMode')?.addEventListener('click',toggleViewMode);$('themeToggle')?.addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('melo_theme',next);const b=$('themeToggle');if(b)b.textContent=next==='dark'?'DARK':'LIGHT';});$('folder').onchange=e=>{s.urls.forEach(URL.revokeObjectURL);s.urls=[];s.localTracks=[...e.target.files].filter(f=>f.type.startsWith('audio/')).map(f=>{const u=URL.createObjectURL(f);s.urls.push(u);return{id:crypto.randomUUID(),uri:'',name:f.name.replace(/\.[^.]+$/,''),artist:'LOCAL FILE',album:'LOCAL FILE',duration:0,url:u}});s.tracks=s.localTracks.slice();s.current=-1;s.selected=s.tracks.length?0:-1;s.turnOffset=0;s.tab='LIBRARY';document.querySelectorAll('.tabs button[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='LIBRARY'));render()};document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.onclick=async()=>{if(b.dataset.tab==='LIBRARY'){toggleViewMode();return;}s.tab=b.dataset.tab;document.querySelectorAll('.tabs button[data-tab]').forEach(x=>x.classList.toggle('active',x===b));await tabLoad()});document.querySelector('[data-window="min"]')?.addEventListener('click',()=>{$('app').classList.toggle('minimized')});document.querySelector('[data-window="max"]')?.addEventListener('click',()=>{$('app').classList.toggle('maximized')});document.querySelector('[data-window="close"]')?.addEventListener('click',()=>location.href='index.html');document.addEventListener('click',e=>{if(!e.target.closest('#contextMenu')&&!e.target.closest('#overflow')&&!e.target.closest('[data-menu]'))$('contextMenu').classList.remove('open')});window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();toggle()}if(s.viewMode==='DISC'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&['ArrowUp','ArrowDown','Enter'].includes(e.key)){if(e.key==='ArrowUp'){e.preventDefault();rotateSelector(-1)}if(e.key==='ArrowDown'){e.preventDefault();rotateSelector(1)}if(e.key==='Enter'){e.preventDefault();playSelected()}}if(e.key==='Escape'){closeSpotify();$('lyricsPanel').classList.remove('open');$('contextMenu').classList.remove('open')}});audio.addEventListener('play',()=>{record.classList.add('playing');$('playIcon').src='assets/custom_pause.png';const t=s.currentTrack;if(t){s.recent=[t,...s.recent.filter(v=>v.id!==t.id)].slice(0,100);persistLocal()}});audio.addEventListener('pause',()=>{record.classList.remove('playing');$('playIcon').src='assets/custom_play.png'});audio.addEventListener('ended',async()=>{if(s.repeat==='track'){audio.currentTime=0;await audio.play();return}if(s.repeat==='context'&&s.tracks.length){let i=s.shuffle?Math.floor(Math.random()*s.tracks.length):(s.current+1)%s.tracks.length;await play(i);return}await next()});audio.addEventListener('play',()=>{vizEnsureLocalAnalyser();vizCtx?.resume().catch(()=>{})});audio.addEventListener('timeupdate',()=>{if(s.source!=='LOCAL')return;$('elapsed').textContent=fmt(audio.currentTime);$('duration').textContent=fmt(audio.duration);$('progressFill').style.width=audio.duration?`${audio.currentTime/audio.duration*100}%`:'0%';syncLyrics(audio.currentTime)});(async()=>{try{s.recent=JSON.parse(localStorage.getItem('melo_recent')||'[]');s.favorites=JSON.parse(localStorage.getItem('melo_favorites')||'[]');s.localTracks=[];s.tracks=[];s.viewMode=localStorage.getItem('melo_view_mode')||'LIST';s.turnOffset=0;const __theme=localStorage.getItem('melo_theme')||'light';document.documentElement.dataset.theme=__theme;const __tb=$('themeToggle');if(__tb)__tb.textContent=__theme==='dark'?'DARK':'LIGHT';}catch{};const vm=$('libraryMode');if(vm)vm.textContent=s.viewMode==='DISC'?'LIST':'DISC';const v=Number(localStorage.getItem('melo_volume')||75);audio.volume=v/100;$('volume').value=v;$('volumeValue').textContent=`${v}%`;bindSpotifySetup();await callback();const linked=await refreshMeloSpotifyConnection();if(linked){try{const hasToken=await load();if(hasToken){await profile();s.source='SPOTIFY';if(window.Spotify)await sdk();await sourceUI()}else{$('sourceStatus').textContent='SPOTIFY LINKED · TOKEN UNAVAILABLE'}}catch(e){s.source='SPOTIFY';$('sourceStatus').textContent='SPOTIFY LINKED · TOKEN ERROR';msg(e.message)}}else{$('sourceStatus').textContent='SPOTIFY NOT CONNECTED'}render()})()})();
+$('lyrics').onclick=async()=>{const t=s.currentTrack;$('lyricsPanel').classList.add('open');$('lyricsTitle').textContent=t?.name||'Lyrics';$('lyricsArtist').textContent=t?.artist||'';$('lyricsBody').textContent='LOADING LYRICS…';lyricLines=[];if(!t){$('lyricsBody').textContent='NO LYRICS';return}try{const r=await fetch('https://lrclib.net/api/get?track_name='+encodeURIComponent(t.name)+'&artist_name='+encodeURIComponent(t.artist)),d=await r.json();if(!d?.syncedLyrics&&!d?.plainLyrics)throw Error('Lyrics not found');const raw=d.syncedLyrics||d.plainLyrics||'';const lines=[];if(d.syncedLyrics){raw.split(/\r?\n/).forEach(line=>{const m=[...line.matchAll(/\[(\d+):(\d{2})(?:\.(\d{1,3}))?\]/g)];const text=line.replace(/\[[^\]]+\]/g,'').trim();if(text)m.forEach(x=>{const ms=String(x[3]||'').padEnd(3,'0').slice(0,3);lines.push({time:Number(x[1])*60+Number(x[2])+Number(ms)/1000,text})})});lines.sort((a,b)=>a.time-b.time)}else raw.split(/\r?\n/).forEach(text=>text.trim()&&lines.push({time:null,text:text.trim()}));renderLyrics({lines})}catch{$('lyricsBody').textContent='NO LYRICS'}};$('volume').oninput=e=>{const v=Number(e.target.value);audio.volume=v/100;$('volumeValue').textContent=`${v}%`;localStorage.setItem('melo_volume',v);if(s.player)s.player.setVolume(v/100).catch?.(()=>{})};$('progress').onclick=async e=>{const r=e.currentTarget.getBoundingClientRect(),p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));if(s.currentTrack){try{const duration=s.lastSpotifyState?.duration||s.currentTrack.duration;await api(`/me/player/seek?position_ms=${Math.round(duration*p)}`,{method:'PUT'})}catch(err){msg(err.message)}}};$('shuffle').onclick=async()=>{s.shuffle=!s.shuffle;$('shuffle').style.color=s.shuffle?'#ff47a3':'';try{await api(`/me/player/shuffle?state=${s.shuffle}`,{method:'PUT'})}catch(e){msg(e.message)}};$('repeat').onclick=async()=>{s.repeat=s.repeat==='off'?'context':s.repeat==='context'?'track':'off';$('repeat').style.color=s.repeat==='off'?'':'#ff47a3';try{await api(`/me/player/repeat?state=${s.repeat}`,{method:'PUT'})}catch(e){msg(e.message)}};$('favorite').onclick=async()=>{const t=s.currentTrack;if(!t)return;try{const liked=s.favorites.some(v=>v.id===t.id);if(liked)await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'DELETE'});else await api(`/me/library?uris=${encodeURIComponent(t.uri)}`,{method:'PUT'});if(liked)s.favorites=s.favorites.filter(v=>v.id!==t.id);else s.favorites=[...s.favorites.filter(v=>v.id!==t.id),t];persistLocal();updateFavoriteUI(t);if(s.tab==='FAVORITES')tabLoad()}catch(e){msg(e.message)}};$('search').oninput=()=>{clearTimeout(s.timer);const q=$('search').value.trim();s.timer=setTimeout(()=>search(q),350)};$('searchButton').onclick=()=>search($('search').value.trim());$('overflow').onclick=e=>{$('contextMenu').innerHTML='<button id="clearSearch">Clear Search</button><button id="closePlayer">Close Player</button>';$('contextMenu').classList.add('open');$('contextMenu').style.left=`${Math.min(e.clientX,innerWidth-245)}px`;$('contextMenu').style.top=`${Math.min(e.clientY,innerHeight-150)}px`;$('clearSearch').onclick=async()=>{$('search').value='';s.searchQuery='';s.searchResults=null;s.searchPlaylists=null;await tabLoad();$('contextMenu').classList.remove('open')};$('closePlayer').onclick=()=>location.href='index.html'};$('device').onclick=async()=>{try{const d=await api('/me/player/devices'),m=$('contextMenu');m.innerHTML=(d.devices||[]).map(v=>`<button data-d="${esc(v.id)}">${esc(v.name)}${v.is_active?' · ACTIVE':''}</button>`).join('')||'<button>NO DEVICES</button>';m.classList.add('open');(d.devices||[]).forEach(v=>m.querySelector(`[data-d="${CSS.escape(v.id)}"]`)?.addEventListener('click',async()=>{await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[v.id],play:false})});$('deviceName').textContent=`DEVICE: ${v.name}`;m.classList.remove('open')}))}catch(e){msg(e.message)}};$('libraryMode')?.addEventListener('click',toggleViewMode);$('themeToggle')?.addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('melo_theme',next);const b=$('themeToggle');if(b)b.textContent=next==='dark'?'DARK':'LIGHT';});$('folder').onchange=e=>{s.urls.forEach(URL.revokeObjectURL);s.urls=[];s.localTracks=[...e.target.files].filter(f=>f.type.startsWith('audio/')).map(f=>{const u=URL.createObjectURL(f);s.urls.push(u);return{id:crypto.randomUUID(),uri:'',name:f.name.replace(/\.[^.]+$/,''),artist:'LOCAL FILE',album:'LOCAL FILE',duration:0,url:u}});s.tracks=s.localTracks.slice();s.current=-1;s.selected=s.tracks.length?0:-1;s.turnOffset=0;s.tab='LIBRARY';document.querySelectorAll('.tabs button[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==='LIBRARY'));render()};document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.onclick=async()=>{if(b.dataset.tab==='LIBRARY'){toggleViewMode();return;}s.tab=b.dataset.tab;document.querySelectorAll('.tabs button[data-tab]').forEach(x=>x.classList.toggle('active',x===b));await tabLoad()});document.querySelector('[data-window="min"]')?.addEventListener('click',()=>{$('app').classList.toggle('minimized')});document.querySelector('[data-window="max"]')?.addEventListener('click',()=>{$('app').classList.toggle('maximized')});document.querySelector('[data-window="close"]')?.addEventListener('click',()=>location.href='index.html');document.addEventListener('click',e=>{if(!e.target.closest('#contextMenu')&&!e.target.closest('#overflow')&&!e.target.closest('[data-menu]'))$('contextMenu').classList.remove('open')});window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();toggle()}if(s.viewMode==='DISC'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&['ArrowUp','ArrowDown','Enter'].includes(e.key)){if(e.key==='ArrowUp'){e.preventDefault();rotateSelector(-1)}if(e.key==='ArrowDown'){e.preventDefault();rotateSelector(1)}if(e.key==='Enter'){e.preventDefault();playSelected()}}if(e.key==='Escape'){closeSpotify();$('lyricsPanel').classList.remove('open');$('contextMenu').classList.remove('open')}});audio.addEventListener('play',()=>{record.classList.add('playing');$('playIcon').src='assets/custom_pause.png';const t=s.currentTrack;if(t){s.recent=[t,...s.recent.filter(v=>v.id!==t.id)].slice(0,100);persistLocal()}});audio.addEventListener('pause',()=>{record.classList.remove('playing');$('playIcon').src='assets/custom_play.png'});audio.addEventListener('ended',async()=>{if(s.repeat==='track'){audio.currentTime=0;await audio.play();return}if(s.repeat==='context'&&s.tracks.length){let i=s.shuffle?Math.floor(Math.random()*s.tracks.length):(s.current+1)%s.tracks.length;await play(i);return}await next()});audio.addEventListener('play',()=>{vizEnsureLocalAnalyser();vizCtx?.resume().catch(()=>{})});(async()=>{try{s.recent=JSON.parse(localStorage.getItem('melo_recent')||'[]');s.favorites=JSON.parse(localStorage.getItem('melo_favorites')||'[]');s.localTracks=[];s.tracks=[];s.viewMode=localStorage.getItem('melo_view_mode')||'LIST';s.turnOffset=0;const __theme=localStorage.getItem('melo_theme')||'light';document.documentElement.dataset.theme=__theme;const __tb=$('themeToggle');if(__tb)__tb.textContent=__theme==='dark'?'DARK':'LIGHT';}catch{};const vm=$('libraryMode');if(vm)vm.textContent=s.viewMode==='DISC'?'LIST':'DISC';const v=Number(localStorage.getItem('melo_volume')||75);audio.volume=v/100;$('volume').value=v;$('volumeValue').textContent=`${v}%`;bindSpotifySetup();await callback();const linked=await refreshMeloSpotifyConnection();if(linked){try{const hasToken=await load();if(hasToken){await profile();if(window.Spotify)await sdk();await sourceUI()}else{$('sourceStatus').textContent='SPOTIFY LINKED · TOKEN UNAVAILABLE'}}catch(e){$('sourceStatus').textContent='SPOTIFY LINKED · TOKEN ERROR';msg(e.message)}}else{$('sourceStatus').textContent='SPOTIFY NOT CONNECTED'}render()})()})();
