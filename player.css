@@ -11,3 +11,19 @@
 .playlist-open{position:absolute;right:0;top:calc(100% - 57px);border:0;background:transparent;color:#76767b;font-size:9px;cursor:pointer;padding:3px}
 .playlist-open:hover{color:#ff47a3}
 @media(max-width:900px){.playlist-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:22px 16px}.playlist-open{display:none}}
+
+.view-mode{border:2px solid #c8c7c4;border-radius:13px;background:#f7f6f2;padding:0 14px;height:38px;color:#1c1c1f;font-size:14px;cursor:pointer;transition:border-color .12s,color .12s}
+.view-mode:hover{border-color:#ffb7d9;color:#ff47a3}
+.disc-view{display:grid;grid-template-columns:minmax(150px,38%) 1fr;gap:20px;align-items:center;min-height:100%}
+.disc-stage{position:relative;aspect-ratio:1;width:100%;max-width:300px;margin:0 auto}
+.disc-view .record{width:100%;height:100%;object-fit:contain;animation:spin 7s linear infinite;animation-play-state:paused}
+.disc-view .record.playing{animation-play-state:running}
+.disc-view .tonearm{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.disc-wheel{display:flex;flex-direction:column;gap:6px;max-height:100%;overflow:auto;padding-right:6px}
+.disc-row{width:100%;text-align:right;border:0;background:transparent;padding:10px 12px;cursor:pointer;border-radius:10px;transition:background .12s,color .12s}
+.disc-row:hover{background:#fff0f6}
+.disc-row.selected{background:#fff0f6}
+.disc-row-title{display:block;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1c1c1f}
+.disc-row.selected .disc-row-title{color:#ff47a3}
+.disc-row-artist{display:block;font-size:9px;color:#76767b;margin-top:4px}
+.disc-hint{grid-column:1/-1;text-align:center;font-size:10px;color:#76767b;margin-top:8px}
