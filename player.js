@@ -1,4 +1,42 @@
-(()=>{'use strict';const $=id=>document.getElementById(id),audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',viewMode:'LIST',selected:-1,turnOffset:0,tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],autoQueue:[],queueHistory:[],queueNumber:0,lastQueueTransition:'',lastPlayedQueueTrackKey:'',queuePool:[],queuePoolLoaded:false,favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];for(let i=0;i<48;i++){const b=document.createElement('i');b.className='bar';$('visualizer').appendChild(b)}
+(()=>{'use strict';const $=id=>document.getElementById(id)
+// ---- responsive geometry (mirrors melo.py paint_left) ----
+function updateGeometry(){
+  const pane=document.querySelector(".player-pane");
+  if(!pane) return;
+  const h=pane.clientHeight;
+  const w=pane.clientWidth;
+  const scale=Math.max(0.68, Math.min(1, h/1013));
+  const footer_y=h-88*scale;
+  const max_disc=Math.max(190, h-566*scale);
+  const d=Math.min(w-80, 368*scale, max_disc);
+  const dy=60*scale;
+  const title_y=dy+d+52*scale;
+  const artist_y=title_y+27*scale;
+  const py=artist_y+43*scale;
+  const progress_y=py+18*scale;
+  const cy=progress_y+44*scale;
+  const vy=cy+47*scale;
+  const wave_top=vy+31*scale;
+  const wave_bottom=wave_top+28*scale;
+  const volume_y=Math.min(wave_bottom+49*scale, footer_y-86*scale);
+  const device_y=Math.min(volume_y+43*scale, footer_y-20*scale);
+  const favorite_y=py-27*scale;
+  pane.style.setProperty("--scale", scale);
+  pane.style.setProperty("--d", d);
+  pane.style.setProperty("--dy", dy);
+  pane.style.setProperty("--title-y", title_y);
+  pane.style.setProperty("--py", py);
+  pane.style.setProperty("--progress-y", progress_y);
+  pane.style.setProperty("--cy", cy);
+  pane.style.setProperty("--vy", vy);
+  pane.style.setProperty("--wave-top", wave_top);
+  pane.style.setProperty("--volume-y", volume_y);
+  pane.style.setProperty("--device-y", device_y);
+  pane.style.setProperty("--footer-y", footer_y);
+  pane.style.setProperty("--favorite-y", favorite_y);
+}
+window.addEventListener("resize", updateGeometry);
+,audio=$('audio'),content=$('content'),record=$('record');const AUTH='https://accounts.spotify.com/authorize',TOKEN='https://accounts.spotify.com/api/token',API='https://api.spotify.com/v1',REDIRECT_URI='https://yukidev-404.github.io/MELO-Website/melo-web.html',SCOPES=['user-read-private','user-read-email','user-read-recently-played','user-library-read','user-library-modify','playlist-read-private','playlist-read-collaborative','playlist-modify-private','playlist-modify-public','user-read-playback-state','user-modify-playback-state','user-read-currently-playing','streaming'].join(' ');const s={source:'SPOTIFY',tab:'LIBRARY',viewMode:'LIST',selected:-1,turnOffset:0,tracks:[],localTracks:[],current:-1,currentTrack:null,queue:[],autoQueue:[],queueHistory:[],queueNumber:0,lastQueueTransition:'',lastPlayedQueueTrackKey:'',queuePool:[],queuePoolLoaded:false,favorites:[],playlists:[],recent:[],shuffle:false,repeat:'off',spotify:null,player:null,device:null,timer:null,urls:[],lastSpotifyState:null,spotifyProfile:null,playlistContext:null,searchResults:null,searchPlaylists:null,searchQuery:''};let localDirHandle=null;let vizFrame=0,vizCtx=null,vizAnalyser=null,vizSource=null,vizData=null,vizPhase=0,vizLast=performance.now();let lyricLines=[];for(let i=0;i<48;i++){const b=document.createElement('i');b.className='bar';$('visualizer').appendChild(b)}
 const vizBars=()=>Array.from(document.querySelectorAll('.bar'));
 function vizReset(){vizBars().forEach(b=>b.style.height='3px')}
 function vizEnsureLocalAnalyser(){
@@ -124,7 +162,8 @@ async function play(i){
       setCurrent(t,true);
       await spotifyPlay(t);
       await refillAutoQueue();
-      if(s.tab==='QUEUE')render();
+      if(s.tab==='QUEUE')updateGeometry();
+render();
     }catch(e){msg(e.message);if(!s.spotify)openSpotify()}
   }else{audio.src=t.url;s.current=i;s.selected=i;setCurrent(t);audio.play().catch(()=>{})}
 }
